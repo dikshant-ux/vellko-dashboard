@@ -1,0 +1,40 @@
+.terms-box {
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    height: 150px;
+    overflow-y: auto;
+    background-color: #fff;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+.form-control,
+.form-select {
+    background-color: #f2f2f2;
+    /* Darker shade to distinguish from background */
+}
+
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.header-bar {
+    width: 100%;
+    height: 60px;
+    background-color: #0099cc;
+    /* Adjust color as needed */
+    border-bottom: 5px solid #555;
+}
+
+.signup-page-container {
+    background-color: #f1f2f5;
+    /* A bit darker than bg-light */
+}
