@@ -1,21 +1,27 @@
 version: '3.8'
 
 services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./backend/mongo_data:/data/db
+
   backend:
     build:
       context: ./backend
     ports:
       - "8001:8000"
     environment:
+      - MONGODB_URL=mongodb://mongodb:27017
       - FRONTEND_URL=http://localhost:3001
-      # Ensure other env vars are present. 
-      # Since we are not copying .env into the container explicitly in Dockerfile (we copy .), 
-      # they might be there, but it's better to pass them or use env_file.
     env_file:
       - ./backend/.env
     volumes:
       - ./backend/uploads:/app/uploads
-      - ./backend/mongo_data:/app/mongo_data
+    depends_on:
+      - mongodb
 
   frontend:
     build:
