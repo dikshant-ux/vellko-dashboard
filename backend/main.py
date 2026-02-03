@@ -6,6 +6,7 @@ from routers import public, users, admin, two_factor
 app = FastAPI(title="Vellko Affiliate Dashboard API")
 
 # Configure CORS
+origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
