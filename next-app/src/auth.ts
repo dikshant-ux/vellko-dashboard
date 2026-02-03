@@ -39,8 +39,8 @@ export const {
                 if (!credentials?.username || !credentials?.password) return null;
 
                 try {
-
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/token`, {
+                    const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
+                    const res = await fetch(`${apiUrl}/token`, {
                         method: "POST",
                         body: new URLSearchParams({
                             username: credentials.username as string,
@@ -55,7 +55,8 @@ export const {
                     if (res.ok) {
                         const user = await res.json();
                         if (user.access_token) {
-                            const meRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+                            const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
+                            const meRes = await fetch(`${apiUrl}/users/me`, {
                                 headers: { Authorization: `Bearer ${user.access_token}` }
                             });
 

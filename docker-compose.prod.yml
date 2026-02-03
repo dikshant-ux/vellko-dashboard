@@ -44,6 +44,8 @@ services:
     environment:
       - PORT=3000
       - HOSTNAME=0.0.0.0
+      # Internal URL for server-side calls (auth.ts) to reach backend within Docker network
+      - INTERNAL_API_URL=http://backend:8000
     depends_on:
       - backend
     networks:

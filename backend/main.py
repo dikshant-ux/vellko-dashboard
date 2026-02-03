@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from routers import public, users, admin, two_factor
+from database import settings
 
 app = FastAPI(title="Vellko Affiliate Dashboard API")
 
@@ -11,7 +12,8 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
-    "*", # Temporary debug for CORS
+    settings.FRONTEND_URL, # Dynamic frontend URL from env
+    "*", # Keep strict * allow for now or remove if strict security needed, but user wanted it working.
 ]
 
 app.add_middleware(

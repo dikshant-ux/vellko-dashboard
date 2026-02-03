@@ -26,6 +26,10 @@ BACKEND_PORT=8001
 NEXT_PUBLIC_API_URL=http://YOUR_VPS_IP_OR_DOMAIN:8001
 FRONTEND_URL=http://YOUR_VPS_IP_OR_DOMAIN:3001
 
+# --- INTERNAL (Docker) ---
+# This is usually not needed to be changed unless you rename services
+# INTERNAL_API_URL=http://backend:8000 
+
 # --- SECRETS ---
 # Random secret key for session/token encryption
 AUTH_SECRET=changeme_to_a_secure_random_string
