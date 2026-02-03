@@ -80,4 +80,8 @@ docker-compose -f docker-compose.prod.yml up -d --build
   - If you changed the URL in `.env`, run `docker-compose -f docker-compose.prod.yml up -d --build` again.
 
 - **Ports already in use**:
-  - Change `FRONTEND_PORT` or `BACKEND_PORT` in your `.env` file and restart docker-compose.
+- **500 Internal Server Error on /api/auth/session**:
+  - This is often due to missing `AUTH_SECRET` or `AUTH_TRUST_HOST`.
+  - The provided `docker-compose.prod.yml` now includes `AUTH_TRUST_HOST=true`.
+  - Ensure `FRONTEND_URL` in your `.env` is correct (e.g., `http://YOUR_VPS_IP:3001`).
+  - Run `./deploy.sh` to apply changes.
