@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Vellko</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .header {
+            background-color: #0a0a0a;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .brand {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin: 0;
+        }
+
+        .brand span {
+            color: #dc2626;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #111;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: #555;
+            font-size: 16px;
+        }
+
+        .credentials-box {
+            background-color: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .credential-item {
+            margin-bottom: 15px;
+        }
+
+        .credential-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .credential-label {
+            display: block;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .credential-value {
+            display: block;
+            font-size: 18px;
+            color: #1f2937;
+            font-weight: 500;
+            font-family: 'Courier New', Courier, monospace;
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #0a0a0a;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+
+        .button:hover {
+            background-color: #222;
+        }
+
+        .footer {
+            padding: 30px;
+            text-align: center;
+            background-color: #f8f9fa;
+            border-top: 1px solid #eee;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #dc2626;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="brand">Vellko<span>.</span></h1>
+        </div>
+        <div class="content">
+            <h1>Welcome Aboard! 🚀</h1>
+            <p>Hello {{ name }},</p>
+            <p>You have been invited to join the <strong>Vellko Affiliate Platform</strong>. We've created an account
+                for you so you can get started right away.</p>
+
+            <p>Here are your secure login details:</p>
+
+            <div class="credentials-box">
+                <div class="credential-item">
+                    <span class="credential-label">Username</span>
+                    <span class="credential-value">{{ username }}</span>
+                </div>
+                <div class="credential-item">
+                    <span class="credential-label">Temporary Password</span>
+                    <span class="credential-value">{{ password }}</span>
+                </div>
+                <div class="credential-item" style="margin-top: 15px;">
+                    <span class="credential-label">Role</span>
+                    <span class="credential-value">{{ role }}</span>
+                </div>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-bottom: 30px;">
+                <em>For security reasons, we recommend changing your password after your first login via the Settings
+                    page.</em>
+            </p>
+
+            <div style="text-align: center;">
+                <a href="{{ link }}" class="button">Log In to Dashboard</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Vellko. All rights reserved.<br>
+                Need help? <a href="mailto:support@vellko.com">Contact Support</a></p>
+        </div>
+    </div>
+</body>
+
+</html>

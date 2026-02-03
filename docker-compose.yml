@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8001:8000"
+    environment:
+      - FRONTEND_URL=http://localhost:3001
+      # Ensure other env vars are present. 
+      # Since we are not copying .env into the container explicitly in Dockerfile (we copy .), 
+      # they might be there, but it's better to pass them or use env_file.
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/mongo_data:/app/mongo_data
+
+  frontend:
+    build:
+      context: ./next-app
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8001
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
+    depends_on:
+      - backend

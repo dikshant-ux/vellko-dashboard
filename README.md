@@ -1,16 +1,58 @@
-# React + Vite
+# Vellko Affiliate Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-stack affiliate dashboard application with a Next.js frontend and a FastAPI backend, featuring Docker support for easy deployment.
 
-Currently, two official plugins are available:
+## Features
+- **Frontend**: Next.js (App Router), TailwindCSS, ShadCN UI.
+- **Backend**: Python FastAPI, MongoDB.
+- **Authentication**: JWT-based auth with Role-Based Access Control (RBAC).
+- **Security**: 2FA support, secure password hashing.
+- **Deployment**: Dockerized services (Frontend on 3001, Backend on 8001).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Prerequisites
+- Docker & Docker Compose
+- Node.js 18+ (for local dev)
+- Python 3.9+ (for local dev)
 
-## React Compiler
+## Getting Started (Docker)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The easiest way to run the application is using Docker.
 
-## Expanding the ESLint configuration
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd affiliate-signup
+    ```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+2.  **Environment Setup**:
+    - Build arguments in `docker-compose.yml` handle most configs.
+    - Ensure `.env` exists in `backend/` if you have custom secret keys.
+
+3.  **Run with Docker**:
+    ```bash
+    docker-compose up --build -d
+    ```
+
+4.  **Access the App**:
+    - Frontend: [http://localhost:3001](http://localhost:3001)
+    - Backend API: [http://localhost:8001](http://localhost:8001)
+    - API Docs: [http://localhost:8001/docs](http://localhost:8001/docs)
+
+## Local Development
+
+### Backend
+1.  Navigate to `backend/`: `cd backend`
+2.  Create virtual env: `python -m venv venv`
+3.  Activate env: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Mac/Linux)
+4.  Install deps: `pip install -r requirements.txt`
+5.  Run: `uvicorn main:app --reload` (Runs on port 8000 by default)
+
+### Frontend
+1.  Navigate to `next-app/`: `cd next-app`
+2.  Install deps: `npm install`
+3.  Run: `npm run dev` (Runs on port 3000 by default)
+
+## Project Structure
+- `backend/`: FastAPI application code.
+- `next-app/`: Next.js frontend application.
+- `docker-compose.yml`: Docker orchestration.

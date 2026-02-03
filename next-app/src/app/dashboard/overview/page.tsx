@@ -1,0 +1,147 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, CheckCircle2, XCircle, Clock, Activity, Trophy } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+export default function OverviewPage() {
+    const { data: session } = useSession();
+    const [stats, setStats] = useState<any>(null);
+
+    useEffect(() => {
+        if (session?.accessToken) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`, {
+                headers: { Authorization: `Bearer ${session.accessToken}` }
+            })
+                .then(res => res.json())
+                .then(data => setStats(data))
+                .catch(console.error);
+        }
+    }, [session]);
+
+    const StatCard = ({ title, value, icon: Icon, color, description }: any) => (
+        <Card className="border-none shadow-md hover:shadow-lg transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <div className={`p-2 rounded-full ${color} bg-opacity-10`}>
+                    <Icon className={`h-4 w-4 ${color.replace('bg-', 'text-')}`} />
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{value ?? "-"}</div>
+                {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+            </CardContent>
+        </Card>
+    );
+
+    return (
+        <div className="space-y-8">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+                    <p className="text-muted-foreground mt-1">Welcome back, <span className="font-semibold text-primary">{session?.user?.name}</span>.</p>
+                </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                    title="Total Signups"
+                    value={stats?.total}
+                    icon={Users}
+                    color="bg-blue-500"
+                    description="All time applications"
+                />
+                <StatCard
+                    title="Pending Review"
+                    value={stats?.pending}
+                    icon={Clock}
+                    color="bg-yellow-500"
+                    description="Requires action"
+                />
+                <StatCard
+                    title="Approved"
+                    value={stats?.approved}
+                    icon={CheckCircle2}
+                    color="bg-green-500"
+                    description="Active affiliates"
+                />
+                <StatCard
+                    title="Rejected"
+                    value={stats?.rejected}
+                    icon={XCircle}
+                    color="bg-red-500"
+                    description="Denied applications"
+                />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-4 border-none shadow-md">
+                    <CardHeader>
+                        <CardTitle>Signup Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[350px] w-full">
+                            {stats?.chart_data && stats.chart_data.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart
+                                        data={stats.chart_data}
+                                        margin={{
+                                            top: 10,
+                                            right: 30,
+                                            left: 0,
+                                            bottom: 0,
+                                        }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                            cursor={{ stroke: '#9ca3af', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        />
+                                        <Area type="monotone" dataKey="count" stroke="#4f46e5" fill="#e0e7ff" strokeWidth={2} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex h-full items-center justify-center text-muted-foreground bg-muted/20 rounded-lg text-sm">
+                                    <p>No activity data available yet.</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="col-span-3 border-none shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Trophy className="h-5 w-5 text-yellow-500" /> Top Referrers
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {stats?.top_referrers && stats.top_referrers.length > 0 ? (
+                                stats.top_referrers.map((referrer: any, index: number) => (
+                                    <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg hover:bg-muted/40 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs ring-2 ring-background">
+                                                {index + 1}
+                                            </div>
+                                            <div className="font-medium text-sm">{referrer.name}</div>
+                                        </div>
+                                        <div className="text-sm font-semibold flex items-center gap-1">
+                                            {referrer.count} <span className="text-xs text-muted-foreground font-normal">signups</span>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-8">No referral data available.</p>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
