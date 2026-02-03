@@ -11,3 +11,4 @@ httpx
 email-validator
 jinja2
 pyotp
+gunicorn

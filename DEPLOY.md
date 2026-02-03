@@ -47,8 +47,17 @@ NEXT_PUBLIC_CAKE_MARKETING_API_KEY=YOUR_CAKE_KEY_HERE
 
 ## 3. Deployment
 
-Run the following command to build and start the application in production mode.
+Run the included deployment script to build and start the application.
 
+```bash
+# Make the script executable (run once)
+chmod +x deploy.sh
+
+# Run deployment
+./deploy.sh
+```
+
+Alternatively, you can run the docker command manually:
 ```bash
 docker-compose -f docker-compose.prod.yml up -d --build
 ```
