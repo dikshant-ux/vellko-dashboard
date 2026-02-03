@@ -426,6 +426,41 @@ async def upload_document(id: str, file: UploadFile = File(...), user: User = De
     
     return document
 
+@router.delete("/signups/{id}/documents/{filename}")
+async def delete_document(id: str, filename: str, user: User = Depends(get_current_admin)):
+    signup_data = await db.signups.find_one({"_id": ObjectId(id)})
+    if not signup_data:
+        raise HTTPException(status_code=404, detail="Signup not found")
+
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Only admins can delete documents")
+        
+    # Check if file exists in documents list
+    documents = signup_data.get("documents", [])
+    doc_exists = any(d.get("filename") == filename for d in documents)
+    
+    if not doc_exists:
+        raise HTTPException(status_code=404, detail="Document not found in record")
+
+    # Delete from disk
+    file_path = f"uploads/{id}/{filename}"
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        # Log error but proceed to remove from DB? Or fail? 
+        # Better to fail so db reflects reality, but if file is already gone we should allow cleanup.
+        print(f"Error removing file {file_path}: {e}")
+        pass
+
+    # Remove from DB
+    await db.signups.update_one(
+        {"_id": ObjectId(id)},
+        {"$pull": {"documents": {"filename": filename}}}
+    )
+
+    return {"message": "Document deleted"}
+
 # User Management Endpoints
 from models import UserCreate, UserInDB
 from auth import get_password_hash

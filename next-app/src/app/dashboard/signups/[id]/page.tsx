@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save } from "lucide-react";
+import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash } from "lucide-react";
 import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES } from "@/constants/mappings";
 import {
     Dialog,
@@ -149,6 +149,33 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         } catch (error) {
             console.error('Download error:', error);
             alert('Failed to download file');
+        }
+    };
+
+    const handleDeleteDocument = async (filename: string) => {
+        if (!confirm(`Are you sure you want to delete ${filename}?`)) return;
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/documents/${filename}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${session?.accessToken}`
+                }
+            });
+
+            if (res.ok) {
+                // reload data
+                const updated = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}`, {
+                    headers: { Authorization: `Bearer ${session?.accessToken}` }
+                }).then(r => r.json());
+                setSignup(updated);
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.detail}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error deleting document");
         }
     };
 
@@ -829,15 +856,27 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                     </p>
                                                 </div>
                                             </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleDownload(doc)}
-                                                className="gap-2 ml-4 bg-background hover:bg-accent text-primary border-primary/20"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                Download
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleDownload(doc)}
+                                                    className="gap-2 bg-background hover:bg-accent text-primary border-primary/20"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    Download
+                                                </Button>
+                                                {session?.user?.role === 'ADMIN' && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteDocument(doc.filename)}
+                                                        className="gap-2 hover:bg-red-100 text-red-600"
+                                                    >
+                                                        <Trash className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
