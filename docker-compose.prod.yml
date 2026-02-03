@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017" # Optional: bind to localhost only in prod if possible, but for simplicity exposing
+    volumes:
+      - mongo_data_prod:/data/db
+    networks:
+      - app_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "${BACKEND_PORT:-8001}:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
+    env_file:
+      - .env # Expects .env in the root or manually specify
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - app_network
+
+  frontend:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile
+      args:
+        # This MUST be the public URL where the browser can reach the backend
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
+        NEXT_PUBLIC_APP_RECAPTCHA_SITE_KEY: ${NEXT_PUBLIC_APP_RECAPTCHA_SITE_KEY}
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  mongo_data_prod:
