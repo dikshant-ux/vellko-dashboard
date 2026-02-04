@@ -3,11 +3,19 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:latest
+    container_name: vellko-dashboard-mongodb
     restart: always
-    ports:
-      - "27017:27017" # Optional: bind to localhost only in prod if possible, but for simplicity exposing
+
+    # ❗ DO NOT expose Mongo to internet
+    # Removed ports section intentionally
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: UP93@u5344
+
     volumes:
       - mongo_data_prod:/data/db
+
     networks:
       - app_network
 
