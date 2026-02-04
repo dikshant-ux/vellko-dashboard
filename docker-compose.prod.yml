@@ -27,7 +27,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8001}:8000"
     environment:
-      - MONGODB_URL=mongodb://admin:UP93au5344@mongodb:27017/?authSource=admin
+      - MONGODB_URL=mongodb://admin:UltraStrongPass_2026@mongodb:27017/?authSource=admin
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
     env_file:
       - .env # Expects .env in the root or manually specify
