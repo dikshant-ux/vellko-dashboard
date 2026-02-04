@@ -11,7 +11,7 @@ services:
 
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: UP93au5344
+      MONGO_INITDB_ROOT_PASSWORD: UltraStrongPass_2026
 
     volumes:
       - mongo_data_prod:/data/db
