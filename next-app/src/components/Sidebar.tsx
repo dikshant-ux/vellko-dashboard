@@ -28,7 +28,7 @@ export default function Sidebar() {
     const navigation = [
         { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
         { name: 'Signups', href: '/dashboard/signups', icon: FileText },
-        ...(session?.user?.role === 'ADMIN' ? [
+        ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -109,7 +109,7 @@ export default function Sidebar() {
                     {!isCollapsed && (
                         <div className="flex flex-col min-w-0">
                             <span className="text-sm font-medium text-gray-900 truncate tracking-tight">{session?.user?.name}</span>
-                            <span className="text-[10px] text-gray-400 truncate uppercase tracking-wider">{session?.user?.role || "ADMIN"}</span>
+                            <span className="text-[10px] text-gray-400 truncate uppercase tracking-wider">{session?.user?.role || "USER"}</span>
                         </div>
                     )}
 

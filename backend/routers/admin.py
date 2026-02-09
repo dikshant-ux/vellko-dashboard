@@ -17,7 +17,7 @@ async def get_current_admin(username: str = Depends(get_current_user)):
     if not user_data:
         raise HTTPException(status_code=401, detail="User not found")
     user = User(**user_data)
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Check if they are a manager/user (logic can be expanded later for filtered clean views)
         # For now, let's allow all authenticated users to access dashboard data, 
         # but in real implementation logic should filter based on role.
@@ -30,7 +30,7 @@ async def get_stats(user: User = Depends(get_current_admin)):
     query = {}
     
     # Role based filtering for stats
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         if user.full_name:
              query["companyInfo.referral"] = user.full_name
         else:
@@ -111,7 +111,7 @@ async def get_signups(
         query["status"] = status
         
     # Role based filtering
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Filter by referral matching user's full_name
         if user.full_name:
              query["companyInfo.referral"] = user.full_name
@@ -155,7 +155,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
 
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Check if user is the referrer
         referral = signup_data.get("companyInfo", {}).get("referral")
         if referral != user.full_name:
@@ -293,7 +293,7 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
 
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Check if user is the referrer
         referral = signup_data.get("companyInfo", {}).get("referral")
         if referral != user.full_name:
@@ -314,7 +314,7 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
 
 @router.patch("/signups/{id}/referral")
 async def update_referral(id: str, referral: str = Body(..., embed=True), user: User = Depends(get_current_admin)):
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update referrals")
 
     result = await db.signups.update_one(
@@ -329,7 +329,7 @@ async def update_referral(id: str, referral: str = Body(..., embed=True), user: 
 
 @router.patch("/signups/{id}")
 async def update_signup(id: str, update_data: SignupUpdate, user: User = Depends(get_current_admin)):
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update signup details")
 
     update_doc = {}
@@ -373,7 +373,7 @@ async def reset_signup(id: str, user: User = Depends(get_current_admin)):
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
 
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         referral = signup_data.get("companyInfo", {}).get("referral")
         if referral != user.full_name:
              raise HTTPException(status_code=403, detail="Not authorized to reset this signup")
@@ -398,7 +398,7 @@ async def upload_document(id: str, file: UploadFile = File(...), user: User = De
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
 
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         referral = signup_data.get("companyInfo", {}).get("referral")
         if referral != user.full_name:
              raise HTTPException(status_code=403, detail="Not authorized to upload documents for this signup")
@@ -432,7 +432,7 @@ async def delete_document(id: str, filename: str, user: User = Depends(get_curre
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
 
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can delete documents")
         
     # Check if file exists in documents list
@@ -467,7 +467,7 @@ from auth import get_password_hash
 
 @router.get("/users", response_model=List[User])
 async def get_users(user: User = Depends(get_current_admin)):
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can view users")
     
     cursor = db.users.find({}, {"hashed_password": 0}) # Try to exclude hashed_password if possible, though pydantic filters it out
@@ -476,7 +476,7 @@ async def get_users(user: User = Depends(get_current_admin)):
 
 @router.post("/users", response_model=User)
 async def create_user(user_in: UserCreate, user: User = Depends(get_current_admin)):
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can create users")
         
     existing_user = await db.users.find_one({"username": user_in.username})
@@ -505,12 +505,17 @@ async def create_user(user_in: UserCreate, user: User = Depends(get_current_admi
 
 @router.delete("/users/{username}")
 async def delete_user(username: str, user: User = Depends(get_current_admin)):
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can delete users")
         
     # Prevent deleting self
     if username == user.username:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
+
+    # Prevent deleting SUPER_ADMIN
+    target_user = await db.users.find_one({"username": username})
+    if target_user and target_user.get("role") == UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Cannot delete Super Admin")
         
     result = await db.users.delete_one({"username": username})
     if result.deleted_count == 0:
@@ -523,12 +528,17 @@ class UserStatusUpdate(BaseModel):
 
 @router.patch("/users/{username}/status")
 async def update_user_status(username: str, status_update: UserStatusUpdate, user: User = Depends(get_current_admin)):
-    if user.role != UserRole.ADMIN:
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update user status")
         
     # Prevent deactivating self
     if username == user.username:
         raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+
+    # Prevent deactivating SUPER_ADMIN
+    target_user = await db.users.find_one({"username": username})
+    if target_user and target_user.get("role") == UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Cannot deactivate Super Admin")
         
     result = await db.users.update_one(
         {"username": username},
@@ -539,3 +549,29 @@ async def update_user_status(username: str, status_update: UserStatusUpdate, use
         raise HTTPException(status_code=404, detail="User not found")
         
     return {"message": f"User {'deactivated' if status_update.disabled else 'activated'} successfully"}
+
+from models import UserRoleUpdate
+
+@router.patch("/users/{username}/role")
+async def update_user_role(username: str, role_update: UserRoleUpdate, user: User = Depends(get_current_admin)):
+    if user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Only Super Admins can update roles")
+        
+    # Prevent changing self role (to avoid locking oneself out if demoting to USER)
+    if username == user.username:
+        raise HTTPException(status_code=400, detail="Cannot change your own role")
+
+    # Prevent changing SUPER_ADMIN role (other super admins)
+    target_user = await db.users.find_one({"username": username})
+    if target_user and target_user.get("role") == UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Cannot change role of another Super Admin")
+        
+    result = await db.users.update_one(
+        {"username": username},
+        {"$set": {"role": role_update.role}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return {"message": f"User role updated to {role_update.role}"}

@@ -114,6 +114,36 @@ export default function UsersPage() {
             .catch(() => toast.error(`Error trying to ${action} user`));
     };
 
+    const handleUpdateRole = (username: string, newRole: string) => {
+        // Optimistic update or just wait for refresh? Let's wait for refresh to be safe against errors
+        // But we need to be careful with the Select UI flickering if we rely solely on fetchUsers.
+        // For now, standard fetch.
+
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}/role`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session?.accessToken}`
+            },
+            body: JSON.stringify({ role: newRole })
+        })
+            .then(async res => {
+                if (res.ok) {
+                    toast.success(`Role updated to ${newRole}`);
+                    fetchUsers();
+                } else {
+                    const err = await res.json();
+                    toast.error(err.detail || "Failed to update role");
+                    // Revert UI if we had local state, but we are refetching so it should correct itself
+                    fetchUsers();
+                }
+            })
+            .catch(() => {
+                toast.error("Error updating role");
+                fetchUsers();
+            });
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -172,6 +202,7 @@ export default function UsersPage() {
                                     <SelectContent>
                                         <SelectItem value="USER">User</SelectItem>
                                         <SelectItem value="ADMIN">Admin</SelectItem>
+                                        <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -224,11 +255,34 @@ export default function UsersPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${user.role === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                {user.role === 'ADMIN' ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
-                                                {user.role}
-                                            </span>
+                                            {/* Role Display / Editor */}
+                                            {session?.user?.role === 'SUPER_ADMIN' && user.role !== 'SUPER_ADMIN' && user.username !== session?.user?.name ? (
+                                                <Select
+                                                    value={user.role}
+                                                    onValueChange={(val) => handleUpdateRole(user.username, val)}
+                                                >
+                                                    <SelectTrigger
+                                                        className={`h-6 border-none bg-transparent focus:ring-0 focus:ring-offset-0 px-2 py-0 inline-flex items-center gap-1 rounded-full text-xs font-medium w-auto ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}
+                                                    >
+                                                        <SelectValue>
+                                                            <div className="flex items-center">
+                                                                {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                                                                <span className="leading-none flex items-center pt-0.5">{user.role}</span>
+                                                            </div>
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="USER">User</SelectItem>
+                                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                                    }`}>
+                                                    {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                                                    {user.role}
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <button

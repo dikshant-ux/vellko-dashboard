@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, Body, Depends, status, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from database import db, settings
-from models import SignupCreate, SignupStatus, Token
+from models import SignupCreate, SignupStatus, Token, UserRole
 from datetime import datetime, timedelta
 from auth import verify_password, create_access_token, get_password_hash
-from email_utils import send_reset_password_email
+from email_utils import send_reset_password_email, send_signup_notification_email
 from pydantic import BaseModel, EmailStr
 import uuid
 import pyotp
@@ -46,6 +46,34 @@ async def create_signup(signup: SignupCreate):
     signup_dict["is_updated"] = False
     
     result = await db.signups.insert_one(signup_dict)
+    
+    # Send Email Notifications
+    try:
+        # 1. Get Admins and Super Admins
+        admin_cursor = db.users.find(
+            {"role": {"$in": [UserRole.ADMIN, UserRole.SUPER_ADMIN]}, "disabled": {"$ne": True}},
+            {"email": 1}
+        )
+        admins = await admin_cursor.to_list(length=100)
+        recipient_emails = {u["email"] for u in admins if u.get("email")}
+        
+        # 2. Get Referrer if exists
+        referral_name = signup.companyInfo.referral
+        if referral_name and referral_name not in ["Others", "Other", "None", ""]:
+             referrer = await db.users.find_one({"full_name": referral_name}, {"email": 1})
+             if referrer and referrer.get("email"):
+                 recipient_emails.add(referrer["email"])
+                 
+        # 3. Send Emails
+        if recipient_emails:
+            # We use a background task or just await it here. 
+            # For simplicity/robustness in this context, we await it (it's fast enough via SMTP usually)
+            # or could use BackgroundTasks from FastAPI if passed to the route.
+            # Given the current structure, synchronous call is okay or we can just call the util which handles its own try/catch.
+            send_signup_notification_email(list(recipient_emails), signup_dict, str(result.inserted_id))
+            
+    except Exception as e:
+        print(f"Error sending signup notifications: {e}")
     
     return {"id": str(result.inserted_id), "message": "Application submitted successfully"}
 

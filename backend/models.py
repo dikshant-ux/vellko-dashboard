@@ -84,6 +84,7 @@ class SignupInDB(SignupCreate):
         }
 
 class UserRole(str, Enum):
+    SUPER_ADMIN = "SUPER_ADMIN"
     ADMIN = "ADMIN"
     USER = "USER"
 
@@ -105,6 +106,9 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole
 
 class UserInDB(User):
     hashed_password: str

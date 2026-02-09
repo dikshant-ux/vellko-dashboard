@@ -84,3 +84,42 @@ def send_invitation_email(to_email: str, username: str, password: str, name: str
     except Exception as e:
         print(f"Error preparing invitation email: {str(e)}")
         return False
+
+def send_signup_notification_email(to_emails: list[str], signup_data: dict, signup_id: str):
+    """
+    Sends a notification email to admins and referrer about a new signup.
+    """
+    if not to_emails:
+        return False
+        
+    try:
+        template = env.get_template("signup_notification.html")
+        
+        # Link to the signup detail page in dashboard
+        link = f"{settings.FRONTEND_URL}/dashboard/signups/{signup_id}"
+        
+        company_name = signup_data.get("companyInfo", {}).get("companyName", "Unknown Company")
+        contact_name = f"{signup_data.get('accountInfo', {}).get('firstName', '')} {signup_data.get('accountInfo', {}).get('lastName', '')}"
+        contact_email = signup_data.get("accountInfo", {}).get("email", "")
+        referral = signup_data.get("companyInfo", {}).get("referral", "None")
+        
+        html_content = template.render(
+            company_name=company_name,
+            contact_name=contact_name,
+            contact_email=contact_email,
+            referral=referral,
+            link=link
+        )
+        
+        # Send to each recipient
+        # Note: In production, use BCC or separate emails to avoid exposing all admin emails to each other if that's a concern.
+        # For now, looping to send individual emails is safer/cleaner.
+        success_count = 0
+        for email in to_emails:
+            if send_email(to_email=email, subject=f"New Signup: {company_name}", html_content=html_content):
+                success_count += 1
+                
+        return success_count > 0
+    except Exception as e:
+        print(f"Error preparing signup notification email: {str(e)}")
+        return False
