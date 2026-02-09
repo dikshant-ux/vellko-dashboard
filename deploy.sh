@@ -31,8 +31,10 @@ docker-compose -f docker-compose.prod.yml up -d --build
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}Deployment Successful!${NC}"
-    echo "Frontend is running on port found in .env (default 3001)"
-    echo "Backend is running on port found in .env (default 8001)"
+    echo "App is running on Port 80 (Nginx)."
+    echo "Frontend: http://affiliate.vellko.com"
+    echo "Backend API: http://affiliate.vellko.com/api"
+    echo "Make sure your DNS Records point to this server."
     echo -e "${GREEN}You can verify by running: docker-compose -f docker-compose.prod.yml ps${NC}"
 else
     echo -e "${RED}Deployment Failed.${NC}"

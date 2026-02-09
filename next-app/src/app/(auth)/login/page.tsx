@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, ArrowRight, Loader2, AlertCircle, Eye, EyeOff, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { AuthCard } from '@/components/AuthCard';
 
 export default function LoginPage() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState('');
     const [showOTP, setShowOTP] = useState(false);
@@ -26,7 +26,7 @@ export default function LoginPage() {
 
         try {
             const res = await signIn('credentials', {
-                username,
+                email,
                 password,
                 remember: rememberMe,
                 otp,
@@ -43,7 +43,7 @@ export default function LoginPage() {
                     setShowOTP(true);
                     setError(''); // Clear error to show input
                 } else if (errorCode === 'CredentialsSignin' || errorCode === 'invalid_credentials') {
-                    setError('Invalid credentials. Please check your username and password.');
+                    setError('Invalid credentials. Please check your email and password.');
                 } else {
                     setError('An authentication error occurred. Please try again.');
                 }
@@ -78,18 +78,18 @@ export default function LoginPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 }}
                 >
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Username</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Email Address</label>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition-colors">
-                            <User size={18} />
+                            <Mail size={18} />
                         </div>
                         <input
-                            type="text"
+                            type="email"
                             required
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             className="block w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all placeholder:text-gray-400"
-                            placeholder="Enter your username"
+                            placeholder="name@company.com"
                         />
                     </div>
                 </motion.div>

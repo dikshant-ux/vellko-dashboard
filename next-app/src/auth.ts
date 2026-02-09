@@ -30,20 +30,20 @@ export const {
         CredentialsProvider({
             name: "Credentials",
             credentials: {
-                username: { label: "Username", type: "text" },
+                email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
                 remember: { label: "Remember Me", type: "checkbox" },
                 otp: { label: "OTP", type: "text" }
             },
             async authorize(credentials) {
-                if (!credentials?.username || !credentials?.password) return null;
+                if (!credentials?.email || !credentials?.password) return null;
 
                 try {
                     const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
                     const res = await fetch(`${apiUrl}/token`, {
                         method: "POST",
                         body: new URLSearchParams({
-                            username: credentials.username as string,
+                            username: credentials.email as string,
                             password: credentials.password as string,
                             remember: String(credentials.remember || false),
                             otp: (credentials.otp as string) || "",
@@ -79,7 +79,7 @@ export const {
                         // Map backend errors to codes
                         if (detail.includes("deactivated")) {
                             throw new DeactivatedError();
-                        } else if (detail.includes("Incorrect username")) {
+                        } else if (detail.includes("Incorrect email")) {
                             throw new InvalidCredentialsError();
                         } else if (detail === "mfa_required") {
                             throw new MFARequiredError();
