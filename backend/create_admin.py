@@ -4,8 +4,8 @@ from auth import get_password_hash
 from models import UserInDB, UserRole
 
 async def create_admin():
-    username = "admin12"
-    password = "password123"
+    username = "deepakverma"
+    password = "deepakverma123"
     
     existing = await db.users.find_one({"username": username})
     if existing:
@@ -15,8 +15,8 @@ async def create_admin():
     admin_user = {
         "username": username,
         "hashed_password": get_password_hash(password),
-        "email": "admin2@example.com",
-        "full_name": "Super Admin",
+        "email": "deepakverma@vellko.com",
+        "full_name": "Deepak Verma",
         "role": UserRole.SUPER_ADMIN,
         "disabled": False
     }
