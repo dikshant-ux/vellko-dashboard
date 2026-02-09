@@ -104,8 +104,6 @@ export default function SignupsPage() {
         return <Badge variant="outline" className={`${variants[status]} border font-medium`}>{status}</Badge>;
     };
 
-    console.log("Current User Session:", session?.user);
-
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
