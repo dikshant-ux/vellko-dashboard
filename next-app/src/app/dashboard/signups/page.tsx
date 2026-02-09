@@ -104,6 +104,8 @@ export default function SignupsPage() {
         return <Badge variant="outline" className={`${variants[status]} border font-medium`}>{status}</Badge>;
     };
 
+    console.log("Current User Session:", session?.user);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -129,7 +131,7 @@ export default function SignupsPage() {
                         </Tabs>
 
                         <div className="flex items-center gap-2 w-full md:w-auto">
-                            {session?.user?.role === 'ADMIN' && (
+                            {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (
                                 <select
                                     className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     value={filterReferral}
