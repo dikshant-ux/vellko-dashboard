@@ -24,10 +24,10 @@ if [ ! -f .env ]; then
 fi
 
 echo "Stopping existing containers..."
-docker-compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml down
 
 echo "Building and Starting containers..."
-docker-compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}Deployment Successful!${NC}"
@@ -35,7 +35,7 @@ if [ $? -eq 0 ]; then
     echo "Frontend: http://affiliate.vellko.com"
     echo "Backend API: http://affiliate.vellko.com/api"
     echo "Make sure your DNS Records point to this server."
-    echo -e "${GREEN}You can verify by running: docker-compose -f docker-compose.prod.yml ps${NC}"
+    echo -e "${GREEN}You can verify by running: docker compose -f docker-compose.prod.yml ps${NC}"
 else
     echo -e "${RED}Deployment Failed.${NC}"
     exit 1
