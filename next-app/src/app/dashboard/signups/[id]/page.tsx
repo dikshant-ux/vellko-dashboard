@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash } from "lucide-react";
+import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin } from "lucide-react";
 import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES } from "@/constants/mappings";
 import {
     Dialog,
@@ -45,6 +45,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     // Document Upload State
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+
+    // IP Location State
+    const [ipLocation, setIpLocation] = useState<string | null>(null);
+    const [loadingLocation, setLoadingLocation] = useState(false);
 
     useEffect(() => {
         if (session?.accessToken && id) {
@@ -256,6 +260,25 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             alert("Failed to update referral");
         } finally {
             setReferralLoading(false);
+        }
+    };
+
+    const handleLocateIp = async (ip: string) => {
+        setLoadingLocation(true);
+        try {
+            const response = await fetch(`https://ipapi.co/${ip}/json/`);
+            const data = await response.json();
+            if (data.error) {
+                setIpLocation("Location not found");
+            } else {
+                const location = [data.city, data.region, data.country_name].filter(Boolean).join(", ");
+                setIpLocation(location);
+            }
+        } catch (error) {
+            console.error("Error fetching IP location:", error);
+            setIpLocation("Error fetching location");
+        } finally {
+            setLoadingLocation(false);
         }
     };
 
@@ -828,6 +851,46 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             ) : (
                                 <span className="col-span-2">{signup.paymentInfo?.ssnTaxId}</span>
                             )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* System Info */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>System Info</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 text-sm">
+                        <div className="grid grid-cols-3 gap-1 items-center">
+                            <span className="font-medium text-muted-foreground">IP Address:</span>
+                            <div className="col-span-2 flex items-center gap-2">
+                                <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">{signup.ipAddress || 'Not Recorded'}</span>
+                                {signup.ipAddress && signup.ipAddress !== "0.0.0.0" && (
+                                    <>
+                                        {ipLocation ? (
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <MapPin className="h-3 w-3" />
+                                                {ipLocation}
+                                            </span>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs flex gap-1 items-center"
+                                                onClick={() => handleLocateIp(signup.ipAddress)}
+                                                disabled={loadingLocation}
+                                            >
+                                                {loadingLocation ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
+                                                Locate
+                                            </Button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 items-center">
+                            <span className="font-medium text-muted-foreground">Submission Date:</span>
+                            <span className="col-span-2">{signup.created_at ? new Date(signup.created_at).toLocaleString() : 'Unknown'}</span>
                         </div>
                     </CardContent>
                 </Card>

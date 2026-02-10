@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, ArrowRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { COUNTRIES, US_STATES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, TIMEZONES, IM_SERVICES, TAX_CLASSES } from "@/constants/mappings";
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 
 export default function AffiliateSignup() {
@@ -172,7 +174,15 @@ export default function AffiliateSignup() {
             newErrors['accountInfo.lastName'] = "Last Name is too long (max 25 chars)";
         }
 
-        if (!form.accountInfo.workPhone.trim()) newErrors['accountInfo.workPhone'] = "Work Phone is required";
+        if (!form.accountInfo.workPhone) {
+            newErrors['accountInfo.workPhone'] = "Work Phone is required";
+        } else if (!isValidPhoneNumber(form.accountInfo.workPhone)) {
+            newErrors['accountInfo.workPhone'] = "Invalid phone number";
+        }
+
+        if (form.accountInfo.cellPhone && !isValidPhoneNumber(form.accountInfo.cellPhone)) {
+            newErrors['accountInfo.cellPhone'] = "Invalid phone number";
+        }
         if (!form.accountInfo.email.trim()) newErrors['accountInfo.email'] = "Email is required";
         else if (!/\S+@\S+\.\S+/.test(form.accountInfo.email)) newErrors['accountInfo.email'] = "Invalid email format";
 
@@ -466,14 +476,29 @@ export default function AffiliateSignup() {
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Work Phone <span className="text-danger">*</span></label>
-                                        <input type="text" className={`form-control ${errors['accountInfo.workPhone'] ? 'is-invalid' : ''}`} required placeholder="Enter Work Phone"
-                                            value={form.accountInfo.workPhone} onChange={e => handleChange('accountInfo', 'workPhone', e.target.value)} />
-                                        <div className="invalid-feedback">{errors['accountInfo.workPhone']}</div>
+                                        <div className={errors['accountInfo.workPhone'] ? 'is-invalid-phone' : ''}>
+                                            <PhoneInput
+                                                placeholder="Enter Work Phone"
+                                                value={form.accountInfo.workPhone}
+                                                onChange={(value) => handleChange('accountInfo', 'workPhone', value)}
+                                                defaultCountry="US"
+                                                className={`form-control d-flex ${errors['accountInfo.workPhone'] ? 'is-invalid' : ''}`}
+                                            />
+                                        </div>
+                                        {errors['accountInfo.workPhone'] && <div className="text-danger small mt-1">{errors['accountInfo.workPhone']}</div>}
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Cell Phone</label>
-                                        <input type="text" className="form-control" placeholder="Enter Cell Phone"
-                                            value={form.accountInfo.cellPhone} onChange={e => handleChange('accountInfo', 'cellPhone', e.target.value)} />
+                                        <div className={errors['accountInfo.cellPhone'] ? 'is-invalid-phone' : ''}>
+                                            <PhoneInput
+                                                placeholder="Enter Cell Phone"
+                                                value={form.accountInfo.cellPhone}
+                                                onChange={(value) => handleChange('accountInfo', 'cellPhone', value)}
+                                                defaultCountry="US"
+                                                className={`form-control d-flex ${errors['accountInfo.cellPhone'] ? 'is-invalid' : ''}`}
+                                            />
+                                        </div>
+                                        {errors['accountInfo.cellPhone'] && <div className="text-danger small mt-1">{errors['accountInfo.cellPhone']}</div>}
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Fax</label>

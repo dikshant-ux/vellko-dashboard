@@ -6,36 +6,50 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CheckCircle2, XCircle, Clock, Activity, Trophy } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuthFetch } from '@/hooks/useAuthFetch';
 
 export default function OverviewPage() {
     const { data: session } = useSession();
     const [stats, setStats] = useState<any>(null);
+    const authFetch = useAuthFetch();
 
     useEffect(() => {
         if (session?.accessToken) {
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`, {
-                headers: { Authorization: `Bearer ${session.accessToken}` }
-            })
-                .then(res => res.json())
-                .then(data => setStats(data))
+            authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`)
+                .then(res => res ? res.json() : null)
+                .then(data => {
+                    if (data) setStats(data);
+                })
                 .catch(console.error);
         }
-    }, [session]);
+    }, [session, authFetch]);
 
-    const StatCard = ({ title, value, icon: Icon, color, description }: any) => (
-        <Card className="border-none shadow-md hover:shadow-lg transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-                <div className={`p-2 rounded-full ${color} bg-opacity-10`}>
-                    <Icon className={`h-4 w-4 ${color.replace('bg-', 'text-')}`} />
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{value ?? "-"}</div>
-                {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
-            </CardContent>
-        </Card>
-    );
+    const StatCard = ({ title, value, icon: Icon, color, description, href }: any) => {
+        const CardContentWrapper = () => (
+            <Card className="border-none shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                    <div className={`p-2 rounded-full ${color} bg-opacity-10`}>
+                        <Icon className={`h-4 w-4 ${color.replace('bg-', 'text-')}`} />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{value ?? "-"}</div>
+                    {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+                </CardContent>
+            </Card>
+        );
+
+        if (href) {
+            return (
+                <Link href={href} className="block h-full">
+                    <CardContentWrapper />
+                </Link>
+            );
+        }
+
+        return <CardContentWrapper />;
+    };
 
     return (
         <div className="space-y-8">
@@ -53,6 +67,7 @@ export default function OverviewPage() {
                     icon={Users}
                     color="bg-blue-500"
                     description="All time applications"
+                    href="/dashboard/signups"
                 />
                 <StatCard
                     title="Pending Review"
@@ -60,6 +75,7 @@ export default function OverviewPage() {
                     icon={Clock}
                     color="bg-yellow-500"
                     description="Requires action"
+                    href="/dashboard/signups?status=PENDING"
                 />
                 <StatCard
                     title="Approved"
@@ -67,6 +83,7 @@ export default function OverviewPage() {
                     icon={CheckCircle2}
                     color="bg-green-500"
                     description="Active affiliates"
+                    href="/dashboard/signups?status=APPROVED"
                 />
                 <StatCard
                     title="Rejected"
@@ -74,6 +91,7 @@ export default function OverviewPage() {
                     icon={XCircle}
                     color="bg-red-500"
                     description="Denied applications"
+                    href="/dashboard/signups?status=REJECTED"
                 />
             </div>
 

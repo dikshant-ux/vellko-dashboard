@@ -27,6 +27,8 @@ app.add_middleware(
 app.include_router(public.router)
 app.include_router(users.router)
 app.include_router(admin.router)
+from routers import settings as settings_router
+app.include_router(settings_router.router)
 app.include_router(two_factor.router, prefix="/auth/2fa", tags=["2FA"])
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

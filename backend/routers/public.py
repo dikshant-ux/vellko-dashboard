@@ -70,7 +70,7 @@ async def create_signup(signup: SignupCreate):
             # For simplicity/robustness in this context, we await it (it's fast enough via SMTP usually)
             # or could use BackgroundTasks from FastAPI if passed to the route.
             # Given the current structure, synchronous call is okay or we can just call the util which handles its own try/catch.
-            send_signup_notification_email(list(recipient_emails), signup_dict, str(result.inserted_id))
+            await send_signup_notification_email(list(recipient_emails), signup_dict, str(result.inserted_id))
             
     except Exception as e:
         print(f"Error sending signup notifications: {e}")
@@ -116,7 +116,12 @@ async def login_for_access_token(
             )
     
     # If remember is True, set expiry to 30 days, else use default setting
-    expire_minutes = 30 * 24 * 60 if remember else settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    # Robustly handle string inputs if passed via Form e.g. "true"/"false"
+    is_remembered = remember
+    if isinstance(remember, str):
+        is_remembered = remember.lower() in ["true", "1", "t", "y", "yes", "on"]
+        
+    expire_minutes = 30 * 24 * 60 if is_remembered else settings.ACCESS_TOKEN_EXPIRE_MINUTES
     access_token_expires = timedelta(minutes=expire_minutes)
     
     access_token = create_access_token(
@@ -147,10 +152,10 @@ async def forgot_password(request: ForgotPasswordRequest):
     )
     
     # Send email
-    # Note: send_reset_password_email is synchronous. In production, use background tasks.
+    # Note: send_reset_password_email is now async. In production, use background tasks.
     # For now, we'll run it directly or wrap in thread if blocking is an issue, 
     # but for low volume it's acceptable.
-    send_reset_password_email(request.email, reset_token)
+    await send_reset_password_email(request.email, reset_token)
     
     return {"message": "If this email is registered, you will receive password reset instructions."}
 

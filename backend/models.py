@@ -1,5 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, validator
+from typing import Optional, List, Dict, Any
+from bson import ObjectId
 from datetime import datetime
 from enum import Enum
 
@@ -99,6 +100,10 @@ class User(BaseModel):
     two_factor_secret: Optional[str] = None
     is_two_factor_enabled: Optional[bool] = False
 
+    @validator('username', pre=True)
+    def trim_username(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
 class UserCreate(User):
     password: str
 
@@ -137,6 +142,43 @@ class MarketingInfoUpdate(BaseModel):
     primaryCategory: Optional[str] = None
     secondaryCategory: Optional[str] = None
     comments: Optional[str] = None
+
+class SMTPConfig(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str = Field(default="SMTP Configuration")
+    host: str
+    port: int
+    username: str
+    password: str # In production, this should be encrypted
+    from_email: str
+    reply_to_email: Optional[str] = None
+    is_active: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+class SMTPConfigCreate(BaseModel):
+    name: str
+    host: str
+    port: int
+    username: str
+    password: str
+    from_email: str
+    reply_to_email: Optional[str] = None
+    is_active: Optional[bool] = False
+
+class SMTPConfigUpdate(BaseModel):
+    name: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    from_email: Optional[str] = None
+    reply_to_email: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class AccountInfoUpdate(BaseModel):
     firstName: Optional[str] = None

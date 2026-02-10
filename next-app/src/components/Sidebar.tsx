@@ -37,32 +37,43 @@ export default function Sidebar() {
     return (
         <div
             className={cn(
-                "relative flex flex-col border-r border-gray-100 bg-white shadow-xl shadow-gray-200/50 z-20 transition-all duration-300",
-                isCollapsed ? "w-20" : "w-72"
+                "relative flex flex-col border-r border-gray-100 bg-white shadow-xl shadow-gray-200/50 z-20 transition-all duration-300 h-full",
+                isCollapsed ? "w-16" : "w-59"
             )}
         >
             {/* Header */}
-            <div className="flex h-20 items-center justify-between px-6">
-                {!isCollapsed && (
-                    <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/30">
-                            <span className="text-white font-bold text-lg">V</span>
-                        </div>
-                        <span className="font-bold text-xl tracking-tight text-gray-900">Vellko<span className="text-red-600"> Affiliates</span></span>
+            <div className={cn("flex h-20 items-center px-4", isCollapsed ? "justify-center" : "justify-between")}>
+                <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 min-w-[2rem] rounded-lg bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/30">
+                        <span className="text-white font-bold text-lg">V</span>
                     </div>
-                )}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className={cn(
-                        "text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full h-8 w-8 transition-all",
-                        !isCollapsed && "ml-auto"
+                    {!isCollapsed && (
+                        <span className="font-bold text-lg tracking-tight text-gray-900 truncate">Vellko<span className="text-red-600"> Affiliates</span></span>
                     )}
-                >
-                    {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                </Button>
+                </div>
+                {!isCollapsed && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full h-8 w-8 transition-all shrink-0 ml-auto"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
+            {isCollapsed && (
+                <div className="flex justify-center pb-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full h-6 w-6 transition-all"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
             {/* Navigation */}
             <div className="flex-1 overflow-y-auto py-8 px-4">
@@ -98,7 +109,7 @@ export default function Sidebar() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-100/50">
+            <div className={cn("border-t border-gray-100/50 transition-all", isCollapsed ? "p-2" : "p-4")}>
                 <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
                     <Avatar className="h-9 w-9 border border-gray-200 shadow-sm cursor-pointer transition-transform hover:scale-105">
                         <AvatarFallback className="bg-gray-900 text-white font-medium text-xs">

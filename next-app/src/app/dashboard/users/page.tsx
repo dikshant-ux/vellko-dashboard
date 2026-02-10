@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { toast } from "sonner";
 
 export default function UsersPage() {
     const { data: session } = useSession();
+    const authFetch = useAuthFetch();
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
@@ -24,10 +26,8 @@ export default function UsersPage() {
     const fetchUsers = () => {
         if (session?.accessToken) {
             setLoading(true);
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
-                headers: { Authorization: `Bearer ${session.accessToken}` }
-            })
-                .then(res => res.json())
+            authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`)
+                .then(res => res ? res.json() : [])
                 .then(data => {
                     if (Array.isArray(data)) {
                         setUsers(data);
@@ -47,22 +47,21 @@ export default function UsersPage() {
     const handleCreateUser = (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${session?.accessToken}`
             },
             body: JSON.stringify(newUser)
         })
             .then(async res => {
-                if (res.ok) {
+                if (res && res.ok) {
                     setOpen(false);
                     setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER' });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
-                    const err = await res.json();
+                    const err = res ? await res.json() : { detail: "Unknown error" };
                     toast.error(err.detail || "Failed to create user");
                 }
             })
@@ -73,12 +72,11 @@ export default function UsersPage() {
     const handleDeleteUser = (username: string) => {
         if (!confirm(`Are you sure you want to delete ${username}?`)) return;
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}`, {
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}`, {
             method: 'DELETE',
-            headers: { Authorization: `Bearer ${session?.accessToken}` }
         })
             .then(res => {
-                if (res.ok) {
+                if (res && res.ok) {
                     toast.success("User deleted successfully");
                     fetchUsers();
                 } else {
@@ -94,20 +92,19 @@ export default function UsersPage() {
 
         if (!confirm(`Are you sure you want to ${action} ${username}?`)) return;
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}/status`, {
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}/status`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${session?.accessToken}`
             },
             body: JSON.stringify({ disabled: newDisabledStatus })
         })
             .then(async res => {
-                if (res.ok) {
+                if (res && res.ok) {
                     toast.success(`User ${action}d successfully`);
                     fetchUsers();
                 } else {
-                    const err = await res.json();
+                    const err = res ? await res.json() : { detail: "Unknown error" };
                     toast.error(err.detail || `Failed to ${action} user`);
                 }
             })
@@ -119,20 +116,19 @@ export default function UsersPage() {
         // But we need to be careful with the Select UI flickering if we rely solely on fetchUsers.
         // For now, standard fetch.
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}/role`, {
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${username}/role`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${session?.accessToken}`
             },
             body: JSON.stringify({ role: newRole })
         })
             .then(async res => {
-                if (res.ok) {
+                if (res && res.ok) {
                     toast.success(`Role updated to ${newRole}`);
                     fetchUsers();
                 } else {
-                    const err = await res.json();
+                    const err = res ? await res.json() : { detail: "Unknown error" };
                     toast.error(err.detail || "Failed to update role");
                     // Revert UI if we had local state, but we are refetching so it should correct itself
                     fetchUsers();
@@ -222,100 +218,102 @@ export default function UsersPage() {
                     <CardTitle>System Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Loading users...</TableCell>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            ) : users.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No users found.</TableCell>
-                                </TableRow>
-                            ) : (
-                                users.map((user) => (
-                                    <TableRow key={user.username}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-medium">
-                                                    {user.full_name?.charAt(0) || user.username.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium">{user.full_name || user.username}</div>
-                                                    <div className="text-xs text-muted-foreground">{user.email || user.username}</div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {/* Role Display / Editor */}
-                                            {session?.user?.role === 'SUPER_ADMIN' && user.role !== 'SUPER_ADMIN' && user.username !== session?.user?.name ? (
-                                                <Select
-                                                    value={user.role}
-                                                    onValueChange={(val) => handleUpdateRole(user.username, val)}
-                                                >
-                                                    <SelectTrigger
-                                                        className={`h-6 border-none bg-transparent focus:ring-0 focus:ring-offset-0 px-2 py-0 inline-flex items-center gap-1 rounded-full text-xs font-medium w-auto ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}
-                                                    >
-                                                        <SelectValue>
-                                                            <div className="flex items-center">
-                                                                {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
-                                                                <span className="leading-none flex items-center pt-0.5">{user.role}</span>
-                                                            </div>
-                                                        </SelectValue>
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="USER">User</SelectItem>
-                                                        <SelectItem value="ADMIN">Admin</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            ) : (
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-                                                    }`}>
-                                                    {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
-                                                    {user.role}
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <button
-                                                onClick={() => handleToggleStatus(user.username, user.disabled)}
-                                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${user.disabled
-                                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                    }`}
-                                            >
-                                                {user.disabled ? (
-                                                    <><Ban className="h-3 w-3 mr-1" /> Inactive</>
-                                                ) : (
-                                                    <><CheckCircle className="h-3 w-3 mr-1" /> Active</>
-                                                )}
-                                            </button>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            {session?.user?.name !== user.username && ( // Prevent deleting self
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-red-600"
-                                                    onClick={() => handleDeleteUser(user.username)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </TableCell>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Loading users...</TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : users.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No users found.</TableCell>
+                                    </TableRow>
+                                ) : (
+                                    users.map((user) => (
+                                        <TableRow key={user.username}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-medium">
+                                                        {user.full_name?.charAt(0) || user.username.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium">{user.full_name || user.username}</div>
+                                                        <div className="text-xs text-muted-foreground">{user.email || user.username}</div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {/* Role Display / Editor */}
+                                                {session?.user?.role === 'SUPER_ADMIN' && user.role !== 'SUPER_ADMIN' && user.username !== session?.user?.name ? (
+                                                    <Select
+                                                        value={user.role}
+                                                        onValueChange={(val) => handleUpdateRole(user.username, val)}
+                                                    >
+                                                        <SelectTrigger
+                                                            className={`h-6 border-none bg-transparent focus:ring-0 focus:ring-offset-0 px-2 py-0 inline-flex items-center gap-1 rounded-full text-xs font-medium w-auto ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}
+                                                        >
+                                                            <SelectValue>
+                                                                <div className="flex items-center">
+                                                                    {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                                                                    <span className="leading-none flex items-center pt-0.5">{user.role}</span>
+                                                                </div>
+                                                            </SelectValue>
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="USER">User</SelectItem>
+                                                            <SelectItem value="ADMIN">Admin</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                                                        {user.role}
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <button
+                                                    onClick={() => handleToggleStatus(user.username, user.disabled)}
+                                                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${user.disabled
+                                                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                        }`}
+                                                >
+                                                    {user.disabled ? (
+                                                        <><Ban className="h-3 w-3 mr-1" /> Inactive</>
+                                                    ) : (
+                                                        <><CheckCircle className="h-3 w-3 mr-1" /> Active</>
+                                                    )}
+                                                </button>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {session?.user?.name !== user.username && ( // Prevent deleting self
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                                                        onClick={() => handleDeleteUser(user.username)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import os
 import shutil
-from email_utils import send_invitation_email
+from email_utils import send_invitation_email, send_referral_assignment_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -325,12 +325,29 @@ async def update_referral(id: str, referral: str = Body(..., embed=True), user: 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Signup not found")
         
+    # Notify new referrer
+    if referral and referral not in ["Others", "Other", "None", ""]:
+        new_referrer = await db.users.find_one({"full_name": referral})
+        if new_referrer and new_referrer.get("email"):
+             signup_data = await db.signups.find_one({"_id": ObjectId(id)})
+             await send_referral_assignment_email(
+                 to_email=new_referrer["email"],
+                 signup_data=signup_data,
+                 signup_id=id,
+                 assigned_by=user.full_name or user.username
+             )
+        
     return {"message": "Referral updated successfully"}
 
 @router.patch("/signups/{id}")
 async def update_signup(id: str, update_data: SignupUpdate, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update signup details")
+
+    # Fetch original data to check for referral change
+    original_signup = await db.signups.find_one({"_id": ObjectId(id)})
+    if not original_signup:
+        raise HTTPException(status_code=404, detail="Signup not found")
 
     update_doc = {}
     
@@ -364,7 +381,28 @@ async def update_signup(id: str, update_data: SignupUpdate, user: User = Depends
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Signup not found")
-        
+
+    # Check if referral changed and notify
+    new_referral = update_doc.get("companyInfo.referral")
+    if new_referral and new_referral != original_signup.get("companyInfo", {}).get("referral"):
+         if new_referral not in ["Others", "Other", "None", ""]:
+            new_referrer = await db.users.find_one({"full_name": new_referral})
+            if new_referrer and new_referrer.get("email"):
+                 # Fetch latest data or reuse updated info (constructing minimal dict for email)
+                 # Better to fetch complete updated doc or just patch the original with updates
+                 # For simplicity, let's just refetch or assume we have enough in original + update. 
+                 # Actually, update_doc has flat keys which helps, but we need structure. 
+                 # Let's just pass `original_signup` patched with `update_doc` implies structure changes.
+                 # Easiest: refetch safely.
+                 updated_signup = await db.signups.find_one({"_id": ObjectId(id)})
+                 
+                 await send_referral_assignment_email(
+                     to_email=new_referrer["email"],
+                     signup_data=updated_signup,
+                     signup_id=id,
+                     assigned_by=user.full_name or user.username
+                 )
+
     return {"message": "Signup updated successfully"}
 
 @router.post("/signups/{id}/reset")
@@ -493,7 +531,7 @@ async def create_user(user_in: UserCreate, user: User = Depends(get_current_admi
     # Send invitation email
     if user_in.email:
          # Use background task? For now direct call is fine as per earlier pattern
-         send_invitation_email(
+         await send_invitation_email(
              to_email=user_in.email,
              username=user_in.username,
              password=password, # Use the raw password here

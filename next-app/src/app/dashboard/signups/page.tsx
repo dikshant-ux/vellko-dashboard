@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuthFetch } from '@/hooks/useAuthFetch';
 import {
     Table,
     TableBody,
@@ -25,9 +27,13 @@ import { Search, ChevronRight, Loader2, FileText, Calendar, Building2, User, Che
 
 export default function SignupsPage() {
     const { data: session } = useSession();
+    const searchParams = useSearchParams();
+    const statusParam = searchParams.get('status');
+    const authFetch = useAuthFetch();
+
     const [signups, setSignups] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState<string>('ALL');
+    const [filterStatus, setFilterStatus] = useState<string>(statusParam || 'ALL');
     const [searchTerm, setSearchTerm] = useState('');
     const [referrers, setReferrers] = useState<string[]>([]);
     const [filterReferral, setFilterReferral] = useState("");
@@ -39,6 +45,7 @@ export default function SignupsPage() {
     const [totalCount, setTotalCount] = useState(0);
 
     useEffect(() => {
+        // referrers is public or requires auth? Public router has /referrers
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrers`)
             .then(res => res.json())
             .then(data => setReferrers(data))
@@ -66,12 +73,14 @@ export default function SignupsPage() {
                 url += `?${queryString}`;
             }
 
-            fetch(url, {
-                headers: { Authorization: `Bearer ${session.accessToken}` }
-            })
-                .then(res => res.json())
+            if (queryString) {
+                url += `?${queryString}`;
+            }
+
+            authFetch(url)
+                .then(res => res ? res.json() : null)
                 .then(data => {
-                    if (data.items) {
+                    if (data && data.items) {
                         setSignups(data.items);
                         setTotalCount(data.total);
                         setTotalPages(Math.ceil(data.total / limit));
@@ -88,7 +97,7 @@ export default function SignupsPage() {
                     setIsLoading(false);
                 });
         }
-    }, [session, filterStatus, filterReferral, currentPage, limit]);
+    }, [session, filterStatus, filterReferral, currentPage, limit, authFetch]);
 
     const filteredSignups = signups.filter(signup =>
         signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,7 +128,7 @@ export default function SignupsPage() {
             <Card className="border-none shadow-md bg-white">
                 <CardHeader className="pb-3">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <Tabs defaultValue="ALL" onValueChange={(val) => { setFilterStatus(val); setCurrentPage(1); }} className="w-full md:w-auto">
+                        <Tabs defaultValue={filterStatus} value={filterStatus} onValueChange={(val) => { setFilterStatus(val); setCurrentPage(1); }} className="w-full md:w-auto">
                             <TabsList className="bg-muted p-1 rounded-lg">
                                 <TabsTrigger value="ALL" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all">All</TabsTrigger>
                                 <TabsTrigger value="PENDING" className="data-[state=active]:bg-white data-[state=active]:text-yellow-600 data-[state=active]:shadow-sm rounded-md transition-all">Pending</TabsTrigger>
@@ -155,7 +164,7 @@ export default function SignupsPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border border-gray-100 overflow-hidden">
+                    <div className="rounded-md border border-gray-100 overflow-x-auto">
                         <Table>
                             <TableHeader className="bg-gray-50/50">
                                 <TableRow>
