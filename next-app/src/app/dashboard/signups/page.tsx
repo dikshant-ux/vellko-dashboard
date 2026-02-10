@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, Loader2, FileText, Calendar, Building2, User, ChevronLeft } from "lucide-react";
 
-export default function SignupsPage() {
+function SignupsContent() {
     const { data: session } = useSession();
     const searchParams = useSearchParams();
     const statusParam = searchParams.get('status');
@@ -299,5 +299,13 @@ export default function SignupsPage() {
                 </CardContent>
             </Card>
         </div >
+    );
+}
+
+export default function SignupsPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>}>
+            <SignupsContent />
+        </Suspense>
     );
 }
