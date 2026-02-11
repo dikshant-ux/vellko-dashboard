@@ -27,7 +27,7 @@ export default function AffiliateSignup() {
 
 
             paymentModel: "1",
-            applicationType: "Web Traffic",
+            applicationType: "",
             primaryCategory: "1",
             secondaryCategory: "1",
             comments: ""
@@ -145,6 +145,12 @@ export default function AffiliateSignup() {
         if (isLoading) return;
 
         const newErrors: any = {};
+
+
+        // Marketing Info Validation
+        if (!form.marketingInfo.applicationType) {
+            newErrors['marketingInfo.applicationType'] = "Application Type is required";
+        }
 
         // Company Info Validation
         if (!form.companyInfo.companyName.trim()) {
@@ -366,7 +372,7 @@ export default function AffiliateSignup() {
                                     <img src="https://eu1-us1.ckcdnassets.com/2362/logos/signuplogo.png" alt="VELLKO" className="img-fluid mb-2" style={{ maxHeight: "150px" }} />
                                     <h4 className="text-muted text-uppercase mb-2 d-block" style={{ fontSize: '1.8rem', letterSpacing: '1px' }}>Vellko Media Affiliate Signup</h4>
                                     {/* Fallback for logo if image missing */}
-                                    <h1 className="fw-bold text-danger d-none">VELKO</h1>
+                                    <h1 className="fw-bold text-danger d-none">VELLKO</h1>
                                 </div>
 
                                 {Object.keys(errors).length > 0 && (
@@ -453,7 +459,16 @@ export default function AffiliateSignup() {
                                     <br />
                                     {/* Marketing Information */}
                                     <h5 className="section-title border-bottom pb-2 mb-3 mt-4">Marketing Information</h5>
-
+                                    <div className="mb-3">
+                                        <label className="form-label small text-muted">Application Type <span className="text-danger">*</span></label>
+                                        <select className={`form-select ${errors['marketingInfo.applicationType'] ? 'is-invalid' : ''}`} value={form.marketingInfo.applicationType} onChange={e => handleChange('marketingInfo', 'applicationType', e.target.value)}>
+                                            <option value="">Select Application Type</option>
+                                            {Object.entries(APPLICATION_TYPES).map(([value, label]) => (
+                                                <option key={value} value={value}>{label}</option>
+                                            ))}
+                                        </select>
+                                        <div className="invalid-feedback">{errors['marketingInfo.applicationType']}</div>
+                                    </div>
 
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Payment Model</label>
@@ -463,14 +478,7 @@ export default function AffiliateSignup() {
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small text-muted">Application Type</label>
-                                        <select className="form-select" value={form.marketingInfo.applicationType} onChange={e => handleChange('marketingInfo', 'applicationType', e.target.value)}>
-                                            {Object.entries(APPLICATION_TYPES).map(([value, label]) => (
-                                                <option key={value} value={value}>{label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Primary Category</label>
                                         <select className="form-select" value={form.marketingInfo.primaryCategory} onChange={e => handleChange('marketingInfo', 'primaryCategory', e.target.value)}>
