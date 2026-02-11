@@ -5,7 +5,7 @@ import { termsText } from "./TermsText";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ArrowRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { COUNTRIES, US_STATES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, TIMEZONES, IM_SERVICES, TAX_CLASSES } from "@/constants/mappings";
+import { COUNTRIES, US_STATES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, TIMEZONES, IM_SERVICES, TAX_CLASSES, APPLICATION_TYPES } from "@/constants/mappings";
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
@@ -27,6 +27,7 @@ export default function AffiliateSignup() {
 
 
             paymentModel: "1",
+            applicationType: "Web Traffic",
             primaryCategory: "1",
             secondaryCategory: "1",
             comments: ""
@@ -375,6 +376,8 @@ export default function AffiliateSignup() {
                                 )}
 
                                 <form onSubmit={handleSubmit} noValidate className="p-3">
+
+
                                     {/* Company Information */}
                                     <h5 className="section-title border-bottom pb-2 mb-3">Company Information</h5>
                                     <div className="mb-3">
@@ -456,6 +459,14 @@ export default function AffiliateSignup() {
                                         <label className="form-label small text-muted">Payment Model</label>
                                         <select className="form-select" value={form.marketingInfo.paymentModel} onChange={e => handleChange('marketingInfo', 'paymentModel', e.target.value)}>
                                             {Object.entries(PAYMENT_MODELS).map(([value, label]) => (
+                                                <option key={value} value={value}>{label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label small text-muted">Application Type</label>
+                                        <select className="form-select" value={form.marketingInfo.applicationType} onChange={e => handleChange('marketingInfo', 'applicationType', e.target.value)}>
+                                            {Object.entries(APPLICATION_TYPES).map(([value, label]) => (
                                                 <option key={value} value={value}>{label}</option>
                                             ))}
                                         </select>
@@ -550,7 +561,7 @@ export default function AffiliateSignup() {
                                         </select>
                                     </div>
                                     <div className="mb-3">
-                                        
+
                                         <div className="mb-3">
                                             <label className="form-label small text-muted">IM Services <span className="text-danger">*</span></label>
                                             <div className="card p-3 bg-light border-0">

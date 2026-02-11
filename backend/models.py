@@ -24,6 +24,7 @@ class MarketingInfo(BaseModel):
     paymentModel: str
     primaryCategory: str
     secondaryCategory: Optional[str] = ""
+    applicationType: str = "Web Traffic"
     comments: Optional[str] = ""
 
 class AccountInfo(BaseModel):
@@ -142,6 +143,7 @@ class MarketingInfoUpdate(BaseModel):
     paymentModel: Optional[str] = None
     primaryCategory: Optional[str] = None
     secondaryCategory: Optional[str] = None
+    applicationType: Optional[str] = None
     comments: Optional[str] = None
 
 class SMTPConfig(BaseModel):

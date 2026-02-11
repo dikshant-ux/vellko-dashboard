@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin } from "lucide-react";
-import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES } from "@/constants/mappings";
+import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES, APPLICATION_TYPES } from "@/constants/mappings";
 import {
     Dialog,
     DialogContent,
@@ -795,6 +795,22 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </select>
                             ) : (
                                 <span className="col-span-2">{PAYMENT_MODELS[signup.marketingInfo?.paymentModel] || signup.marketingInfo?.paymentModel}</span>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 items-center">
+                            <span className="font-medium text-muted-foreground">Application Type:</span>
+                            {isEditing ? (
+                                <select
+                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    value={editForm.marketingInfo?.applicationType}
+                                    onChange={(e) => handleEditChange('marketingInfo', 'applicationType', e.target.value)}
+                                >
+                                    {Object.entries(APPLICATION_TYPES).map(([id, label]) => (
+                                        <option key={id} value={id}>{label}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <span className="col-span-2">{APPLICATION_TYPES[signup.marketingInfo?.applicationType] || signup.marketingInfo?.applicationType || '-'}</span>
                             )}
                         </div>
                         <div className="grid grid-cols-3 gap-1 items-center">

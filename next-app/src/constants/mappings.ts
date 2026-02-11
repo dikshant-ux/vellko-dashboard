@@ -704,3 +704,9 @@ export const TAX_CLASSES: Record<string, string> = {
     "Partners/LLC/LLP": "Partners/LLC/LLP",
     "Other": "Other"
 };
+
+export const APPLICATION_TYPES: Record<string, string> = {
+    "Web Traffic": "Web Traffic",
+    "Call Traffic": "Call Traffic",
+    "Both": "Both"
+};
