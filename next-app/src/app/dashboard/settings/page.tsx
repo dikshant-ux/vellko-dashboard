@@ -37,6 +37,7 @@ export default function SettingsPage() {
     const [smtpForm, setSmtpForm] = useState({
         name: '', host: '', port: 587, username: '', password: '', from_email: '', reply_to_email: '', is_active: false
     });
+    const [isTestingSmtp, setIsTestingSmtp] = useState(false);
 
     useEffect(() => {
         if (session?.user?.name) {
@@ -262,6 +263,31 @@ export default function SettingsPage() {
                     alert("Failed to activate config");
                 }
             });
+    };
+
+    const handleTestSmtp = () => {
+        setIsTestingSmtp(true);
+        // Ensure port is number
+        const payload = {
+            ...smtpForm,
+            port: Number(smtpForm.port)
+        };
+
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/smtp/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(async res => {
+                if (res && res.ok) {
+                    alert("Connection Successful!");
+                } else {
+                    const err = res ? await res.json() : { detail: "Unknown error" };
+                    alert(`Connection Failed: ${err.detail}`);
+                }
+            })
+            .catch(err => alert("Test failed: Network error"))
+            .finally(() => setIsTestingSmtp(false));
     };
 
     return (
@@ -602,11 +628,16 @@ export default function SettingsPage() {
                                         )}
                                     </div>
                                 </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsSmtpDialogOpen(false)}>Cancel</Button>
-                                    <Button onClick={handleSaveSmtp} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
-                                        {loading ? "Saving..." : "Save Configuration"}
+                                <DialogFooter className="flex justify-between sm:justify-between w-full">
+                                    <Button type="button" variant="secondary" onClick={handleTestSmtp} disabled={isTestingSmtp || loading}>
+                                        {isTestingSmtp ? <span className="animate-pulse">Testing...</span> : "Test Connection"}
                                     </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" onClick={() => setIsSmtpDialogOpen(false)}>Cancel</Button>
+                                        <Button onClick={handleSaveSmtp} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
+                                            {loading ? "Saving..." : "Save Configuration"}
+                                        </Button>
+                                    </div>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>

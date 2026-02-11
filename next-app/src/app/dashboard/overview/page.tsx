@@ -67,7 +67,7 @@ export default function OverviewPage() {
                     icon={Users}
                     color="bg-blue-500"
                     description="All time applications"
-                    href="/dashboard/signups"
+                    href="/dashboard/signups?status=ALL"
                 />
                 <StatCard
                     title="Pending Review"

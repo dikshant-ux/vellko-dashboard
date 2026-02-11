@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import {
@@ -23,17 +23,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronRight, Loader2, FileText, Calendar, Building2, User, ChevronLeft } from "lucide-react";
+import { Search, ChevronRight, Loader2, FileText, Calendar, Building2, User, ChevronLeft, Trash } from "lucide-react";
 
 function SignupsContent() {
     const { data: session } = useSession();
+    const router = useRouter();
     const searchParams = useSearchParams();
     const statusParam = searchParams.get('status');
     const authFetch = useAuthFetch();
 
     const [signups, setSignups] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState<string>(statusParam || 'ALL');
+    const [filterStatus, setFilterStatus] = useState<string>(statusParam || 'PENDING');
     const [searchTerm, setSearchTerm] = useState('');
     const [referrers, setReferrers] = useState<string[]>([]);
     const [filterReferral, setFilterReferral] = useState("");
@@ -111,6 +112,32 @@ function SignupsContent() {
             REJECTED: "bg-red-500/15 text-red-700 hover:bg-red-500/25 border-red-200",
         };
         return <Badge variant="outline" className={`${variants[status]} border font-medium`}>{status}</Badge>;
+        return <Badge variant="outline" className={`${variants[status]} border font-medium`}>{status}</Badge>;
+    };
+
+    const handleDelete = async (signupId: string, companyName: string) => {
+        if (!confirm(`Are you sure you want to permanently delete the signup for "${companyName}"? This action cannot be undone.`)) return;
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${signupId}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${session?.accessToken}`
+                }
+            });
+
+            if (res.ok) {
+                // Remove from state
+                setSignups(prev => prev.filter(s => s._id !== signupId));
+                setTotalCount(prev => prev - 1);
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.detail}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error deleting signup");
+        }
     };
 
     return (
@@ -130,10 +157,11 @@ function SignupsContent() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <Tabs defaultValue={filterStatus} value={filterStatus} onValueChange={(val) => { setFilterStatus(val); setCurrentPage(1); }} className="w-full md:w-auto">
                             <TabsList className="bg-muted p-1 rounded-lg">
-                                <TabsTrigger value="ALL" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all">All</TabsTrigger>
                                 <TabsTrigger value="PENDING" className="data-[state=active]:bg-white data-[state=active]:text-yellow-600 data-[state=active]:shadow-sm rounded-md transition-all">Pending</TabsTrigger>
                                 <TabsTrigger value="APPROVED" className="data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm rounded-md transition-all">Approved</TabsTrigger>
                                 <TabsTrigger value="REJECTED" className="data-[state=active]:bg-white data-[state=active]:text-red-600 data-[state=active]:shadow-sm rounded-md transition-all">Rejected</TabsTrigger>
+                                <TabsTrigger value="ALL" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all">All</TabsTrigger>
+
                             </TabsList>
                         </Tabs>
 
@@ -194,7 +222,11 @@ function SignupsContent() {
                                     </TableRow>
                                 ) : (
                                     filteredSignups.map((signup) => (
-                                        <TableRow key={signup._id} className="hover:bg-gray-50/50 transition-colors">
+                                        <TableRow
+                                            key={signup._id}
+                                            className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                            onClick={() => router.push(`/dashboard/signups/${signup._id}`)}
+                                        >
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
@@ -244,6 +276,19 @@ function SignupsContent() {
                                                         View Details <ChevronRight className="ml-1 h-4 w-4" />
                                                     </Link>
                                                 </Button>
+                                                {session?.user?.role === 'SUPER_ADMIN' && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDelete(signup._id, signup.companyInfo?.companyName);
+                                                        }}
+                                                    >
+                                                        <Trash className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))

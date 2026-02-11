@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, File, UploadFile
 from typing import List, Optional
+import smtplib
+import asyncio
 from database import db
 from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups
 from auth import get_current_user
@@ -339,6 +341,18 @@ async def update_referral(id: str, referral: str = Body(..., embed=True), user: 
         
     return {"message": "Referral updated successfully"}
 
+@router.delete("/signups/{id}")
+async def delete_signup(id: str, user: User = Depends(get_current_admin)):
+    if user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Only Super Admins can delete signups")
+
+    result = await db.signups.delete_one({"_id": ObjectId(id)})
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Signup not found")
+
+    return {"message": "Signup deleted successfully"}
+
 @router.patch("/signups/{id}")
 async def update_signup(id: str, update_data: SignupUpdate, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
@@ -613,3 +627,23 @@ async def update_user_role(username: str, role_update: UserRoleUpdate, user: Use
         raise HTTPException(status_code=404, detail="User not found")
         
     return {"message": f"User role updated to {role_update.role}"}
+
+from models import SMTPConfigCreate
+
+def _test_smtp_sync(config: SMTPConfigCreate):
+    with smtplib.SMTP(config.host, config.port) as server:
+        server.starttls()
+        server.login(config.username, config.password)
+
+@router.post("/settings/smtp/test")
+async def test_smtp_config(config: SMTPConfigCreate, user: User = Depends(get_current_admin)):
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can test SMTP")
+
+    try:
+        # Run in executor to avoid blocking
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _test_smtp_sync, config)
+        return {"message": "Connection successful"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Connection failed: {str(e)}")

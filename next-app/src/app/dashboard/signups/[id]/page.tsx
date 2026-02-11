@@ -135,6 +135,32 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm("Are you sure you want to permanently delete this signup? This action cannot be undone.")) return;
+        setActionLoading('delete');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${session?.accessToken}`
+                }
+            });
+
+            if (res.ok) {
+                alert("Signup deleted successfully");
+                router.push('/dashboard/signups');
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.detail}`);
+                setActionLoading(null);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error deleting signup");
+            setActionLoading(null);
+        }
+    };
+
     const handleDownload = async (doc: any) => {
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${doc.path}`);
@@ -425,6 +451,16 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             </Button>
                         </>
                     )}
+                    {session?.user?.role === 'SUPER_ADMIN' && (
+                        <Button
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={!!actionLoading}
+                        >
+                            {actionLoading === 'delete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
+                            Delete
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -671,30 +707,53 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         <div className="grid grid-cols-3 gap-1 items-center">
                             <span className="font-medium text-muted-foreground">IM:</span>
                             {isEditing ? (
-                                <div className="col-span-2 grid grid-cols-2 gap-2">
-                                    <select
-                                        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
-                                        value={editForm.accountInfo?.imService}
-                                        onChange={(e) => handleEditChange('accountInfo', 'imService', e.target.value)}
-                                    >
-                                        <option value="">None</option>
-                                        {Object.entries(IM_SERVICES).map(([value, label]) => (
-                                            <option key={value} value={value}>{label}</option>
-                                        ))}
-                                    </select>
-                                    <Input
-                                        placeholder="Handle"
-                                        className="h-8"
-                                        value={editForm.accountInfo?.imHandle}
-                                        onChange={(e) => handleEditChange('accountInfo', 'imHandle', e.target.value)}
-                                    />
+                                <div className="col-span-2 space-y-2">
+                                    <div className="text-xs text-muted-foreground mb-1">Editing multiple IMs not yet supported in admin. Modifying primary only.</div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                            value={editForm.accountInfo?.imService}
+                                            onChange={(e) => handleEditChange('accountInfo', 'imService', e.target.value)}
+                                        >
+                                            <option value="">None</option>
+                                            {Object.entries(IM_SERVICES).map(([value, label]) => (
+                                                <option key={value} value={value}>{label}</option>
+                                            ))}
+                                        </select>
+                                        <Input
+                                            placeholder="Handle"
+                                            className="h-8"
+                                            value={editForm.accountInfo?.imHandle}
+                                            onChange={(e) => handleEditChange('accountInfo', 'imHandle', e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                             ) : (
-                                <span className="col-span-2">
-                                    {signup.accountInfo?.imService ? (
-                                        <>{IM_SERVICES[signup.accountInfo.imService] || signup.accountInfo.imService}: {signup.accountInfo.imHandle}</>
-                                    ) : '-'}
-                                </span>
+                                <div className="col-span-2">
+                                    {signup.accountInfo?.additionalImChannels && Object.keys(signup.accountInfo.additionalImChannels).length > 0 ? (
+                                        <div className="space-y-1">
+                                            {Object.entries(signup.accountInfo.additionalImChannels).map(([service, handle]: any) => (
+                                                handle ? (
+                                                    <div key={service} className="flex items-center gap-2">
+                                                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-5 min-w-[60px] justify-center">
+                                                            {IM_SERVICES[service] || service}
+                                                        </Badge>
+                                                        <span className="text-sm">
+                                                            {handle}
+                                                            {service === signup.accountInfo.imService && <span className="ml-2 text-xs text-muted-foreground">(Primary)</span>}
+                                                        </span>
+                                                    </div>
+                                                ) : null
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span>
+                                            {signup.accountInfo?.imService ? (
+                                                <>{IM_SERVICES[signup.accountInfo.imService] || signup.accountInfo.imService}: {signup.accountInfo.imHandle}</>
+                                            ) : '-'}
+                                        </span>
+                                    )}
+                                </div>
                             )}
                         </div>
                         <div className="grid grid-cols-3 gap-1 items-center">

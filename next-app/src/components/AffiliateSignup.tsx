@@ -40,9 +40,9 @@ export default function AffiliateSignup() {
             fax: "",
             email: "",
             timezone: "Pacific Standard Time (Mexico)",
-            imService: "Google",
+            imService: "",
             imHandle: "",
-
+            additionalImChannels: {}
         },
         paymentInfo: {
             payTo: "0",
@@ -58,6 +58,16 @@ export default function AffiliateSignup() {
     const [ipAddress, setIpAddress] = useState("0.0.0.0");
     const [referrals, setReferrals] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // IM Handles State
+    const [imHandles, setImHandles] = useState<Record<string, string>>({
+        "Google": "",
+        "Teams": "",
+        "WhatsApp": "",
+        "Telegram": ""
+    });
+    const [primaryIm, setPrimaryIm] = useState<string>("Google");
+
     const router = useRouter();
 
 
@@ -118,6 +128,13 @@ export default function AffiliateSignup() {
     const handleCaptchaChange = (value: any) => {
 
         setCaptchaValue(value);
+    };
+
+    const handleImChange = (service: string, value: string) => {
+        setImHandles(prev => ({
+            ...prev,
+            [service]: value
+        }));
     };
 
     const handleSubmit = (e: any) => {
@@ -219,12 +236,25 @@ export default function AffiliateSignup() {
         // Remove 'agreed' from the payload if strictly following model, but model includes it.
         // We send the whole form object which matches the Pydantic schema structure.
 
+        // Prepare IM Data
+        const primaryHandle = imHandles[primaryIm];
+        const finalForm = {
+            ...form,
+            accountInfo: {
+                ...form.accountInfo,
+                imService: primaryIm,
+                imHandle: primaryHandle,
+                additionalImChannels: imHandles
+            },
+            ipAddress
+        };
+
         fetch(targetUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ ...form, ipAddress })
+            body: JSON.stringify(finalForm)
         })
             .then(async (response) => {
                 if (!response.ok) {
@@ -521,15 +551,41 @@ export default function AffiliateSignup() {
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">IM</label>
-                                        <div className="input-group">
-                                            <select className="form-select" style={{ maxWidth: "120px" }}
-                                                value={form.accountInfo.imService} onChange={e => handleChange('accountInfo', 'imService', e.target.value)}>
-                                                {Object.entries(IM_SERVICES).map(([value, label]) => (
-                                                    <option key={value} value={value}>{label}</option>
+                                        <div className="mb-3">
+                                            <label className="form-label small text-muted">IM Services <span className="text-danger">*</span></label>
+                                            <div className="card p-3 bg-light border-0">
+                                                {Object.entries(IM_SERVICES).map(([key, label]) => (
+                                                    <div key={key} className="row mb-2 align-items-center">
+                                                        <div className="col-md-3">
+                                                            <div className="form-check">
+                                                                <input
+                                                                    className="form-check-input"
+                                                                    type="radio"
+                                                                    name="primaryIm"
+                                                                    id={`primary-${key}`}
+                                                                    checked={primaryIm === key}
+                                                                    onChange={() => setPrimaryIm(key)}
+                                                                />
+                                                                <label className="form-check-label small fw-bold" htmlFor={`primary-${key}`}>
+                                                                    {label}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div className="col-md-9">
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm"
+                                                                placeholder={`Enter ${label} Handle`}
+                                                                value={imHandles[key]}
+                                                                onChange={e => handleImChange(key, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 ))}
-                                            </select>
-                                            <input type="text" className="form-control" placeholder="Enter IM Handle"
-                                                value={form.accountInfo.imHandle} onChange={e => handleChange('accountInfo', 'imHandle', e.target.value)} />
+                                                <div className="form-text small text-muted mt-1">
+                                                    Select the radio button for your <strong>Primary</strong> contact method.
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <br />

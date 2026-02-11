@@ -37,6 +37,7 @@ class AccountInfo(BaseModel):
     timezone: str
     imService: Optional[str] = ""
     imHandle: Optional[str] = ""
+    additionalImChannels: Optional[Dict[str, str]] = Field(default_factory=dict)
 
 class PaymentInfo(BaseModel):
     payTo: str
@@ -189,8 +190,9 @@ class AccountInfoUpdate(BaseModel):
     fax: Optional[str] = None
     email: Optional[EmailStr] = None
     timezone: Optional[str] = None
-    imService: Optional[str] = None
-    imHandle: Optional[str] = None
+    imService: Optional[str] = ""
+    imHandle: Optional[str] = ""
+    additionalImChannels: Optional[Dict[str, str]] = None
 
 class PaymentInfoUpdate(BaseModel):
     payTo: Optional[str] = None
