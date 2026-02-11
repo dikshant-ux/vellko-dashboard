@@ -76,7 +76,8 @@ async def get_stats(user: User = Depends(get_current_admin)):
     # Top Referrers
     # Group by companyInfo.referral
     referral_pipeline = [
-        {"$match": query},
+        # {"$match": query}, # Use empty query for global
+        {"$match": {}},
         {
             "$group": {
                 "_id": "$companyInfo.referral",
