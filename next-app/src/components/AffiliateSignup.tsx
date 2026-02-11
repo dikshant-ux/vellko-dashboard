@@ -550,7 +550,7 @@ export default function AffiliateSignup() {
                                         </select>
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label small text-muted">IM</label>
+                                        
                                         <div className="mb-3">
                                             <label className="form-label small text-muted">IM Services <span className="text-danger">*</span></label>
                                             <div className="card p-3 bg-light border-0">
