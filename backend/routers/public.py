@@ -11,12 +11,21 @@ import pyotp
 
 router = APIRouter()
 
-@router.get("/referrers", response_model=list[str])
-async def get_referrers():
-    # Return list of full names of all users to be used as referrals
-    cursor = db.users.find({"disabled": {"$ne": True}}, {"full_name": 1, "_id": 0})
+@router.get("/referrers", response_model=list[dict])
+async def get_referrers(application_type: str = None):
+    # Return list of {id, name} of all users to be used as referrals
+    # Filter by application_permission if application_type is provided
+    query = {"disabled": {"$ne": True}}
+    
+    if application_type:
+        # If application_type is specified, show users with matching permission or "Both"
+        if application_type in ["Web Traffic", "Call Traffic"]:
+            query["application_permission"] = {"$in": [application_type, "Both"]}
+        # If application_type is "Both", show all users
+    
+    cursor = db.users.find(query, {"full_name": 1, "_id": 1, "username": 1})
     users = await cursor.to_list(length=1000)
-    return [u["full_name"] for u in users if u.get("full_name")]
+    return [{"id": str(u["_id"]), "name": u.get("full_name") or u.get("username")} for u in users]
 
 @router.post("/signup", response_model=dict)
 async def create_signup(signup: SignupCreate):

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { termsText } from "./TermsText";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ArrowRight, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Loader2, Globe, Phone, Layers } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { COUNTRIES, US_STATES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, TIMEZONES, IM_SERVICES, TAX_CLASSES, APPLICATION_TYPES } from "@/constants/mappings";
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
@@ -21,7 +21,8 @@ export default function AffiliateSignup() {
             zip: "",
             country: "US",
             corporateWebsite: "",
-            referral: ""
+            referral: "",
+            referral_id: ""
         },
         marketingInfo: {
 
@@ -57,7 +58,7 @@ export default function AffiliateSignup() {
     const [errors, setErrors] = useState<any>({});
     const [submitted, setSubmitted] = useState(false);
     const [ipAddress, setIpAddress] = useState("0.0.0.0");
-    const [referrals, setReferrals] = useState<string[]>([]);
+    const [referrals, setReferrals] = useState<{ id: string, name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
     // IM Handles State
@@ -87,18 +88,40 @@ export default function AffiliateSignup() {
                 console.error("Error fetching IP:", error);
                 // Fallback is already set in initial state
             });
-
-        // Fetch Referrals
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrers`)
-            .then(res => res.json())
-            .then(data => {
-                console.log("Referrals fethed:", data);
-                if (Array.isArray(data)) {
-                    setReferrals(data);
-                }
-            })
-            .catch(err => console.error("Error fetching referrals:", err));
     }, []);
+
+    // Fetch referrals based on application type
+    useEffect(() => {
+        const applicationType = form.marketingInfo.applicationType;
+        if (!applicationType) {
+            // If no application type selected, fetch all referrals
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrers`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Referrals fetched:", data);
+                    if (Array.isArray(data)) {
+                        setReferrals(data);
+                    }
+                })
+                .catch(err => console.error("Error fetching referrals:", err));
+        } else {
+            // Fetch referrals filtered by application type
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrers?application_type=${encodeURIComponent(applicationType)}`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log(`Referrals fetched for ${applicationType}:`, data);
+                    if (Array.isArray(data)) {
+                        setReferrals(data);
+                        // Reset referral if current selection is not in the new list
+                        if (form.companyInfo.referral && !data.some((r: any) => r.name === form.companyInfo.referral)) {
+                            handleChange('companyInfo', 'referral', '');
+                            handleChange('companyInfo', 'referral_id', '');
+                        }
+                    }
+                })
+                .catch(err => console.error("Error fetching referrals:", err));
+        }
+    }, [form.marketingInfo.applicationType]);
 
     const handleChange = (section: any, field: any, value: any) => {
         setForm((prev: any) => ({
@@ -209,6 +232,11 @@ export default function AffiliateSignup() {
         }
         if (!form.accountInfo.email.trim()) newErrors['accountInfo.email'] = "Email is required";
         else if (!/\S+@\S+\.\S+/.test(form.accountInfo.email)) newErrors['accountInfo.email'] = "Invalid email format";
+
+        // IM Handle Validation
+        if (!imHandles[primaryIm] || !imHandles[primaryIm].trim()) {
+            newErrors['accountInfo.imHandle'] = "Primary IM Handle is required";
+        }
 
         // Payment Info Validation
         if (!form.paymentInfo.payTo) newErrors['paymentInfo.payTo'] = "Payment To is required";
@@ -383,6 +411,102 @@ export default function AffiliateSignup() {
 
                                 <form onSubmit={handleSubmit} noValidate className="p-3">
 
+                                    {/* Application Type Selection - Interactive Cards */}
+                                    <div className="mb-4">
+                                        <h6 className="text-center mb-3 fw-bold text-dark">What type of traffic do you want to promote?</h6>
+                                        <div className="row g-2">
+                                            <div className="col-md-4">
+                                                <div
+                                                    onClick={() => handleChange('marketingInfo', 'applicationType', 'Web Traffic')}
+                                                    className={`card h-100 border-2 cursor-pointer transition-all ${form.marketingInfo.applicationType === 'Web Traffic'
+                                                        ? 'border-danger shadow-lg bg-danger bg-opacity-10'
+                                                        : 'border-secondary hover:border-danger hover:shadow'
+                                                        }`}
+                                                    style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+                                                >
+                                                    <div className="card-body text-center p-3">
+                                                        <div className={`rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center ${form.marketingInfo.applicationType === 'Web Traffic' ? 'bg-danger' : 'bg-secondary bg-opacity-25'
+                                                            }`} style={{ width: '45px', height: '45px' }}>
+                                                            <Globe className={form.marketingInfo.applicationType === 'Web Traffic' ? 'text-white' : 'text-secondary'} size={22} />
+                                                        </div>
+                                                        <h6 className="fw-bold mb-1 small">Web Traffic</h6>
+                                                        <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>Online leads, landing pages, display ads</p>
+                                                        {form.marketingInfo.applicationType === 'Web Traffic' && (
+                                                            <div className="mt-2">
+                                                                <span className="badge bg-danger p-2 fs-7 d-inline-flex align-items-center gap-1">
+                                                                    <Check size={12} />
+                                                                    Selected
+                                                                </span>
+                                                            </div>
+
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="col-md-4">
+                                                <div
+                                                    onClick={() => handleChange('marketingInfo', 'applicationType', 'Call Traffic')}
+                                                    className={`card h-100 border-2 cursor-pointer transition-all ${form.marketingInfo.applicationType === 'Call Traffic'
+                                                        ? 'border-danger shadow-lg bg-danger bg-opacity-10'
+                                                        : 'border-secondary hover:border-danger hover:shadow'
+                                                        }`}
+                                                    style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+                                                >
+                                                    <div className="card-body text-center p-3">
+                                                        <div className={`rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center ${form.marketingInfo.applicationType === 'Call Traffic' ? 'bg-danger' : 'bg-secondary bg-opacity-25'
+                                                            }`} style={{ width: '45px', height: '45px' }}>
+                                                            <Phone className={form.marketingInfo.applicationType === 'Call Traffic' ? 'text-white' : 'text-secondary'} size={22} />
+                                                        </div>
+                                                        <h6 className="fw-bold mb-1 small">Call Traffic</h6>
+                                                        <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>Inbound calls, IVR, call centers</p>
+                                                        {form.marketingInfo.applicationType === 'Call Traffic' && (
+                                                            <div className="mt-2">
+                                                                <span className="badge bg-danger p-2 fs-7 d-inline-flex align-items-center gap-1">
+                                                                    <Check size={12} />
+                                                                    Selected
+                                                                </span>
+                                                            </div>
+
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="col-md-4">
+                                                <div
+                                                    onClick={() => handleChange('marketingInfo', 'applicationType', 'Both')}
+                                                    className={`card h-100 border-2 cursor-pointer transition-all ${form.marketingInfo.applicationType === 'Both'
+                                                        ? 'border-danger shadow-lg bg-danger bg-opacity-10'
+                                                        : 'border-secondary hover:border-danger hover:shadow'
+                                                        }`}
+                                                    style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+                                                >
+                                                    <div className="card-body text-center p-3">
+                                                        <div className={`rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center ${form.marketingInfo.applicationType === 'Both' ? 'bg-danger' : 'bg-secondary bg-opacity-25'
+                                                            }`} style={{ width: '45px', height: '45px' }}>
+                                                            <Layers className={form.marketingInfo.applicationType === 'Both' ? 'text-white' : 'text-secondary'} size={22} />
+                                                        </div>
+                                                        <h6 className="fw-bold mb-1 small">Both</h6>
+                                                        <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>All types of promotional traffic</p>
+                                                        {form.marketingInfo.applicationType === 'Both' && (
+                                                            <div className="mt-2">
+                                                                <span className="badge bg-danger p-2 fs-7 d-inline-flex align-items-center gap-1">
+                                                                    <Check size={12} />
+                                                                    Selected
+                                                                </span>
+                                                            </div>
+
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {errors['marketingInfo.applicationType'] && (
+                                            <div className="text-danger text-center mt-2 small">{errors['marketingInfo.applicationType']}</div>
+                                        )}
+                                    </div>
+
+                                    <hr className="my-4" />
+
 
                                     {/* Company Information */}
                                     <h5 className="section-title border-bottom pb-2 mb-3">Company Information</h5>
@@ -446,29 +570,40 @@ export default function AffiliateSignup() {
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Who Referred You? <span className="text-danger">*</span></label>
-                                        <select className={`form-select ${errors['companyInfo.referral'] ? 'is-invalid' : ''}`} required value={form.companyInfo.referral} onChange={e => handleChange('companyInfo', 'referral', e.target.value)}>
-                                            <option value="">Select Referral</option>
+                                        <select
+                                            className={`form-select ${errors['companyInfo.referral'] ? 'is-invalid' : ''}`}
+                                            required
+                                            disabled={!form.marketingInfo.applicationType}
+                                            value={form.companyInfo.referral_id || (form.companyInfo.referral === "Other" ? "Other" : "")}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === "Other") {
+                                                    handleChange('companyInfo', 'referral', "Other");
+                                                    handleChange('companyInfo', 'referral_id', "");
+                                                } else {
+                                                    const selectedReferral = referrals.find(r => r.id === val);
+                                                    handleChange('companyInfo', 'referral_id', val);
+                                                    handleChange('companyInfo', 'referral', selectedReferral ? selectedReferral.name : "");
+                                                }
+                                            }}
+                                        >
+                                            <option value="">
+                                                {!form.marketingInfo.applicationType
+                                                    ? "Please select Application Type first"
+                                                    : "Select Referral"}
+                                            </option>
                                             {referrals.map((ref, index) => (
-                                                <option key={index} value={ref}>{ref}</option>
+                                                <option key={index} value={ref.id}>{ref.name}</option>
                                             ))}
                                             <option value="Other">Other</option>
                                         </select>
+                                        {!form.marketingInfo.applicationType && (
+                                            <div className="text-warning small mt-1">⚠️ Please select Application Type above to see available referrals</div>
+                                        )}
                                         <div className="invalid-feedback">{errors['companyInfo.referral']}</div>
                                     </div>
 
-                                    <br />
-                                    {/* Marketing Information */}
                                     <h5 className="section-title border-bottom pb-2 mb-3 mt-4">Marketing Information</h5>
-                                    <div className="mb-3">
-                                        <label className="form-label small text-muted">Application Type <span className="text-danger">*</span></label>
-                                        <select className={`form-select ${errors['marketingInfo.applicationType'] ? 'is-invalid' : ''}`} value={form.marketingInfo.applicationType} onChange={e => handleChange('marketingInfo', 'applicationType', e.target.value)}>
-                                            <option value="">Select Application Type</option>
-                                            {Object.entries(APPLICATION_TYPES).map(([value, label]) => (
-                                                <option key={value} value={value}>{label}</option>
-                                            ))}
-                                        </select>
-                                        <div className="invalid-feedback">{errors['marketingInfo.applicationType']}</div>
-                                    </div>
 
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Payment Model</label>
@@ -593,11 +728,15 @@ export default function AffiliateSignup() {
                                                         <div className="col-md-9">
                                                             <input
                                                                 type="text"
-                                                                className="form-control form-control-sm"
+                                                                className={`form-control form-control-sm ${primaryIm === key && errors['accountInfo.imHandle'] ? 'is-invalid' : ''}`}
                                                                 placeholder={`Enter ${label} Handle`}
                                                                 value={imHandles[key]}
                                                                 onChange={e => handleImChange(key, e.target.value)}
+                                                                required={primaryIm === key}
                                                             />
+                                                            {primaryIm === key && errors['accountInfo.imHandle'] && (
+                                                                <div className="invalid-feedback">{errors['accountInfo.imHandle']}</div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}

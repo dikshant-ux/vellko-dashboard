@@ -27,7 +27,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [signup, setSignup] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [referrers, setReferrers] = useState<string[]>([]);
+    const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [isEditingReferral, setIsEditingReferral] = useState(false);
     const [newReferral, setNewReferral] = useState("");
     const [referralLoading, setReferralLoading] = useState(false);
@@ -40,7 +40,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     // Decision Dialog State
     const [isDecisionOpen, setIsDecisionOpen] = useState(false);
     const [decisionReason, setDecisionReason] = useState("");
-    const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
+    const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'request_approval' | null>(null);
+    const [apiSelection, setApiSelection] = useState({ cake: false, ringba: false });
+    const [showApiSelection, setShowApiSelection] = useState(false);
 
     // Document Upload State
     const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -50,19 +52,35 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [ipLocation, setIpLocation] = useState<string | null>(null);
     const [loadingLocation, setLoadingLocation] = useState(false);
 
+    // Notes State
+    const [noteContent, setNoteContent] = useState("");
+    const [isAddingNote, setIsAddingNote] = useState(false);
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [editNoteContent, setEditNoteContent] = useState("");
+
     useEffect(() => {
         if (session?.accessToken && id) {
-            Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}`, {
-                    headers: { Authorization: `Bearer ${session.accessToken}` }
-                }).then(res => res.json()),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrers`).then(res => res.json())
-            ])
-                .then(([signupData, referrersData]) => {
+            // First fetch the signup to get its application type
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}`, {
+                headers: { Authorization: `Bearer ${session.accessToken}` }
+            })
+                .then(res => res.json())
+                .then(signupData => {
                     setSignup(signupData);
-                    setReferrers(referrersData);
                     setNewReferral(signupData.companyInfo?.referral || "");
                     setEditForm(JSON.parse(JSON.stringify(signupData))); // Deep clone for editing
+
+                    // Fetch referrers filtered by the signup's application type
+                    const applicationType = signupData.marketingInfo?.applicationType;
+                    const referrersUrl = applicationType
+                        ? `${process.env.NEXT_PUBLIC_API_URL}/referrers?application_type=${encodeURIComponent(applicationType)}`
+                        : `${process.env.NEXT_PUBLIC_API_URL}/referrers`;
+
+                    return fetch(referrersUrl);
+                })
+                .then(res => res.json())
+                .then(referrersData => {
+                    setReferrers(referrersData);
                     setLoading(false);
                 })
                 .catch(err => {
@@ -71,6 +89,31 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 });
         }
     }, [session, id]);
+
+    // Effect to set initial API selection based on permissions when dialog opens
+    useEffect(() => {
+        if (isDecisionOpen && signup && session?.user) {
+            const userPermission = session.user.application_permission;
+            const appType = signup.marketingInfo?.applicationType;
+
+            if (appType === 'Both') {
+                if (userPermission === 'Web Traffic') {
+                    setApiSelection({ cake: true, ringba: false });
+                } else if (userPermission === 'Call Traffic') {
+                    setApiSelection({ cake: false, ringba: true });
+                }
+
+                // If permission is Both, consistent with initiateAction
+                if (userPermission === 'Both') {
+                    if (signup.cake_affiliate_id && !signup.ringba_affiliate_id) {
+                        setApiSelection({ cake: false, ringba: true });
+                    } else if (!signup.cake_affiliate_id && signup.ringba_affiliate_id) {
+                        setApiSelection({ cake: true, ringba: false });
+                    }
+                }
+            }
+        }
+    }, [isDecisionOpen, signup, session]);
 
     const handleUpload = async () => {
         if (!uploadFile) return;
@@ -209,35 +252,114 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
-    const initiateAction = (action: 'approve' | 'reject') => {
+    const initiateAction = (action: 'approve' | 'reject' | 'request_approval') => {
         setPendingAction(action);
         setDecisionReason("");
+
+        if (action === 'approve' || action === 'request_approval') {
+            const appType = signup.marketingInfo?.applicationType;
+            const userPermission = session?.user?.application_permission;
+
+            if (appType === 'Call Traffic') {
+                setApiSelection({ cake: false, ringba: true });
+                setShowApiSelection(false); // Only 1 option, no need to show if we follow existing logic? Wait, existing logic hides it?
+                // Actually existing logic showed it only for 'Both'. 
+                // Let's refine: For simple types, we auto-select and hide. 
+                // For 'Both', we show. 
+                // AND for granular control: we might want to show it disabled?
+                // Current implementation:
+                // Call/Web -> hide
+                // Both -> show
+                // Let's stick to that for consistent UX.
+                setShowApiSelection(false);
+            } else if (appType === 'Web Traffic') {
+                setApiSelection({ cake: true, ringba: false });
+                setShowApiSelection(false);
+            } else if (appType === 'Both') {
+                // Smart Granular Logic using Boolean Status
+                // If Cake is True (Approved) or False (Rejected) -> Don't select it.
+                // If Ringba is True or False -> Don't select it.
+
+                const isCakeDone = signup.cake_api_status === true || signup.cake_api_status === false || !!signup.cake_affiliate_id;
+                const isRingbaDone = signup.ringba_api_status === true || signup.ringba_api_status === false || !!signup.ringba_affiliate_id;
+
+                if (userPermission === 'Web Traffic') {
+                    setApiSelection({ cake: true, ringba: false });
+                    setShowApiSelection(false);
+                } else if (userPermission === 'Call Traffic') {
+                    setApiSelection({ cake: false, ringba: true });
+                    setShowApiSelection(false);
+                } else {
+                    // Both or Super Admin
+                    if (isCakeDone && !isRingbaDone) {
+                        setApiSelection({ cake: false, ringba: true });
+                    } else if (!isCakeDone && isRingbaDone) {
+                        setApiSelection({ cake: true, ringba: false });
+                    } else {
+                        // Both pending or both done (retry?)
+                        // Default to both enabled if not done
+                        setApiSelection({
+                            cake: !isCakeDone,
+                            ringba: !isRingbaDone
+                        });
+                    }
+                    setShowApiSelection(true);
+                }
+            } else {
+                setApiSelection({ cake: true, ringba: false });
+                setShowApiSelection(false);
+            }
+        } else {
+            setShowApiSelection(false);
+        }
         setIsDecisionOpen(true);
     };
 
     const confirmAction = async () => {
         if (!pendingAction) return;
 
+        // Validation for "Both" scenario
+        if ((pendingAction === 'approve' || pendingAction === 'request_approval') && showApiSelection) {
+            if (!apiSelection.cake && !apiSelection.ringba) {
+                alert("Please select at least one API to trigger/request.");
+                return;
+            }
+        }
+
         setActionLoading(pendingAction);
         setIsDecisionOpen(false);
 
+        // Map request_approval to approve endpoint (backend handles logic based on permission)
+        // OR call a specific endpoint?
+        // Backend `approve_signup` logic: checks `can_approve_signups`. If false, status -> REQUESTED_FOR_APPROVAL.
+        // So we can still call `/approve`.
+
+        // But wait, if it's "Accepting" a request, we also call `/approve`.
+        // So `/approve` is the universal "Move forward" endpoint.
+        const endpointAction = pendingAction === 'request_approval' ? 'approve' : pendingAction;
+
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/${pendingAction}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/${endpointAction}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${session?.accessToken}`
                 },
-                body: JSON.stringify({ reason: decisionReason })
+                body: JSON.stringify({
+                    reason: decisionReason,
+                    addToCake: apiSelection.cake,
+                    addToRingba: apiSelection.ringba
+                })
             });
 
             if (res.ok) {
                 const data = await res.json();
                 if (pendingAction === 'approve') {
                     alert(data.message || "Affiliate Added Successfully");
+                } else if (pendingAction === 'request_approval') {
+                    alert("Approval requested successfully");
                 }
                 router.refresh();
-                // Reload data
                 setLoading(true);
                 fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}`, {
                     headers: { Authorization: `Bearer ${session?.accessToken}` }
@@ -308,6 +430,90 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
+
+
+    const handleAddNote = async () => {
+        if (!noteContent.trim()) return;
+        setIsAddingNote(true);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({ note: noteContent })
+            });
+
+            if (res.ok) {
+                const newNote = await res.json();
+                setSignup((prev: { notes: any; }) => ({
+                    ...prev,
+                    notes: [...(prev.notes || []), newNote]
+                }));
+                setNoteContent("");
+            } else {
+                const err = await res.json();
+                alert(`Error adding note: ${err.detail}`);
+            }
+        } catch (error) {
+            console.error("Error adding note", error);
+            alert("Failed to add note");
+        } finally {
+            setIsAddingNote(false);
+        }
+    };
+
+    const handleUpdateNote = async (noteId: string) => {
+        if (!editNoteContent.trim()) return;
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/notes/${noteId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({ note: editNoteContent })
+            });
+
+            if (res.ok) {
+                setSignup((prev: { notes: any[]; }) => ({
+                    ...prev,
+                    notes: prev.notes.map((n: any) => n.id === noteId ? { ...n, content: editNoteContent, updated_at: new Date().toISOString() } : n)
+                }));
+                setEditingNoteId(null);
+                setEditNoteContent("");
+            } else {
+                alert("Failed to update note");
+            }
+        } catch (error) {
+            console.error("Error updating note", error);
+        }
+    };
+
+    const handleDeleteNote = async (noteId: string) => {
+        if (!confirm("Are you sure you want to delete this note?")) return;
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/notes/${noteId}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${session?.accessToken}`
+                }
+            });
+
+            if (res.ok) {
+                setSignup((prev: { notes: any[]; }) => ({
+                    ...prev,
+                    notes: prev.notes.filter((n: any) => n.id !== noteId)
+                }));
+            } else {
+                alert("Failed to delete note");
+            }
+        } catch (error) {
+            console.error("Error deleting note", error);
+        }
+    };
+
     const handleEditChange = (section: string, field: string, value: any) => {
         setEditForm((prev: any) => ({
             ...prev,
@@ -362,13 +568,61 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>;
     if (!signup) return <div>Not found</div>;
 
+    const getDisplayStatus = (signup: any) => {
+        if (!signup) return 'PENDING';
+        const userPermission = session?.user?.application_permission;
+        const userRole = session?.user?.role;
+        const appType = signup.marketingInfo?.applicationType;
+
+        // If not "Both", rely on global status
+        if (appType !== 'Both') return signup.status;
+
+        // If Super Admin or Both, check combined logic
+        if (userRole === 'SUPER_ADMIN' || userPermission === 'Both' || !userPermission) {
+            const cake = signup.cake_api_status;
+            const ringba = signup.ringba_api_status;
+
+            if (cake === true && ringba === true) return 'APPROVED';
+
+            // Refined Partial Logic
+            if ((cake === true && ringba === false) || (ringba === true && cake === false)) {
+                return 'APPROVED (PARTIAL)';
+            }
+
+            if (cake === true || ringba === true) return 'PARTIALLY APPROVED';
+
+            if (cake === false && ringba === false) return 'REJECTED';
+
+            return signup.status;
+        }
+
+        // If specific permission, only care about that status
+        if (userPermission === 'Web Traffic') {
+            if (signup.cake_api_status === true) return 'APPROVED';
+            if (signup.cake_api_status === false) return 'REJECTED';
+            return 'PENDING';
+        }
+
+        if (userPermission === 'Call Traffic') {
+            if (signup.ringba_api_status === true) return 'APPROVED';
+            if (signup.ringba_api_status === false) return 'REJECTED';
+            return 'PENDING';
+        }
+
+        return signup.status;
+    };
+
     const StatusBadge = ({ status }: { status: string }) => {
+        const displayStatus = getDisplayStatus(signup);
+
         const variants: any = {
             PENDING: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
             APPROVED: "bg-green-100 text-green-800 hover:bg-green-100",
             REJECTED: "bg-red-100 text-red-800 hover:bg-red-100",
+            "PARTIALLY APPROVED": "bg-blue-100 text-blue-800 hover:bg-blue-100",
+            "APPROVED (PARTIAL)": "bg-orange-100 text-orange-800 hover:bg-orange-100",
         };
-        return <Badge className={variants[status] || ""} variant="secondary">{status}</Badge>;
+        return <Badge className={variants[displayStatus] || variants[status] || ""} variant="secondary">{displayStatus}</Badge>;
     };
 
     const importIcons = { Pencil: "lucide-react" }; // Just a marker for imports logic if needed, but imports are at top
@@ -389,7 +643,26 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <StatusBadge status={signup.status} />
+                    <div className="flex flex-col items-end gap-1">
+                        <StatusBadge status={signup.status} />
+                        {/* Granular Status Badges (Boolean) */}
+                        {/* Granular Status Badges (Boolean) - Always show for Both type users */}
+                        {(signup.marketingInfo?.applicationType === 'Both' && ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '')) && (
+                            <div className="flex gap-2 text-xs">
+                                <Badge variant="outline" className={
+                                    signup.cake_api_status === true ? "border-green-500 text-green-600 bg-green-50" :
+                                        signup.cake_api_status === false ? "border-red-500 text-red-600 bg-red-50" :
+                                            "border-yellow-500 text-yellow-600 bg-yellow-50"
+                                }>Cake: {signup.cake_api_status === true ? 'Approved' : signup.cake_api_status === false ? 'Rejected' : 'Pending'}</Badge>
+
+                                <Badge variant="outline" className={
+                                    signup.ringba_api_status === true ? "border-green-500 text-green-600 bg-green-50" :
+                                        signup.ringba_api_status === false ? "border-red-500 text-red-600 bg-red-50" :
+                                            "border-yellow-500 text-yellow-600 bg-yellow-50"
+                                }>Ringba: {signup.ringba_api_status === true ? 'Approved' : signup.ringba_api_status === false ? 'Rejected' : 'Pending'}</Badge>
+                            </div>
+                        )}
+                    </div>
                     {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (
                         <>
                             {isEditing ? (
@@ -412,6 +685,100 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         </>
                     )}
                     {signup.status === 'PENDING' && (
+                        <>
+                            <Button
+                                variant="destructive"
+                                onClick={() => initiateAction('reject')}
+                                disabled={!!actionLoading}
+                            >
+                                {actionLoading === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                                Reject
+                            </Button>
+
+                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_approve_signups) ? (
+                                <Button
+                                    onClick={() => initiateAction('approve')}
+                                    disabled={!!actionLoading}
+                                    className="bg-green-600 hover:bg-green-700"
+                                >
+                                    {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                                    Approve
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => initiateAction('request_approval')}
+                                    disabled={!!actionLoading}
+                                >
+                                    {actionLoading === 'request_approval' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                    Request Approval
+                                </Button>
+                            )}
+                        </>
+
+                    )}
+
+                    {/* Partial Approval Logic: Allow action if Both type and one API is missing, even if status is APPROVED or REQUESTED */}
+                    {signup.marketingInfo?.applicationType === 'Both' &&
+                        (signup.status === 'APPROVED' || signup.status === 'REQUESTED_FOR_APPROVAL') &&
+                        (!signup.cake_affiliate_id || !signup.ringba_affiliate_id) && (
+                            <>
+                                {/* Only show if user has permission to act on the MISSING one */}
+                                {/* Logic is a bit complex:
+                                 If Cake missing -> Web Traffic OR Both user can act.
+                                 If Ringba missing -> Call Traffic OR Both user can act.
+                             */}
+                                {(
+                                    (!signup.cake_affiliate_id && ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) ||
+                                    (!signup.ringba_affiliate_id && ['Call Traffic', 'Both'].includes(session?.user?.application_permission || ''))
+                                ) && (
+                                        <>
+                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_approve_signups) ? (
+                                                <>
+                                                    {/* Hide Reject Remaining if the remaining item is ALREADY rejected */}
+                                                    {
+                                                        // If Cake is missing and Cake is NOT rejected -> Show Reject
+                                                        // If Ringba is missing and Ringba is NOT rejected -> Show Reject
+                                                        ((!signup.cake_affiliate_id && signup.cake_api_status !== false) ||
+                                                            (!signup.ringba_affiliate_id && signup.ringba_api_status !== false)) && (
+                                                            <Button
+                                                                variant="destructive"
+                                                                onClick={() => initiateAction('reject')}
+                                                                disabled={!!actionLoading}
+                                                                className="ml-2"
+                                                            >
+                                                                {actionLoading === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                                                                Reject Remaining
+                                                            </Button>
+                                                        )
+                                                    }
+                                                    <Button
+                                                        onClick={() => initiateAction('approve')}
+                                                        disabled={!!actionLoading}
+                                                        className="bg-green-600 hover:bg-green-700 ml-2"
+                                                    >
+                                                        {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                                                        {((!signup.cake_affiliate_id && signup.cake_api_status === false) ||
+                                                            (!signup.ringba_affiliate_id && signup.ringba_api_status === false)) ? 'Retry Approval' : 'Approve Remaining'}
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => initiateAction('request_approval')}
+                                                    disabled={!!actionLoading}
+                                                    className="ml-2"
+                                                >
+                                                    {actionLoading === 'request_approval' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                                    Request Remaining
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
+                            </>
+                        )}
+
+                    {signup.status === 'REQUESTED_FOR_APPROVAL' && ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (
                         <>
                             <Button
                                 variant="destructive"
@@ -467,18 +834,96 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             <Dialog open={isDecisionOpen} onOpenChange={setIsDecisionOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{pendingAction === 'approve' ? 'Approve Application' : 'Reject Application'}</DialogTitle>
+                        <DialogTitle>
+                            {pendingAction === 'approve' ? 'Approve Application' :
+                                pendingAction === 'reject' ? 'Reject Application' :
+                                    'Request Approval'}
+                        </DialogTitle>
                         <DialogDescription>
-                            Please provide a reason for this decision. This will be recorded in the system.
+                            {pendingAction === 'request_approval'
+                                ? "Submit this application for Admin approval."
+                                : "Please provide a reason for this decision. This will be recorded in the system."}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                        {(pendingAction === 'approve' || pendingAction === 'request_approval') && showApiSelection && (
+                            <div className="grid gap-4">
+                                <Label className="text-base font-semibold">Select APIs to Trigger</Label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div
+                                        className={`flex items-center space-x-3 border rounded-lg p-3 transition-colors ${(session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Call Traffic' && signup.marketingInfo?.applicationType === 'Both') || !!signup.cake_affiliate_id
+                                            ? 'opacity-50 cursor-not-allowed bg-gray-100'
+                                            : (apiSelection.cake ? 'border-primary bg-primary/5 cursor-pointer' : 'border-input hover:bg-accent cursor-pointer')
+                                            }`}
+                                        onClick={() => {
+                                            if (session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Call Traffic' && signup.marketingInfo?.applicationType === 'Both') return;
+                                            if (signup.cake_affiliate_id) return; // Disable if already approved
+                                            setApiSelection(prev => ({ ...prev, cake: !prev.cake }))
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            id="cake"
+                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                            checked={apiSelection.cake}
+                                            onChange={() => { }} // Handled by div click
+                                            style={{ pointerEvents: 'none' }}
+                                            disabled={
+                                                (session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Call Traffic' && signup.marketingInfo?.applicationType === 'Both') ||
+                                                !!signup.cake_affiliate_id // Disable if already approved
+                                            }
+                                        />
+                                        <div className="space-y-0.5">
+                                            <Label htmlFor="cake" className={`text-sm font-medium ${(session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Call Traffic' && signup.marketingInfo?.applicationType === 'Both') || !!signup.cake_affiliate_id
+                                                ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>Cake API</Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                {signup.cake_affiliate_id ? '(Already Processed)' : 'Primary Affiliate System'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className={`flex items-center space-x-3 border rounded-lg p-3 transition-colors ${(session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Web Traffic' && signup.marketingInfo?.applicationType === 'Both') || !!signup.ringba_affiliate_id
+                                            ? 'opacity-50 cursor-not-allowed bg-gray-100'
+                                            : (apiSelection.ringba ? 'border-primary bg-primary/5 cursor-pointer' : 'border-input hover:bg-accent cursor-pointer')
+                                            }`}
+                                        onClick={() => {
+                                            if (session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Web Traffic' && signup.marketingInfo?.applicationType === 'Both') return;
+                                            if (signup.ringba_affiliate_id) return; // Disable if already approved
+                                            setApiSelection(prev => ({ ...prev, ringba: !prev.ringba }))
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            id="ringba"
+                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                            checked={apiSelection.ringba}
+                                            onChange={() => { }} // Handled by div click
+                                            style={{ pointerEvents: 'none' }}
+                                            disabled={
+                                                (session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Web Traffic' && signup.marketingInfo?.applicationType === 'Both') ||
+                                                !!signup.ringba_affiliate_id // Disable if already approved
+                                            }
+                                        />
+                                        <div className="space-y-0.5">
+                                            <Label htmlFor="ringba" className={`text-sm font-medium ${(session?.user?.role !== 'SUPER_ADMIN' && session?.user?.application_permission === 'Web Traffic' && signup.marketingInfo?.applicationType === 'Both') || !!signup.ringba_affiliate_id
+                                                ? 'cursor-not-allowed text-muted-allowed' : 'cursor-pointer'}`}>Ringba API</Label>
+                                            <p className="text-xs text-muted-foreground">Call Tracking System</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {pendingAction === 'approve' && !showApiSelection && (
+                            <div className="text-sm text-muted-foreground mb-2">
+                                Creating affiliate in: {apiSelection.cake ? <b>Cake</b> : ''} {apiSelection.ringba ? <b>Ringba</b> : ''}
+                            </div>
+                        )}
                         <div className="grid gap-2">
                             <Label htmlFor="reason">Reason / Comments</Label>
                             <textarea
                                 id="reason"
                                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                placeholder={pendingAction === 'approve' ? "Optional approval notes..." : "Reason for rejection..."}
+                                placeholder={pendingAction === 'request_approval' ? "Add notes for the admin..." : (pendingAction === 'approve' ? "Optional approval notes..." : "Reason for rejection...")}
                                 value={decisionReason}
                                 onChange={(e) => setDecisionReason(e.target.value)}
                             />
@@ -491,7 +936,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             className={pendingAction === 'approve' ? "bg-green-600 hover:bg-green-700" : ""}
                             onClick={confirmAction}
                         >
-                            Confirm {pendingAction === 'approve' ? 'Approval' : 'Rejection'}
+                            {pendingAction === 'approve' ? 'Confirm Approval' :
+                                pendingAction === 'reject' ? 'Confirm Rejection' :
+                                    'Submit Request'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -605,7 +1052,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                         >
                                             <option value="">Select Referral</option>
                                             {referrers.map((ref, idx) => (
-                                                <option key={idx} value={ref}>{ref}</option>
+                                                <option key={idx} value={String(ref.name)}>{String(ref.name)}</option>
                                             ))}
                                             <option value="Other">Other</option>
                                         </select>
@@ -813,7 +1260,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{PAYMENT_MODELS[signup.marketingInfo?.paymentModel] || signup.marketingInfo?.paymentModel}</span>
                             )}
                         </div>
-                        
+
                         <div className="grid grid-cols-3 gap-1 items-center">
                             <span className="font-medium text-muted-foreground">Primary:</span>
                             {isEditing ? (
@@ -1035,6 +1482,89 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     Upload
                                 </Button>
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Notes Section */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Internal Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto mb-4 pr-1">
+                            {signup.notes && signup.notes.length > 0 ? (
+                                signup.notes.map((note: any, idx: number) => (
+                                    <div key={idx} className="bg-card border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow relative group">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                                    {note.author?.[0]?.toUpperCase() || 'A'}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-semibold">{note.author}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{new Date(note.created_at).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                            {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN' || session?.user?.name === note.author) && (
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6"
+                                                        onClick={() => {
+                                                            setEditingNoteId(note.id);
+                                                            setEditNoteContent(note.content);
+                                                        }}
+                                                    >
+                                                        <Pencil className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 text-destructive hover:text-destructive"
+                                                        onClick={() => handleDeleteNote(note.id)}
+                                                    >
+                                                        <Trash className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {editingNoteId === note.id ? (
+                                            <div className="mt-2 space-y-2">
+                                                <textarea
+                                                    className="w-full text-sm p-2 border rounded-md"
+                                                    value={editNoteContent}
+                                                    onChange={(e) => setEditNoteContent(e.target.value)}
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                    <Button variant="ghost" size="sm" onClick={() => setEditingNoteId(null)} className="h-7">Cancel</Button>
+                                                    <Button size="sm" onClick={() => handleUpdateNote(note.id)} className="h-7">Save</Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm whitespace-pre-wrap pl-8">{note.content}</p>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center p-8 text-center border-2 border-dashed rounded-lg bg-muted/50">
+                                    <p className="text-sm text-muted-foreground">No notes found</p>
+                                    <p className="text-xs text-muted-foreground/80">Add internal notes for team collaboration</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex gap-2 items-start bg-muted/30 p-2 rounded-lg">
+                            <textarea
+                                className="flex-1 min-h-[40px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y bg-background"
+                                placeholder="Type a new note..."
+                                value={noteContent}
+                                onChange={(e) => setNoteContent(e.target.value)}
+                            />
+                            <Button onClick={handleAddNote} disabled={isAddingNote || !noteContent.trim()} size="icon" className="h-10 w-10 shrink-0">
+                                {isAddingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>

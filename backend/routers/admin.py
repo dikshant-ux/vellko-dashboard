@@ -3,7 +3,7 @@ from typing import List, Optional
 import smtplib
 import asyncio
 from database import db
-from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups
+from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission
 from auth import get_current_user
 from bson import ObjectId
 from pydantic import BaseModel
@@ -33,10 +33,31 @@ async def get_stats(user: User = Depends(get_current_admin)):
     
     # Role based filtering for stats
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        if user.full_name:
+        # Filter by referral_id if available (more robust), falling back to name for old data
+        if hasattr(user, '_id') and user._id:
+             query["$or"] = [
+                 {"companyInfo.referral_id": str(user._id)},
+                 # Fallback for old data without ID
+                 {"companyInfo.referral": user.full_name}
+             ]
+        elif user.full_name:
              query["companyInfo.referral"] = user.full_name
         else:
              query["companyInfo.referral"] = "NON_EXISTENT_REFERRAL"
+    
+    
+    # Application permission filtering
+    # Super admin sees everything, no filtering needed
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        if user.application_permission == ApplicationPermission.WEB_TRAFFIC:
+            # Show Web Traffic signups and Both signups
+            query["marketingInfo.applicationType"] = {"$in": ["Web Traffic", "Both"]}
+        elif user.application_permission == ApplicationPermission.CALL_TRAFFIC:
+            # Show Call Traffic signups and Both signups
+            query["marketingInfo.applicationType"] = {"$in": ["Call Traffic", "Both"]}
+        # If user permission is BOTH, show all signups (no additional filtering needed)
+
 
     # Basic stats with optional filtering
     total = await db.signups.count_documents(query)
@@ -74,23 +95,55 @@ async def get_stats(user: User = Depends(get_current_admin)):
     chart_data = [{"date": item["_id"], "count": item["count"]} for item in chart_data_list]
 
     # Top Referrers
-    # Group by companyInfo.referral
+    # Group by companyInfo.referral_id to avoid name change issues
     referral_pipeline = [
-        # {"$match": query}, # Use empty query for global
         {"$match": {}},
         {
             "$group": {
-                "_id": "$companyInfo.referral",
+                "_id": "$companyInfo.referral_id",
+                "name": {"$first": "$companyInfo.referral"}, # Fallback name
                 "count": {"$sum": 1}
             }
         },
-        {"$match": {"_id": {"$ne": None, "$ne": ""}}}, # Exclude empty referrals
+        {"$match": {"_id": {"$ne": None}, "_id": {"$ne": ""}}}, # Exclude empty referrals
+        # Lookup to get current user name ensuring up-to-date info
+        {
+            "$addFields": {
+                "convertedId": {
+                    "$cond": {
+                        "if": {"$and": [{"$ne": ["$_id", None]}, {"$ne": ["$_id", ""]}]},
+                        "then": {"$toObjectId": "$_id"},
+                        "else": None
+                    }
+                }
+            }
+        },
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "convertedId",
+                "foreignField": "_id",
+                "as": "user_info"
+            }
+        },
+        {
+            "$project": {
+                "name": {
+                    "$cond": {
+                        "if": {"$gt": [{"$size": "$user_info"}, 0]},
+                        "then": {"$arrayElemAt": ["$user_info.full_name", 0]},
+                        "else": "$name" # Use historically saved name if user not found/deleted
+                    }
+                },
+                "count": 1
+            }
+        },
         {"$sort": {"count": -1}},
         {"$limit": 5}
     ]
     referrers_cursor = db.signups.aggregate(referral_pipeline)
     top_referrers = await referrers_cursor.to_list(length=5)
-    formatted_referrers = [{"name": item["_id"], "count": item["count"]} for item in top_referrers]
+    formatted_referrers = [{"name": item.get("name") or "Unknown", "count": item["count"]} for item in top_referrers]
     
     return {
         "total": total,
@@ -105,6 +158,8 @@ async def get_stats(user: User = Depends(get_current_admin)):
 async def get_signups(
     status: Optional[SignupStatus] = None, 
     referral: Optional[str] = None,
+    referral_id: Optional[str] = None,
+    application_type: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user: User = Depends(get_current_admin)
@@ -115,15 +170,70 @@ async def get_signups(
         
     # Role based filtering
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        # Filter by referral matching user's full_name
-        if user.full_name:
+        # Filter by referral_id if available, fallback to name
+        if hasattr(user, '_id') and user._id:
+             query["$or"] = [
+                 {"companyInfo.referral_id": str(user._id)},
+                 {"companyInfo.referral": user.full_name}
+             ]
+        elif user.full_name:
              query["companyInfo.referral"] = user.full_name
         else:
-             # If no full_name, user shouldn't see anything or handle appropriately
              query["companyInfo.referral"] = "NON_EXISTENT_REFERRAL" 
-    elif referral:
-        # If admin and referral param is provided
-        query["companyInfo.referral"] = referral 
+    else:
+        # Admin filtering
+        if referral_id:
+            query["companyInfo.referral_id"] = referral_id
+        elif referral:
+            query["companyInfo.referral"] = referral
+    
+    # Application permission filtering
+    # Super admin sees everything, no filtering needed
+    # Application permission filtering
+    # Super admin sees everything unless specific filter requested
+    # But adhere to user's permission first.
+    
+    # 1. Determine User's Max Permission Set
+    user_allowed_types = ["Web Traffic", "Call Traffic", "Both"] # Default All
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        if user.application_permission == ApplicationPermission.WEB_TRAFFIC:
+             user_allowed_types = ["Web Traffic", "Both"]
+        elif user.application_permission == ApplicationPermission.CALL_TRAFFIC:
+             user_allowed_types = ["Call Traffic", "Both"]
+        # If Both, allowed all.
+    
+    # 2. Determine Requested Filter
+    # If frontend requests a specific type (e.g. toggle "Web Only"), we must respect it
+    # BUT only if it is within user's allowed permissions.
+    
+    final_types_filter = user_allowed_types
+    
+    if application_type:
+        # Frontend requests specific view
+        if application_type == "Web Traffic":
+             # Requested Web. Intersect with Allowed.
+             # If user is Web or Both -> Result ["Web Traffic", "Both"]
+             # If user is Call -> Result [] (Empty)
+             if "Web Traffic" in user_allowed_types:
+                  final_types_filter = ["Web Traffic", "Both"] # Show Web specific AND Shared
+             else:
+                  final_types_filter = [] # Forbidden
+        elif application_type == "Call Traffic":
+             if "Call Traffic" in user_allowed_types:
+                  final_types_filter = ["Call Traffic", "Both"]
+             else:
+                  final_types_filter = []
+        # If application_type is "Both" specifically? usually frontend toggle is Web vs Call.
+        # If they want "All", they send nothing.
+    
+    # Apply Filter
+    if final_types_filter:
+        query["marketingInfo.applicationType"] = {"$in": final_types_filter}
+    else:
+        # If filter resulted in empty allowed list, force empty result
+        query["marketingInfo.applicationType"] = {"$in": []}
+ 
 
     total_count = await db.signups.count_documents(query)
     
@@ -147,6 +257,8 @@ async def get_signup(id: str, user: User = Depends(get_current_admin)):
 
 class SignupDecision(BaseModel):
     reason: Optional[str] = ""
+    addToCake: bool = False
+    addToRingba: bool = False
 
 import httpx
 import xmltodict
@@ -158,11 +270,120 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
 
+    from models import ApplicationPermission
+
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Check if user is the referrer
         referral = signup_data.get("companyInfo", {}).get("referral")
         if referral != user.full_name:
              raise HTTPException(status_code=403, detail="Not authorized to approve this signup")
+
+    # Strict Application Permission Check
+    # Ensure user can only approve signups within their permission scope
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+        
+        if user.application_permission == ApplicationPermission.WEB_TRAFFIC:
+            if app_type == "Call Traffic":
+                raise HTTPException(status_code=403, detail="Web Traffic admins cannot approve Call Traffic signups")
+        elif user.application_permission == ApplicationPermission.CALL_TRAFFIC:
+             if app_type == "Web Traffic":
+                raise HTTPException(status_code=403, detail="Call Traffic admins cannot approve Web Traffic signups")
+        # Both permission can approve anything (Web, Call, Both)
+
+    # Check for Approval Permission
+    # If user lacks permission, force REQUESTED_FOR_APPROVAL
+    # Existing Admins default to True, so this mostly affects new restricted users.
+    if hasattr(user, 'can_approve_signups') and user.can_approve_signups is False:
+        # User cannot directly approve. Create Approval Request.
+        await db.signups.update_one(
+            {"_id": ObjectId(id)},
+            {
+                "$set": {
+                    "status": SignupStatus.REQUESTED_FOR_APPROVAL,
+                    "approval_requested_by": user.username,
+                    "approval_requested_at": datetime.utcnow(),
+                    "requested_cake_approval": decision.addToCake,
+                    "requested_ringba_approval": decision.addToRingba,
+                    # We can still save their intended decision reason/mapping?
+                    "decision_reason": decision.reason,
+                    # Logic: Do we save the CAKE/Ringba params they WANTED to use?
+                    # For now, just mark status. The final approver might need to re-confirm params.
+                    # Or we assume the params sent here are what they want.
+                    # Ideally we'd store a "pending_approval_decision" object differently, 
+                    # but fitting into existing flow -> just status change is simplest MVP.
+                }
+            }
+        )
+        
+        # --- Notification Logic for Approval Request ---
+        try:
+            # 1. Identify Target Audience
+            # Always notify Super Admins
+            # Notify "Both" Admins
+            # Notify Specific Admin based on Signup Type
+            
+            target_permissions = ["Both"]
+            signup_app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+            
+            if signup_app_type == "Web Traffic":
+                target_permissions.append("Web Traffic")
+            elif signup_app_type == "Call Traffic":
+                target_permissions.append("Call Traffic")
+            elif signup_app_type == "Both":
+                target_permissions.append("Web Traffic")
+                target_permissions.append("Call Traffic")
+                
+            # 2. Fetch Users
+            # Find users who are SUPER_ADMIN OR (ADMIN with matching permission)
+            # And exclude the requester themselves
+            
+            cursor = db.users.find({
+                "$and": [
+                    {"username": {"$ne": user.username}}, # Exclude self
+                    {"$or": [
+                        {"role": UserRole.SUPER_ADMIN},
+                        {
+                            "role": UserRole.ADMIN,
+                            "application_permission": {"$in": target_permissions}
+                        }
+                    ]}
+                ]
+            })
+            
+            recipients = await cursor.to_list(length=100)
+            recipient_emails = [u["email"] for u in recipients if u.get("email")]
+            
+            # 3. Send Email
+            from email_utils import send_approval_request_email
+            await send_approval_request_email(
+                to_emails=recipient_emails,
+                signup_data=signup_data,
+                signup_id=id,
+                requester_name=user.full_name or user.username,
+                requested_cake=decision.addToCake,
+                requested_ringba=decision.addToRingba
+            )
+            
+        except Exception as e:
+            print(f"Failed to send approval request notifications: {e}")
+
+        # Notify Admins (Super Admins + Admins with Approval Permission?)
+        # For now, simplistic email to a configured admin email or all admins?
+        # Requirements say: "Email to Admin and Super Admin"
+        # We can implement a background task for this.
+        # await notify_admins_of_approval_request(signup_data, user) # TODO: Implement this utility
+        
+        return {"message": "Approval requested successfully", "status": "REQUESTED_FOR_APPROVAL"}
+
+    # Granular Permission Validation for "Both" applications
+    app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+    if app_type == "Both":
+        if user.application_permission == ApplicationPermission.WEB_TRAFFIC and decision.addToRingba:
+             raise HTTPException(status_code=403, detail="Web Traffic users cannot trigger Ringba API")
+        if user.application_permission == ApplicationPermission.CALL_TRAFFIC and decision.addToCake:
+             raise HTTPException(status_code=403, detail="Call Traffic users cannot trigger Cake API")
 
     # Construct CAKE API Parameters
     # Map based on the user's provided mapping
@@ -179,6 +400,9 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     vertical_ids = val(mi.get("primaryCategory"))
     if mi.get("secondaryCategory") and mi.get("secondaryCategory") != "0":
         vertical_ids += "," + val(mi.get("secondaryCategory"))
+
+    cake_response = None
+    ringba_response = None
 
     # timezone logic - user requested "EST"
     
@@ -242,42 +466,80 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         "notes": val(mi.get("comments"))
     }
 
-    cake_affiliate_id = None
-    cake_message = "No message from Cake"
-    cake_raw_response = None
-    success = False
+    
+    # Initialize with existing values to allow partial updates
+    # If not requesting an update for a specific API, we preserve the old values.
+    cake_affiliate_id = signup_data.get("cake_affiliate_id")
+    cake_message = signup_data.get("cake_message")
+    cake_raw_response = signup_data.get("cake_response")
+    cake_success = False
 
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(settings.CAKE_API_URL, params=api_params, timeout=30.0)
-            cake_raw_response = response.text
-            if response.status_code == 200:
-                # Parse XML
-                xml_data = xmltodict.parse(response.text)
-                # response format: <affiliate_signup_response><success>true</success>...
-                result = xml_data.get('affiliate_signup_response', {})
-                success = str(result.get('success', 'false')).lower() == 'true'
-                cake_message = result.get('message', 'No message')
-                cake_affiliate_id = result.get('affiliate_id')
-            else:
-                cake_message = f"CAKE API Error: {response.status_code}"
-    except Exception as e:
-        cake_message = f"CAKE Connection Error: {str(e)}"
+    ringba_affiliate_id = signup_data.get("ringba_affiliate_id")
+    ringba_message = signup_data.get("ringba_message")
+    ringba_raw_response = signup_data.get("ringba_response")
+    ringba_success = False
 
-    if not success:
-         # If Cake fails, we still let the admin know, but maybe we don't finish approval if we want strictly synchronized?
-         # User said "hit the cake api and show the response". 
-         # I'll update the record with the attempt results.
-         pass
+    # CAKE Logic
+    if decision.addToCake:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(settings.CAKE_API_URL, params=api_params, timeout=30.0)
+                cake_raw_response = response.text
+                if response.status_code == 200:
+                    # Parse XML
+                    xml_data = xmltodict.parse(response.text)
+                    # response format: <affiliate_signup_response><success>true</success>...
+                    result = xml_data.get('affiliate_signup_response', {})
+                    cake_success = str(result.get('success', 'false')).lower() == 'true'
+                    cake_message = result.get('message', 'No message')
+                    cake_affiliate_id = result.get('affiliate_id')
+                else:
+                    cake_message = f"CAKE API Error: {response.status_code}"
+        except Exception as e:
+            cake_message = f"CAKE Connection Error: {str(e)}"
+    
+    # Ringba Logic (Placeholder)
+    if decision.addToRingba:
+        # TODO: Implement actual Ringba API call
+        ringba_success = True
+        ringba_message = "Ringba API Coming Soon"
+        ringba_raw_response = "Mock Success"
+        ringba_affiliate_id = "MOCK-123"
+
+    # Determine overall status
+    # If both requested, both must succeed? Or partial?
+    # User requirement: "if both are checked then both api will hit".
+    # Let's assume APPROVED if at least one requested API succeeded, or purely informational.
+    # Usually we want to know if it failed.
+    
+    # Strategy: Mark APPROVED if logic executed. Store messages.
+    # If one failed, we might want to keep PENDING or partial. 
+    # For now, simplistic approach: If any requested failed, error out? 
+    # Or just save what happened.
+    
+    overall_success = True
+    if decision.addToCake and not cake_success:
+        overall_success = False
+    if decision.addToRingba and not ringba_success:
+        overall_success = False
+        
+    # If no API was selected (shouldn't happen with UI logic but possible), allow simple approve?
+    # Assuming manual approval if no flags? Let's treat no flags as "Manual Approval" or just respect overall_success=True.
+    if not decision.addToCake and not decision.addToRingba:
+        overall_success = True
+
 
     await db.signups.update_one(
         {"_id": ObjectId(id)},
         {
             "$set": {
-                "status": SignupStatus.APPROVED if success else SignupStatus.PENDING,
+                "status": SignupStatus.APPROVED if overall_success else SignupStatus.PENDING,
                 "cake_affiliate_id": cake_affiliate_id,
                 "cake_message": cake_message,
                 "cake_response": cake_raw_response,
+                "ringba_affiliate_id": ringba_affiliate_id,
+                "ringba_message": ringba_message,
+                "ringba_response": ringba_raw_response,
                 "decision_reason": decision.reason,
                 "processed_by": user.username,
                 "processed_at": datetime.utcnow()
@@ -285,10 +547,34 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         }
     )
     
-    if not success:
-         raise HTTPException(status_code=400, detail=f"CAKE API Error: {cake_message}")
+    if not overall_success:
+        detail_msg = []
+        if decision.addToCake and not cake_success:
+            detail_msg.append(f"Cake Failed: {cake_message}")
+        if decision.addToRingba and not ringba_success:
+            detail_msg.append(f"Ringba Failed: {ringba_message}")
+        raise HTTPException(status_code=400, detail="; ".join(detail_msg))
 
-    return {"message": cake_message, "cake_id": cake_affiliate_id}
+    params_result = {
+        "cake": {"id": cake_affiliate_id, "message": cake_message},
+        "ringba": {"id": ringba_affiliate_id, "message": ringba_message}
+    }
+    
+    # Granular Status Update (Boolean)
+    update_fields = {}
+    if decision.addToCake and cake_success:
+        update_fields["cake_api_status"] = True
+        
+    if decision.addToRingba and ringba_success:
+        update_fields["ringba_api_status"] = True
+
+    if update_fields:
+        await db.signups.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": update_fields}
+        )
+
+    return {"message": "Approval Processed", "details": params_result}
 
 @router.post("/signups/{id}/reject")
 async def reject_signup(id: str, decision: SignupDecision = Body(...), user: User = Depends(get_current_admin)):
@@ -302,16 +588,51 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
         if referral != user.full_name:
              raise HTTPException(status_code=403, detail="Not authorized to reject this signup")
 
+    # Strict Application Permission Check
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission') and user.application_permission:
+        from models import ApplicationPermission
+        app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+        
+        if user.application_permission == ApplicationPermission.WEB_TRAFFIC:
+            if app_type == "Call Traffic":
+                raise HTTPException(status_code=403, detail="Web Traffic admins cannot reject Call Traffic signups")
+        elif user.application_permission == ApplicationPermission.CALL_TRAFFIC:
+             if app_type == "Web Traffic":
+                raise HTTPException(status_code=403, detail="Call Traffic admins cannot reject Web Traffic signups")
+
+    update_fields = {
+        "status": SignupStatus.REJECTED,
+        "decision_reason": decision.reason,
+        "processed_by": user.username,
+        "processed_at": datetime.utcnow()
+    }
+    
+    # Granular Rejection (Boolean)
+    # Only reject if strictly Pending (None). 
+    # If already True (Approved), leave it. If False (Rejected), leave it.
+    
+    cake_status = signup_data.get("cake_api_status")
+    if cake_status is None:
+        update_fields["cake_api_status"] = False
+        
+    ringba_status = signup_data.get("ringba_api_status")
+    if ringba_status is None:
+        update_fields["ringba_api_status"] = False
+
+    # Check if there's any approval remaining -> Globally APPROVED
+    # Check if everything is rejected -> Globally REJECTED
+    # Existing logic overrides granular check for global status for now
+    # But if we want "Partially Approved", global status should be APPROVED if at least one is True.
+    
+    current_cake = update_fields.get("cake_api_status") if "cake_api_status" in update_fields else cake_status
+    current_ringba = update_fields.get("ringba_api_status") if "ringba_api_status" in update_fields else ringba_status
+    
+    if current_cake is True or current_ringba is True:
+         update_fields["status"] = SignupStatus.APPROVED
+
     await db.signups.update_one(
         {"_id": ObjectId(id)},
-        {
-            "$set": {
-                "status": SignupStatus.REJECTED,
-                "decision_reason": decision.reason,
-                "processed_by": user.username,
-                "processed_at": datetime.utcnow()
-            }
-        }
+        {"$set": update_fields}
     )
     return {"message": "Rejected"}
 
@@ -320,21 +641,34 @@ async def update_referral(id: str, referral: str = Body(..., embed=True), user: 
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update referrals")
 
+    # Find the referrer user to get their ID
+    referral_id = None
+    if referral and referral not in ["Others", "Other", "None", ""]:
+        referrer = await db.users.find_one({"full_name": referral})
+        if referrer:
+            referral_id = str(referrer["_id"])
+    
+    # Update both referral name and referral_id
+    update_fields = {
+        "companyInfo.referral": referral,
+        "companyInfo.referral_id": referral_id if referral_id else ""
+    }
+    
     result = await db.signups.update_one(
         {"_id": ObjectId(id)},
-        {"$set": {"companyInfo.referral": referral}}
+        {"$set": update_fields}
     )
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Signup not found")
         
     # Notify new referrer
-    if referral and referral not in ["Others", "Other", "None", ""]:
-        new_referrer = await db.users.find_one({"full_name": referral})
-        if new_referrer and new_referrer.get("email"):
+    if referral and referral not in ["Others", "Other", "None", ""] and referral_id:
+        referrer = await db.users.find_one({"_id": ObjectId(referral_id)})
+        if referrer and referrer.get("email"):
              signup_data = await db.signups.find_one({"_id": ObjectId(id)})
              await send_referral_assignment_email(
-                 to_email=new_referrer["email"],
+                 to_email=referrer["email"],
                  signup_data=signup_data,
                  signup_id=id,
                  assigned_by=user.full_name or user.username
@@ -514,7 +848,88 @@ async def delete_document(id: str, filename: str, user: User = Depends(get_curre
 
     return {"message": "Document deleted"}
 
-# User Management Endpoints
+    return {"message": "Document deleted"}
+
+from models import SignupNote
+
+@router.post("/signups/{id}/notes")
+async def add_signup_note(id: str, note: str = Body(..., embed=True), user: User = Depends(get_current_admin)):
+    signup_data = await db.signups.find_one({"_id": ObjectId(id)})
+    if not signup_data:
+        raise HTTPException(status_code=404, detail="Signup not found")
+        
+    # Check permissions (admins only or referrer?)
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        referral = signup_data.get("companyInfo", {}).get("referral")
+        if referral != user.full_name:
+             raise HTTPException(status_code=403, detail="Not authorized to add notes to this signup")
+
+    new_note = SignupNote(
+        content=note,
+        author=user.full_name or user.username
+    )
+    
+    await db.signups.update_one(
+        {"_id": ObjectId(id)},
+        {"$push": {"notes": new_note.dict()}}
+    )
+    
+    return new_note
+
+@router.put("/signups/{id}/notes/{note_id}")
+async def update_signup_note(id: str, note_id: str, note: str = Body(..., embed=True), user: User = Depends(get_current_admin)):
+    signup_data = await db.signups.find_one({"_id": ObjectId(id)})
+    if not signup_data:
+        raise HTTPException(status_code=404, detail="Signup not found")
+        
+    # Determine if note exists and update it
+    signup_note = next((n for n in signup_data.get("notes", []) if n.get("id") == note_id), None)
+    if not signup_note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    # Check permissions
+    is_author = signup_note.get("author") == (user.full_name or user.username)
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and not is_author:
+         raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.signups.update_one(
+        {"_id": ObjectId(id), "notes.id": note_id},
+        {"$set": {"notes.$.content": note, "notes.$.updated_at": datetime.utcnow()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Note not found or no changes made")
+        
+    updated_note = next((n for n in signup_data.get("notes", []) if n.get("id") == note_id), None)
+    if updated_note:
+        updated_note["content"] = note
+        updated_note["updated_at"] = datetime.utcnow()
+        
+    return {"message": "Note updated", "note": updated_note}
+
+@router.delete("/signups/{id}/notes/{note_id}")
+async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_current_admin)):
+    signup_data = await db.signups.find_one({"_id": ObjectId(id)})
+    if not signup_data:
+        raise HTTPException(status_code=404, detail="Signup not found")
+        
+    signup_note = next((n for n in signup_data.get("notes", []) if n.get("id") == note_id), None)
+    if not signup_note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    is_author = signup_note.get("author") == (user.full_name or user.username)
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and not is_author:
+         raise HTTPException(status_code=403, detail="Not authorized")
+         
+    result = await db.signups.update_one(
+        {"_id": ObjectId(id)},
+        {"$pull": {"notes": {"id": note_id}}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Note not found")
+        
+    return {"message": "Note deleted"}
 from models import UserCreate, UserInDB
 from auth import get_password_hash
 
@@ -523,7 +938,21 @@ async def get_users(user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can view users")
     
-    cursor = db.users.find({}, {"hashed_password": 0}) # Try to exclude hashed_password if possible, though pydantic filters it out
+    query = {}
+    
+    # Permission-based filtering
+    # Super admin sees all users, no filtering needed
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        if user.application_permission == ApplicationPermission.WEB_TRAFFIC:
+            # Show Web Traffic users and Both users
+            query["application_permission"] = {"$in": ["Web Traffic", "Both"]}
+        elif user.application_permission == ApplicationPermission.CALL_TRAFFIC:
+            # Show Call Traffic users and Both users
+            query["application_permission"] = {"$in": ["Call Traffic", "Both"]}
+        # If user permission is BOTH, show all users (no additional filtering needed)
+    
+    cursor = db.users.find(query, {"hashed_password": 0}) # Try to exclude hashed_password if possible, though pydantic filters it out
     users = await cursor.to_list(length=100)
     return users
 
@@ -531,6 +960,35 @@ async def get_users(user: User = Depends(get_current_admin)):
 async def create_user(user_in: UserCreate, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can create users")
+    
+    # Permission-based validation: ensure admins can only create users within their permission scope
+    # Super admin can create any user
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        user_perm = user.application_permission
+        new_user_perm = user_in.application_permission
+        
+        # Web admin can only create Web users
+        if user_perm == ApplicationPermission.WEB_TRAFFIC and new_user_perm != ApplicationPermission.WEB_TRAFFIC:
+            raise HTTPException(status_code=403, detail="Web admin can only create users with Web Traffic permission")
+        
+        # Call admin can only create Call users
+        if user_perm == ApplicationPermission.CALL_TRAFFIC and new_user_perm != ApplicationPermission.CALL_TRAFFIC:
+            raise HTTPException(status_code=403, detail="Call admin can only create users with Call Traffic permission")
+        
+        # Both permission admin can create any user (no additional restriction needed)
+        
+    # Validate can_approve_signups
+    # Only Super Admin (and maybe Admin?) can grant approval permission. 
+    # Let's start with: Any Admin can grant it, or restrict to Super Admin?
+    # User requirement: "Super Admin and Admin should have the ability to grant or revoke"
+    # So no extra check needed other than being an Admin (which is already checked at start of func)
+    if user_in.can_approve_signups is None:
+        # Default to True for Admins/Super Admins, False for Users? 
+        # Or just default to True as per model default. 
+        # Let's stick to model default (True) if not specified, or force explicit?
+        # Model default is True.
+        pass
         
     existing_user = await db.users.find_one({"username": user_in.username})
     if existing_user:
@@ -569,6 +1027,17 @@ async def delete_user(username: str, user: User = Depends(get_current_admin)):
     target_user = await db.users.find_one({"username": username})
     if target_user and target_user.get("role") == UserRole.SUPER_ADMIN:
         raise HTTPException(status_code=403, detail="Cannot delete Super Admin")
+    
+    # Prevent Admin from deleting other Admin
+    if user.role == UserRole.ADMIN and target_user and target_user.get("role") == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admins cannot delete other Admins, only Super Admin can do this")
+    
+    # Prevent Web/Call admins from deleting users with Both permission
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        if target_user and target_user.get("application_permission") == "Both":
+            if user.application_permission in [ApplicationPermission.WEB_TRAFFIC, ApplicationPermission.CALL_TRAFFIC]:
+                raise HTTPException(status_code=403, detail="You cannot delete users with Both permission")
         
     result = await db.users.delete_one({"username": username})
     if result.deleted_count == 0:
@@ -628,6 +1097,51 @@ async def update_user_role(username: str, role_update: UserRoleUpdate, user: Use
         raise HTTPException(status_code=404, detail="User not found")
         
     return {"message": f"User role updated to {role_update.role}"}
+
+from models import UserUpdate
+
+@router.patch("/users/{username}")
+async def update_user(username: str, user_update: UserUpdate, user: User = Depends(get_current_admin)):
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can update users")
+    
+    # Prevent users from updating themselves
+    if user.username == username:
+        raise HTTPException(status_code=403, detail="You cannot update your own account")
+    
+    # Prevent Web/Call admins from editing users with Both permission
+    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
+        from models import ApplicationPermission
+        target_user = await db.users.find_one({"username": username})
+        if target_user and target_user.get("application_permission") == "Both":
+            if user.application_permission in [ApplicationPermission.WEB_TRAFFIC, ApplicationPermission.CALL_TRAFFIC]:
+                raise HTTPException(status_code=403, detail="You cannot update users with Both permission")
+    
+    # Build update dict with only provided fields
+    update_data = {}
+    if user_update.full_name is not None:
+        update_data["full_name"] = user_update.full_name
+    if user_update.email is not None:
+        update_data["email"] = user_update.email
+    if user_update.application_permission is not None:
+        update_data["application_permission"] = user_update.application_permission
+    if user_update.can_approve_signups is not None:
+        update_data["can_approve_signups"] = user_update.can_approve_signups
+    if user_update.password is not None:
+        update_data["hashed_password"] = get_password_hash(user_update.password)
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    result = await db.users.update_one(
+        {"username": username},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User updated successfully"}
 
 from models import SMTPConfigCreate
 

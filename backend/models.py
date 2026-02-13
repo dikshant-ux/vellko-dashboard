@@ -8,6 +8,7 @@ class SignupStatus(str, Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    REQUESTED_FOR_APPROVAL = "REQUESTED_FOR_APPROVAL"
 
 class CompanyInfo(BaseModel):
     companyName: str
@@ -19,6 +20,7 @@ class CompanyInfo(BaseModel):
     country: str
     corporateWebsite: Optional[str] = ""
     referral: Optional[str] = ""
+    referral_id: Optional[str] = None
 
 class MarketingInfo(BaseModel):
     paymentModel: str
@@ -66,6 +68,13 @@ class SignupDocument(BaseModel):
     uploaded_by: str
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
+class SignupNote(BaseModel):
+    id: str = Field(default_factory=lambda: str(ObjectId()))
+    content: str
+    author: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+
 class SignupInDB(SignupCreate):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     status: SignupStatus = SignupStatus.PENDING
@@ -73,12 +82,26 @@ class SignupInDB(SignupCreate):
     cake_affiliate_id: Optional[str] = None
     cake_message: Optional[str] = None
     cake_response: Optional[str] = None
+    ringba_affiliate_id: Optional[str] = None
+    ringba_message: Optional[str] = None
+    ringba_response: Optional[str] = None
     decision_reason: Optional[str] = None
     processed_by: Optional[str] = None
     processed_at: Optional[datetime] = None
     documents: List[SignupDocument] = Field(default_factory=list)
+    notes: List[SignupNote] = Field(default_factory=list)
     is_updated: bool = False
     updated_at: Optional[datetime] = None
+    
+    approval_requested_by: Optional[str] = None
+    approval_requested_at: Optional[datetime] = None
+    requested_cake_approval: Optional[bool] = None
+    requested_ringba_approval: Optional[bool] = None
+    
+    # Enhanced Integration Status (Boolean)
+    # True = Approved, False = Rejected, None = Pending/Skipped
+    cake_api_status: Optional[bool] = None
+    ringba_api_status: Optional[bool] = None
     
     class Config:
         populate_by_name = True
@@ -91,16 +114,23 @@ class UserRole(str, Enum):
     ADMIN = "ADMIN"
     USER = "USER"
 
+class ApplicationPermission(str, Enum):
+    WEB_TRAFFIC = "Web Traffic"
+    CALL_TRAFFIC = "Call Traffic"
+    BOTH = "Both"
+
 class User(BaseModel):
     username: str
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     role: UserRole = UserRole.USER
     disabled: Optional[bool] = False
+    application_permission: ApplicationPermission = ApplicationPermission.BOTH
     reset_token: Optional[str] = None
     reset_token_expires_at: Optional[datetime] = None
     two_factor_secret: Optional[str] = None
     is_two_factor_enabled: Optional[bool] = False
+    can_approve_signups: Optional[bool] = True
 
     @validator('username', pre=True)
     def trim_username(cls, v):
@@ -113,6 +143,8 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    application_permission: Optional[ApplicationPermission] = None
+    can_approve_signups: Optional[bool] = None
 
 class UserRoleUpdate(BaseModel):
     role: UserRole

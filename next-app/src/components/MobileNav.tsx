@@ -51,7 +51,7 @@ export default function MobileNav() {
 
             <Sheet open={open} onOpenChange={setOpen}>
                 <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" className="-mr-2">
+                    <Button variant="ghost" size="icon" className="-mr-2" suppressHydrationWarning>
                         <Menu className="h-6 w-6" />
                         <span className="sr-only">Toggle Menu</span>
                     </Button>

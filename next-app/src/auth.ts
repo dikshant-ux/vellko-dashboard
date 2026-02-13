@@ -64,9 +64,11 @@ export const {
                             if (meRes.ok) {
                                 const me = await meRes.json();
                                 return {
-                                    name: me.username,
+                                    name: me.full_name || me.username,
                                     email: me.email,
                                     role: me.role,
+                                    application_permission: me.application_permission,
+                                    can_approve_signups: me.can_approve_signups,
                                     accessToken: user.access_token,
                                 } as any;
                             }
@@ -108,12 +110,16 @@ export const {
             if (user) {
                 token.accessToken = user.accessToken;
                 token.role = user.role;
+                token.application_permission = user.application_permission;
+                token.can_approve_signups = user.can_approve_signups;
             }
             return token;
         },
         async session({ session, token }: any) {
             session.accessToken = token.accessToken;
             session.user.role = token.role;
+            session.user.application_permission = token.application_permission;
+            session.user.can_approve_signups = token.can_approve_signups;
             return session;
         }
     }

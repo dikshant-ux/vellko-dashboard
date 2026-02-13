@@ -61,14 +61,7 @@ export default function OverviewPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                    title="Total Signups"
-                    value={stats?.total}
-                    icon={Users}
-                    color="bg-blue-500"
-                    description="All time applications"
-                    href="/dashboard/signups?status=ALL"
-                />
+                
                 <StatCard
                     title="Pending Review"
                     value={stats?.pending}
@@ -92,6 +85,14 @@ export default function OverviewPage() {
                     color="bg-red-500"
                     description="Denied applications"
                     href="/dashboard/signups?status=REJECTED"
+                />
+                <StatCard
+                    title="Total Signups"
+                    value={stats?.total}
+                    icon={Users}
+                    color="bg-blue-500"
+                    description="All time applications"
+                    href="/dashboard/signups?status=ALL"
                 />
             </div>
 

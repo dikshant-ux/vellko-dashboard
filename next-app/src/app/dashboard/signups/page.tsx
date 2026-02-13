@@ -36,8 +36,9 @@ function SignupsContent() {
     const [isLoading, setIsLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>(statusParam || 'PENDING');
     const [searchTerm, setSearchTerm] = useState('');
-    const [referrers, setReferrers] = useState<string[]>([]);
+    const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("");
+    const [filterAppType, setFilterAppType] = useState<string | null>(null);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -63,7 +64,10 @@ function SignupsContent() {
                 params.append('status', filterStatus);
             }
             if (filterReferral) {
-                params.append('referral', filterReferral);
+                params.append('referral_id', filterReferral);
+            }
+            if (filterAppType) {
+                params.append('application_type', filterAppType);
             }
 
             params.append('page', currentPage.toString());
@@ -98,21 +102,64 @@ function SignupsContent() {
                     setIsLoading(false);
                 });
         }
-    }, [session, filterStatus, filterReferral, currentPage, limit, authFetch]);
+    }, [session, filterStatus, filterReferral, filterAppType, currentPage, limit, authFetch]);
 
     const filteredSignups = signups.filter(signup =>
         signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         signup.accountInfo?.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const StatusBadge = ({ status }: { status: string }) => {
+    const StatusBadge = ({ signup }: { signup: any }) => {
+        const getDisplayStatus = (s: any) => {
+            if (!s) return 'PENDING';
+            const userPermission = session?.user?.application_permission;
+            const userRole = session?.user?.role;
+            const appType = s.marketingInfo?.applicationType;
+
+            if (appType !== 'Both') return s.status;
+
+            if (userRole === 'SUPER_ADMIN' || userPermission === 'Both' || !userPermission) {
+                const cake = s.cake_api_status;
+                const ringba = s.ringba_api_status;
+
+                if (cake === true && ringba === true) return 'APPROVED';
+
+                // Refined Partial Logic
+                if ((cake === true && ringba === false) || (ringba === true && cake === false)) {
+                    return 'APPROVED (PARTIAL)';
+                }
+
+                if (cake === true || ringba === true) return 'PARTIALLY APPROVED';
+                if (cake === false && ringba === false) return 'REJECTED';
+                return s.status;
+            }
+
+            if (userPermission === 'Web Traffic') {
+                if (s.cake_api_status === true) return 'APPROVED';
+                if (s.cake_api_status === false) return 'REJECTED';
+                return 'PENDING';
+            }
+
+            if (userPermission === 'Call Traffic') {
+                if (s.ringba_api_status === true) return 'APPROVED';
+                if (s.ringba_api_status === false) return 'REJECTED';
+                return 'PENDING';
+            }
+
+            return s.status;
+        };
+
+        const status = getDisplayStatus(signup);
+
         const variants: any = {
             PENDING: "bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/25 border-yellow-200",
             APPROVED: "bg-green-500/15 text-green-700 hover:bg-green-500/25 border-green-200",
             REJECTED: "bg-red-500/15 text-red-700 hover:bg-red-500/25 border-red-200",
+            REQUESTED_FOR_APPROVAL: "bg-purple-500/15 text-purple-700 hover:bg-purple-500/25 border-purple-200",
+            "PARTIALLY APPROVED": "bg-blue-500/15 text-blue-700 hover:bg-blue-500/25 border-blue-200",
+            "APPROVED (PARTIAL)": "bg-orange-500/15 text-orange-700 hover:bg-orange-500/25 border-orange-200",
         };
-        return <Badge variant="outline" className={`${variants[status]} border font-medium`}>{status}</Badge>;
-        return <Badge variant="outline" className={`${variants[status]} border font-medium`}>{status}</Badge>;
+        return <Badge variant="outline" className={`${variants[status] || variants[signup.status] || ""} border font-medium whitespace-nowrap`}>{status}</Badge>;
     };
 
     const handleDelete = async (signupId: string, companyName: string) => {
@@ -147,6 +194,26 @@ function SignupsContent() {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Signups</h1>
                     <p className="text-muted-foreground mt-1">Manage and review affiliate applications.</p>
                 </div>
+                {session?.user?.application_permission === 'Both' && (
+                    <div className="flex items-center space-x-1 border rounded-lg p-1 bg-muted/40">
+                        <Button
+                            variant={filterAppType === 'Web Traffic' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className={`text-xs h-8 ${filterAppType === 'Web Traffic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                            onClick={() => setFilterAppType(filterAppType === 'Web Traffic' ? null : 'Web Traffic')}
+                        >
+                            Web Traffic
+                        </Button>
+                        <Button
+                            variant={filterAppType === 'Call Traffic' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className={`text-xs h-8 ${filterAppType === 'Call Traffic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                            onClick={() => setFilterAppType(filterAppType === 'Call Traffic' ? null : 'Call Traffic')}
+                        >
+                            Call Traffic
+                        </Button>
+                    </div>
+                )}
                 {/* <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
                     <Plus className="mr-2 h-4 w-4" /> Manual Entry
                 </Button> */}
@@ -160,13 +227,14 @@ function SignupsContent() {
                                 <TabsTrigger value="PENDING" className="data-[state=active]:bg-white data-[state=active]:text-yellow-600 data-[state=active]:shadow-sm rounded-md transition-all">Pending</TabsTrigger>
                                 <TabsTrigger value="APPROVED" className="data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm rounded-md transition-all">Approved</TabsTrigger>
                                 <TabsTrigger value="REJECTED" className="data-[state=active]:bg-white data-[state=active]:text-red-600 data-[state=active]:shadow-sm rounded-md transition-all">Rejected</TabsTrigger>
+                                <TabsTrigger value="REQUESTED_FOR_APPROVAL" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm rounded-md transition-all">Approval Requests</TabsTrigger>
                                 <TabsTrigger value="ALL" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all">All</TabsTrigger>
 
                             </TabsList>
                         </Tabs>
 
                         <div className="flex items-center gap-2 w-full md:w-auto">
-                            {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (
+                            {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? (
                                 <select
                                     className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     value={filterReferral}
@@ -174,10 +242,10 @@ function SignupsContent() {
                                 >
                                     <option value="">All Referrers</option>
                                     {referrers.map((r) => (
-                                        <option key={r} value={r}>{r}</option>
+                                        <option key={String(r.id)} value={String(r.id)}>{String(r.name)}</option>
                                     ))}
                                 </select>
-                            )}
+                            ) : null}
 
                             <div className="relative w-full md:w-64">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -230,12 +298,12 @@ function SignupsContent() {
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
-                                                        {signup.companyInfo?.companyName?.slice(0, 2)}
+                                                        {String(signup.companyInfo?.companyName || '').slice(0, 2)}
                                                     </div>
                                                     <div className="font-medium text-foreground">
-                                                        {signup.companyInfo?.companyName}
+                                                        {String(signup.companyInfo?.companyName || '')}
                                                         <div className="text-xs text-muted-foreground font-normal flex items-center gap-1 mt-0.5">
-                                                            <Building2 className="h-3 w-3" /> {signup.companyInfo?.country}
+                                                            <Building2 className="h-3 w-3" /> {String(signup.companyInfo?.country || '')}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -244,19 +312,19 @@ function SignupsContent() {
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
                                                         <User className="h-3 w-3 text-gray-400" />
-                                                        {signup.accountInfo?.firstName} {signup.accountInfo?.lastName}
+                                                        {String(signup.accountInfo?.firstName || '')} {String(signup.accountInfo?.lastName || '')}
                                                     </span>
-                                                    <span className="text-xs text-gray-500">{signup.accountInfo?.email}</span>
+                                                    <span className="text-xs text-gray-500">{String(signup.accountInfo?.email || '')}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="text-sm font-medium text-gray-700">
-                                                    {signup.companyInfo?.referral || 'None'}
+                                                    {typeof signup.companyInfo?.referral === 'object' && signup.companyInfo?.referral !== null ? (signup.companyInfo.referral as any).name : (signup.companyInfo?.referral || 'None')}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <StatusBadge status={signup.status} />
+                                                    <StatusBadge signup={signup} />
                                                     {signup.is_updated && (
                                                         <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] py-0 px-1 font-semibold uppercase">
                                                             Updated

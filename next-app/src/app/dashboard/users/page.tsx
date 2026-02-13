@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Shield, User as UserIcon, Eye, EyeOff, Loader2, Ban, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Shield, User as UserIcon, Eye, EyeOff, Loader2, Ban, CheckCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export default function UsersPage() {
@@ -19,9 +19,13 @@ export default function UsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER' });
+    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false });
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<any>(null);
+    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_signups: false });
+    const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
         if (session?.accessToken) {
@@ -57,7 +61,7 @@ export default function UsersPage() {
             .then(async res => {
                 if (res && res.ok) {
                     setOpen(false);
-                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER' });
+                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
@@ -140,6 +144,52 @@ export default function UsersPage() {
             });
     };
 
+    const handleEditUser = (user: any) => {
+        setEditingUser(user);
+        setEditForm({
+            full_name: user.full_name || '',
+            email: user.email || '',
+            application_permission: user.application_permission || 'Both',
+            can_approve_signups: user.can_approve_signups ?? false,
+            password: '' // Leave empty
+        });
+        setEditOpen(true);
+    };
+
+    const handleSaveEdit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        setIsSubmitting(true);
+        const updateData: any = {};
+        if (editForm.full_name !== editingUser.full_name) updateData.full_name = editForm.full_name;
+        if (editForm.email !== editingUser.email) updateData.email = editForm.email;
+        if (editForm.application_permission !== editingUser.application_permission) updateData.application_permission = editForm.application_permission;
+        if (editForm.can_approve_signups !== editingUser.can_approve_signups) updateData.can_approve_signups = editForm.can_approve_signups;
+        if (editForm.password) updateData.password = editForm.password; // Only send if changed
+
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editingUser.username}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData)
+        })
+            .then(async res => {
+                if (res && res.ok) {
+                    setEditOpen(false);
+                    setEditingUser(null);
+                    toast.success("User updated successfully!");
+                    fetchUsers();
+                } else {
+                    const err = res ? await res.json() : { detail: "Unknown error" };
+                    toast.error(err.detail || "Failed to update user");
+                }
+            })
+            .catch(err => toast.error("Error updating user"))
+            .finally(() => setIsSubmitting(false));
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -198,9 +248,54 @@ export default function UsersPage() {
                                     <SelectContent>
                                         <SelectItem value="USER">User</SelectItem>
                                         <SelectItem value="ADMIN">Admin</SelectItem>
-                                        <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Application Permission</Label>
+                                <Select value={newUser.application_permission} onValueChange={v => setNewUser({ ...newUser, application_permission: v })}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {/* Super admin and Both permission admin can create any user */}
+                                        {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
+                                            <>
+                                                <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                                <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                                <SelectItem value="Both">Both</SelectItem>
+                                            </>
+                                        )}
+                                        {/* Web admin can only create Web users */}
+                                        {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
+                                            <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                        )}
+                                        {/* Call admin can only create Call users */}
+                                        {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
+                                            <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Approval Permission</Label>
+                                    <div className="text-xs text-muted-foreground">
+                                        Allow user to approve signups
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="new_can_approve"
+                                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
+                                        checked={newUser.can_approve_signups}
+                                        onChange={(e) => setNewUser({ ...newUser, can_approve_signups: e.target.checked })}
+                                    />
+                                    <Label htmlFor="new_can_approve" className="text-sm font-normal">
+                                        {newUser.can_approve_signups ? "Can Approve" : "Request Only"}
+                                    </Label>
+                                </div>
                             </div>
                             <div className="pt-4 flex justify-end">
                                 <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white" disabled={isSubmitting}>
@@ -297,16 +392,33 @@ export default function UsersPage() {
                                                 </button>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {session?.user?.name !== user.username && ( // Prevent deleting self
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-red-600"
-                                                        onClick={() => handleDeleteUser(user.username)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                )}
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {/* Web/Call admins cannot edit users with Both permission */}
+                                                    {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' &&
+                                                        !(['ADMIN'].includes(session?.user?.role || '') && ['Web Traffic', 'Call Traffic'].includes(session?.user?.application_permission || '') && user.application_permission === 'Both') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-blue-600"
+                                                                onClick={() => handleEditUser(user)}
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    {/* Web/Call admins cannot delete users with Both permission */}
+                                                    {session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' &&
+                                                        !(user.role === 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') && // Only Super Admin can delete Admins
+                                                        !(['ADMIN'].includes(session?.user?.role || '') && ['Web Traffic', 'Call Traffic'].includes(session?.user?.application_permission || '') && user.application_permission === 'Both') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                                                                onClick={() => handleDeleteUser(user.username)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -316,6 +428,106 @@ export default function UsersPage() {
                     </div>
                 </CardContent>
             </Card>
-        </div>
+
+            {/* Edit User Dialog */}
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit User: {editingUser?.username}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSaveEdit} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Full Name</Label>
+                            <Input
+                                value={editForm.full_name}
+                                onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
+                                placeholder="John Doe"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Email</Label>
+                            <Input
+                                type="email"
+                                value={editForm.email}
+                                onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                placeholder="john@example.com"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Application Permission</Label>
+                            <Select value={editForm.application_permission} onValueChange={v => setEditForm({ ...editForm, application_permission: v })}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {/* Super admin and Both permission admin can assign any permission */}
+                                    {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
+                                        <>
+                                            <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                            <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                            <SelectItem value="Both">Both</SelectItem>
+                                        </>
+                                    )}
+                                    {/* Web admin can only assign Web Traffic */}
+                                    {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
+                                        <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                    )}
+                                    {/* Call admin can only assign Call Traffic */}
+                                    {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
+                                        <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Approval Permission</Label>
+                                <div className="text-xs text-muted-foreground">
+                                    Allow user to approve signups
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="edit_can_approve"
+                                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
+                                    checked={editForm.can_approve_signups ?? true}
+                                    onChange={(e) => setEditForm({ ...editForm, can_approve_signups: e.target.checked })}
+                                />
+                                <Label htmlFor="edit_can_approve" className="text-sm font-normal">
+                                    {(editForm.can_approve_signups ?? true) ? "Can Approve" : "Request Only"}
+                                </Label>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>New Password (leave empty to keep current)</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showEditPassword ? "text" : "password"}
+                                    value={editForm.password}
+                                    onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                                    className="pr-10"
+                                    placeholder="••••••••"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditPassword(!showEditPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="pt-4 flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                            <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Changes
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 }
