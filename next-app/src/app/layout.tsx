@@ -15,8 +15,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vellko Affiliate",
-  description: "Vellko Affiliate",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://affiliate.vellko.com"),
+  title: {
+    default: "Vellko Affiliate",
+    template: "%s | Vellko Affiliate"
+  },
+  description: "Join the Vellko Affiliate Network and start earning today. High converting offers, timely payments, and dedicated support.",
+  openGraph: {
+    title: "Vellko Affiliate",
+    description: "Join the Vellko Affiliate Network and start earning today.",
+    url: "https://affiliate.vellko.com",
+    siteName: "Vellko Affiliate",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    title: "Vellko Affiliate",
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
