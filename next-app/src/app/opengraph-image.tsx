@@ -11,10 +11,18 @@ export const size = {
 export const contentType = 'image/png';
 
 export default async function Image() {
-    // Fetch the logo
-    const logoSrc = await fetch(new URL('https://eu1-us1.ckcdnassets.com/2362/logos/signuplogo.png')).then(
-        (res) => res.arrayBuffer()
-    );
+    // Fetch the logo with error handling
+    let logoSrc: ArrayBuffer | null = null;
+    try {
+        const response = await fetch(new URL('https://eu1-us1.ckcdnassets.com/2362/logos/signuplogo.png'));
+        if (response.ok) {
+            logoSrc = await response.arrayBuffer();
+        } else {
+            console.error('Failed to fetch logo:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error fetching logo:', error);
+    }
 
     return new ImageResponse(
         (
@@ -36,8 +44,12 @@ export default async function Image() {
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '16px', background: '#000000' }} />
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 50, marginTop: 20 }}>
-                    {/* @ts-ignore */}
-                    <img src={logoSrc} width="400" height="150" style={{ objectFit: 'contain' }} />
+                    {logoSrc ? (
+                        /* @ts-ignore */
+                        <img src={logoSrc} width="400" height="150" style={{ objectFit: 'contain' }} />
+                    ) : (
+                        <div style={{ fontSize: 60, fontWeight: 'bold', color: '#111827' }}>Vellko Affiliate</div>
+                    )}
                 </div>
 
                 <div
