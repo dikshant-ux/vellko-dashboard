@@ -252,9 +252,21 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
-    const initiateAction = (action: 'approve' | 'reject' | 'request_approval') => {
+    const initiateAction = (action: 'approve' | 'reject' | 'request_approval', target?: 'cake' | 'ringba') => {
         setPendingAction(action);
         setDecisionReason("");
+
+        if (target) {
+            // Granular Action triggered from specific card
+            if (target === 'cake') {
+                setApiSelection({ cake: true, ringba: false });
+            } else {
+                setApiSelection({ cake: false, ringba: true });
+            }
+            setShowApiSelection(false); // Hide selection when specific action is triggered
+            setIsDecisionOpen(true);
+            return;
+        }
 
         if (action === 'approve' || action === 'request_approval') {
             const appType = signup.marketingInfo?.applicationType;
@@ -262,24 +274,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
 
             if (appType === 'Call Traffic') {
                 setApiSelection({ cake: false, ringba: true });
-                setShowApiSelection(false); // Only 1 option, no need to show if we follow existing logic? Wait, existing logic hides it?
-                // Actually existing logic showed it only for 'Both'. 
-                // Let's refine: For simple types, we auto-select and hide. 
-                // For 'Both', we show. 
-                // AND for granular control: we might want to show it disabled?
-                // Current implementation:
-                // Call/Web -> hide
-                // Both -> show
-                // Let's stick to that for consistent UX.
                 setShowApiSelection(false);
             } else if (appType === 'Web Traffic') {
                 setApiSelection({ cake: true, ringba: false });
                 setShowApiSelection(false);
             } else if (appType === 'Both') {
                 // Smart Granular Logic using Boolean Status
-                // If Cake is True (Approved) or False (Rejected) -> Don't select it.
-                // If Ringba is True or False -> Don't select it.
-
                 const isCakeDone = signup.cake_api_status === true || signup.cake_api_status === false || !!signup.cake_affiliate_id;
                 const isRingbaDone = signup.ringba_api_status === true || signup.ringba_api_status === false || !!signup.ringba_affiliate_id;
 
@@ -290,19 +290,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     setApiSelection({ cake: false, ringba: true });
                     setShowApiSelection(false);
                 } else {
-                    // Both or Super Admin
-                    if (isCakeDone && !isRingbaDone) {
-                        setApiSelection({ cake: false, ringba: true });
-                    } else if (!isCakeDone && isRingbaDone) {
-                        setApiSelection({ cake: true, ringba: false });
-                    } else {
-                        // Both pending or both done (retry?)
-                        // Default to both enabled if not done
-                        setApiSelection({
-                            cake: !isCakeDone,
-                            ringba: !isRingbaDone
-                        });
-                    }
+                    // Both or Super Admin - Default Smart Selection logic retained for "Global" actions if any
+                    setApiSelection({
+                        cake: !isCakeDone,
+                        ringba: !isRingbaDone
+                    });
                     setShowApiSelection(true);
                 }
             } else {
@@ -310,7 +302,22 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 setShowApiSelection(false);
             }
         } else {
+            // For Reject, we might also want to show selection if not targeted?
+            // Existing logic didn't show selection for reject, implying it rejected everything?
+            // Actually handleDecision for reject uses api_options too.
+            // If we want granular reject, we should also invoke with target.
+            // If global reject is clicked (if it still exists), we arguably should show selection or reject pending.
+            // For now, let's keep existing behavior for global reject:
             setShowApiSelection(false);
+            // But we should probably set default selection for reject too logic? 
+            // The backend handles "reject pending" if we don't send specific flags? 
+            // Actually initiateAction didn't set apiSelection for 'reject' before... 
+            // Wait, previous code:
+            // } else { setShowApiSelection(false); }
+            // So apiSelection was unchanged? Or undefined?
+            // state `apiSelection` is initialized to {cake: true, ringba: true}.
+            // So global reject would reject both if not targeted?
+            // Let's ensure target sets it correctly.
         }
         setIsDecisionOpen(true);
     };
@@ -645,7 +652,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end gap-1">
                         <StatusBadge status={signup.status} />
-                        {/* Granular Status Badges (Boolean) */}
                         {/* Granular Status Badges (Boolean) - Always show for Both type users */}
                         {(signup.marketingInfo?.applicationType === 'Both' && ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '')) && (
                             <div className="flex gap-2 text-xs">
@@ -684,152 +690,166 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             )}
                         </>
                     )}
-                    {signup.status === 'PENDING' && (
-                        <>
-                            <Button
-                                variant="destructive"
-                                onClick={() => initiateAction('reject')}
-                                disabled={!!actionLoading}
-                            >
-                                {actionLoading === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                                Reject
-                            </Button>
-
-                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_approve_signups) ? (
-                                <Button
-                                    onClick={() => initiateAction('approve')}
-                                    disabled={!!actionLoading}
-                                    className="bg-green-600 hover:bg-green-700"
-                                >
-                                    {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                                    Approve
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => initiateAction('request_approval')}
-                                    disabled={!!actionLoading}
-                                >
-                                    {actionLoading === 'request_approval' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                                    Request Approval
-                                </Button>
-                            )}
-                        </>
-
-                    )}
-
-                    {/* Partial Approval Logic: Allow action if Both type and one API is missing, even if status is APPROVED or REQUESTED */}
-                    {signup.marketingInfo?.applicationType === 'Both' &&
-                        (signup.status === 'APPROVED' || signup.status === 'REQUESTED_FOR_APPROVAL') &&
-                        (!signup.cake_affiliate_id || !signup.ringba_affiliate_id) && (
-                            <>
-                                {/* Only show if user has permission to act on the MISSING one */}
-                                {/* Logic is a bit complex:
-                                 If Cake missing -> Web Traffic OR Both user can act.
-                                 If Ringba missing -> Call Traffic OR Both user can act.
-                             */}
-                                {(
-                                    (!signup.cake_affiliate_id && ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) ||
-                                    (!signup.ringba_affiliate_id && ['Call Traffic', 'Both'].includes(session?.user?.application_permission || ''))
-                                ) && (
-                                        <>
-                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_approve_signups) ? (
-                                                <>
-                                                    {/* Hide Reject Remaining if the remaining item is ALREADY rejected */}
-                                                    {
-                                                        // If Cake is missing and Cake is NOT rejected -> Show Reject
-                                                        // If Ringba is missing and Ringba is NOT rejected -> Show Reject
-                                                        ((!signup.cake_affiliate_id && signup.cake_api_status !== false) ||
-                                                            (!signup.ringba_affiliate_id && signup.ringba_api_status !== false)) && (
-                                                            <Button
-                                                                variant="destructive"
-                                                                onClick={() => initiateAction('reject')}
-                                                                disabled={!!actionLoading}
-                                                                className="ml-2"
-                                                            >
-                                                                {actionLoading === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                                                                Reject Remaining
-                                                            </Button>
-                                                        )
-                                                    }
-                                                    <Button
-                                                        onClick={() => initiateAction('approve')}
-                                                        disabled={!!actionLoading}
-                                                        className="bg-green-600 hover:bg-green-700 ml-2"
-                                                    >
-                                                        {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                                                        {((!signup.cake_affiliate_id && signup.cake_api_status === false) ||
-                                                            (!signup.ringba_affiliate_id && signup.ringba_api_status === false)) ? 'Retry Approval' : 'Approve Remaining'}
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={() => initiateAction('request_approval')}
-                                                    disabled={!!actionLoading}
-                                                    className="ml-2"
-                                                >
-                                                    {actionLoading === 'request_approval' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                                                    Request Remaining
-                                                </Button>
-                                            )}
-                                        </>
-                                    )}
-                            </>
-                        )}
-
-                    {signup.status === 'REQUESTED_FOR_APPROVAL' && ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (
-                        <>
-                            <Button
-                                variant="destructive"
-                                onClick={() => initiateAction('reject')}
-                                disabled={!!actionLoading}
-                            >
-                                {actionLoading === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                                Reject
-                            </Button>
-                            <Button
-                                onClick={() => initiateAction('approve')}
-                                disabled={!!actionLoading}
-                                className="bg-green-600 hover:bg-green-700"
-                            >
-                                {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                                Approve
-                            </Button>
-                        </>
-                    )}
-                    {signup.status === 'REJECTED' && (
-                        <>
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={!!actionLoading}
-                            >
-                                {actionLoading === 'reset' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
-                                Reset to Pending
-                            </Button>
-                            <Button
-                                onClick={() => initiateAction('approve')}
-                                disabled={!!actionLoading}
-                                className="bg-green-600 hover:bg-green-700"
-                            >
-                                {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                                Approve
-                            </Button>
-                        </>
-                    )}
-                    {session?.user?.role === 'SUPER_ADMIN' && (
-                        <Button
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={!!actionLoading}
-                        >
-                            {actionLoading === 'delete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
-                            Delete
-                        </Button>
-                    )}
                 </div>
             </div>
+
+            {/* Decision Cards - Granular Actions */}
+            {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (signup.status === 'PENDING' || signup.status === 'APPROVED' || signup.status === 'PARTIALLY APPROVED' || signup.status === 'APPROVED (PARTIAL)' || signup.status === 'REQUESTED_FOR_APPROVAL') && (
+                <div className="grid gap-6 md:grid-cols-2">
+                    {/* Cake Card */}
+                    {(signup.marketingInfo?.applicationType === 'Both' || signup.marketingInfo?.applicationType === 'Web Traffic') && (
+                        <Card className={`border-l-4 ${signup.cake_api_status === true ? 'border-l-green-500' : signup.cake_api_status === false ? 'border-l-red-500' : 'border-l-yellow-500'} shadow-sm`}>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                    <span>Cake (Web Traffic)</span>
+                                    <Badge variant="outline" className={
+                                        signup.cake_api_status === true ? "text-green-600 bg-green-50 border-green-200" :
+                                            signup.cake_api_status === false ? "text-red-600 bg-red-50 border-red-200" :
+                                                "text-yellow-600 bg-yellow-50 border-yellow-200"
+                                    }>
+                                        {signup.cake_api_status === true ? 'Approved' : signup.cake_api_status === false ? 'Rejected' : 'Pending'}
+                                    </Badge>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-center justify-between mt-2">
+                                    <div className="text-sm text-muted-foreground">
+                                        {signup.cake_affiliate_id ? (
+                                            <span className="font-mono bg-muted px-2 py-1 rounded">ID: {signup.cake_affiliate_id}</span>
+                                        ) : (
+                                            <span>Actions available</span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {/* Permission Check for Cake */}
+                                        {['SUPER_ADMIN', 'ADMIN'].includes(session?.user?.role || '') &&
+                                            (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
+                                                <>
+                                                    {!signup.cake_affiliate_id && (
+                                                        <>
+                                                            {signup.cake_api_status !== false && (
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    onClick={() => initiateAction('reject', 'cake')}
+                                                                    disabled={!!actionLoading}
+                                                                >
+                                                                    Reject
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700"
+                                                                onClick={() => initiateAction('approve', 'cake')}
+                                                                disabled={!!actionLoading}
+                                                            >
+                                                                {signup.cake_api_status === false ? 'Retry Approval' : 'Approve'}
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </>
+                                            )
+                                        }
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Ringba Card */}
+                    {(signup.marketingInfo?.applicationType === 'Both' || signup.marketingInfo?.applicationType === 'Call Traffic') && (
+                        <Card className={`border-l-4 ${signup.ringba_api_status === true ? 'border-l-green-500' : signup.ringba_api_status === false ? 'border-l-red-500' : 'border-l-yellow-500'} shadow-sm`}>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                    <span>Ringba (Call Traffic)</span>
+                                    <Badge variant="outline" className={
+                                        signup.ringba_api_status === true ? "text-green-600 bg-green-50 border-green-200" :
+                                            signup.ringba_api_status === false ? "text-red-600 bg-red-50 border-red-200" :
+                                                "text-yellow-600 bg-yellow-50 border-yellow-200"
+                                    }>
+                                        {signup.ringba_api_status === true ? 'Approved' : signup.ringba_api_status === false ? 'Rejected' : 'Pending'}
+                                    </Badge>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-center justify-between mt-2">
+                                    <div className="text-sm text-muted-foreground">
+                                        {signup.ringba_affiliate_id ? (
+                                            <span className="font-mono bg-muted px-2 py-1 rounded">ID: {signup.ringba_affiliate_id}</span>
+                                        ) : (
+                                            <span>Actions available</span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {/* Permission Check for Ringba */}
+                                        {['SUPER_ADMIN', 'ADMIN'].includes(session?.user?.role || '') &&
+                                            (['Call Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
+                                                <>
+                                                    {!signup.ringba_affiliate_id && (
+                                                        <>
+                                                            {signup.ringba_api_status !== false && (
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    onClick={() => initiateAction('reject', 'ringba')}
+                                                                    disabled={!!actionLoading}
+                                                                >
+                                                                    Reject
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700"
+                                                                onClick={() => initiateAction('approve', 'ringba')}
+                                                                disabled={!!actionLoading}
+                                                            >
+                                                                {signup.ringba_api_status === false ? 'Retry Approval' : 'Approve'}
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </>
+                                            )
+                                        }
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            )}
+
+            {signup.status === 'REJECTED' && (
+                <div className="flex gap-2 justify-end">
+                    <Button
+                        variant="outline"
+                        onClick={handleReset}
+                        disabled={!!actionLoading}
+                    >
+                        {actionLoading === 'reset' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                        Reset to Pending
+                    </Button>
+                    <Button
+                        onClick={() => initiateAction('approve')}
+                        disabled={!!actionLoading}
+                        className="bg-green-600 hover:bg-green-700"
+                    >
+                        {actionLoading === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                        Approve Re-Application
+                    </Button>
+                </div>
+            )}
+            {session?.user?.role === 'SUPER_ADMIN' && (
+                <div className="flex justify-end mt-4">
+                    <Button
+                        variant="destructive"
+                        onClick={handleDelete}
+                        disabled={!!actionLoading}
+                    >
+                        {actionLoading === 'delete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
+                        Delete Application
+                    </Button>
+                </div>
+            )}
 
             <Dialog open={isDecisionOpen} onOpenChange={setIsDecisionOpen}>
                 <DialogContent>
@@ -1570,66 +1590,72 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
             </div>
 
-            {signup.processed_by && (
-                <Card className={signup.status === 'APPROVED' ? "bg-green-500/5 border-green-200" : "bg-red-500/5 border-red-200"}>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                            Decision Info
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-3 gap-1 text-sm">
-                            <span className="font-medium text-muted-foreground">Processed By:</span>
-                            <span className="col-span-2">{signup.processed_by}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 text-sm">
-                            <span className="font-medium text-muted-foreground">Processed At:</span>
-                            <span className="col-span-2">{new Date(signup.processed_at).toLocaleString()}</span>
-                        </div>
-                        {signup.decision_reason && (
+            {
+                signup.processed_by && (
+                    <Card className={signup.status === 'APPROVED' ? "bg-green-500/5 border-green-200" : "bg-red-500/5 border-red-200"}>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                Decision Info
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
                             <div className="grid grid-cols-3 gap-1 text-sm">
-                                <span className="font-medium text-muted-foreground">Reason:</span>
-                                <span className="col-span-2 italic text-muted-foreground">"{signup.decision_reason}"</span>
+                                <span className="font-medium text-muted-foreground">Processed By:</span>
+                                <span className="col-span-2">{signup.processed_by}</span>
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-
-            {signup.cake_affiliate_id && (
-                <Card className="bg-blue-500/5 border-blue-200">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold">CAKE Integration</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="grid grid-cols-3 gap-1 text-sm">
-                            <span className="font-medium text-blue-900">Affiliate ID:</span>
-                            <span className="col-span-2 font-mono text-blue-800">{signup.cake_affiliate_id}</span>
-                        </div>
-                        {signup.cake_message && (
                             <div className="grid grid-cols-3 gap-1 text-sm">
-                                <span className="font-medium text-blue-900">Message:</span>
-                                <span className="col-span-2 text-blue-800">{signup.cake_message}</span>
+                                <span className="font-medium text-muted-foreground">Processed At:</span>
+                                <span className="col-span-2">{new Date(signup.processed_at).toLocaleString()}</span>
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
+                            {signup.decision_reason && (
+                                <div className="grid grid-cols-3 gap-1 text-sm">
+                                    <span className="font-medium text-muted-foreground">Reason:</span>
+                                    <span className="col-span-2 italic text-muted-foreground">"{signup.decision_reason}"</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )
+            }
 
-            {signup.cake_response && (
-                <Card className="md:col-span-2 border-gray-200">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold">CAKE API Raw Response</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="bg-gray-950 rounded-md p-4 overflow-auto max-h-[300px]">
-                            <pre className="text-xs text-gray-300 font-mono">
-                                {signup.cake_response}
-                            </pre>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-        </div>
+            {
+                signup.cake_affiliate_id && (
+                    <Card className="bg-blue-500/5 border-blue-200">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-semibold">CAKE Integration</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="grid grid-cols-3 gap-1 text-sm">
+                                <span className="font-medium text-blue-900">Affiliate ID:</span>
+                                <span className="col-span-2 font-mono text-blue-800">{signup.cake_affiliate_id}</span>
+                            </div>
+                            {signup.cake_message && (
+                                <div className="grid grid-cols-3 gap-1 text-sm">
+                                    <span className="font-medium text-blue-900">Message:</span>
+                                    <span className="col-span-2 text-blue-800">{signup.cake_message}</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )
+            }
+
+            {
+                signup.cake_response && (
+                    <Card className="md:col-span-2 border-gray-200">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-semibold">CAKE API Raw Response</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="bg-gray-950 rounded-md p-4 overflow-auto max-h-[300px]">
+                                <pre className="text-xs text-gray-300 font-mono">
+                                    {signup.cake_response}
+                                </pre>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )
+            }
+        </div >
     );
 }

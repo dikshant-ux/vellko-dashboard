@@ -78,10 +78,6 @@ function SignupsContent() {
                 url += `?${queryString}`;
             }
 
-            if (queryString) {
-                url += `?${queryString}`;
-            }
-
             authFetch(url)
                 .then(res => res ? res.json() : null)
                 .then(data => {

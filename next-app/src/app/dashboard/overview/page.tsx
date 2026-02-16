@@ -61,7 +61,7 @@ export default function OverviewPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                
+
                 <StatCard
                     title="Pending Review"
                     value={stats?.pending}
@@ -95,6 +95,69 @@ export default function OverviewPage() {
                     href="/dashboard/signups?status=ALL"
                 />
             </div>
+
+            {/* Application Breakdown - Visible only to Super Admin or 'Both' permission users */}
+            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="border-l-4 border-l-blue-500 shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                <span>Cake (Web Traffic)</span>
+                                <div className="p-2 bg-blue-100 rounded-full"><Activity className="h-4 w-4 text-blue-600" /></div>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase font-bold">Approved</p>
+                                    <p className="text-xl font-bold text-green-600">{stats?.cake_stats?.approved ?? "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase font-bold">Pending</p>
+                                    <p className="text-xl font-bold text-yellow-600">{stats?.cake_stats?.pending ?? "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase font-bold">Rejected</p>
+                                    <p className="text-xl font-bold text-red-600">{stats?.cake_stats?.rejected ?? "-"}</p>
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Total Applications</span>
+                                <span className="font-bold">{stats?.cake_stats?.total ?? "-"}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-l-4 border-l-purple-500 shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                <span>Ringba (Call Traffic)</span>
+                                <div className="p-2 bg-purple-100 rounded-full"><Activity className="h-4 w-4 text-purple-600" /></div>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase font-bold">Approved</p>
+                                    <p className="text-xl font-bold text-green-600">{stats?.ringba_stats?.approved ?? "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase font-bold">Pending</p>
+                                    <p className="text-xl font-bold text-yellow-600">{stats?.ringba_stats?.pending ?? "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground uppercase font-bold">Rejected</p>
+                                    <p className="text-xl font-bold text-red-600">{stats?.ringba_stats?.rejected ?? "-"}</p>
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Total Applications</span>
+                                <span className="font-bold">{stats?.ringba_stats?.total ?? "-"}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <Card className="col-span-4 border-none shadow-md">

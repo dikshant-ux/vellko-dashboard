@@ -94,10 +94,91 @@ async def get_stats(user: User = Depends(get_current_admin)):
     # For simplicity, returning what DB gives. Frontend can handle gaps or we stick to existing points.
     chart_data = [{"date": item["_id"], "count": item["count"]} for item in chart_data_list]
 
+    # --- Application Specific Stats (Granular) ---
+    async def get_granular_stats(api_status_field: str, app_type: str):
+        # Base filter for this application type (Specific Type OR Both)
+        base_query = query.copy()
+        base_query["$or"] = [
+            {"marketingInfo.applicationType": app_type},
+            {"marketingInfo.applicationType": "Both"}
+        ]
+        
+        # Approved Count
+        # Logic: Explicitly True OR (Implicitly True for Single-Type apps via Global Status)
+        approved_query = {
+            "$and": [
+                base_query,
+                {
+                    "$or": [
+                        {api_status_field: True},
+                        {
+                            "marketingInfo.applicationType": app_type,
+                            "status": SignupStatus.APPROVED,
+                            api_status_field: None
+                        }
+                    ]
+                }
+            ]
+        }
+        approved_count = await db.signups.count_documents(approved_query)
+
+        # Rejected Count
+        rejected_query = {
+            "$and": [
+                base_query,
+                {
+                    "$or": [
+                        {api_status_field: False},
+                        {
+                            "marketingInfo.applicationType": app_type,
+                            "status": SignupStatus.REJECTED,
+                            api_status_field: None
+                        }
+                    ]
+                }
+            ]
+        }
+        rejected_count = await db.signups.count_documents(rejected_query)
+
+        # Pending Count
+        # Logic: Explicitly None (and not global rejected/approved if single type?? No, if single type and global pending, api status is likely None)
+        # For "Both": If api_status is None, it is Pending.
+        # For Single: If Global PENDING, it is Pending.
+        pending_query = {
+             "$and": [
+                base_query,
+                {
+                    "$or": [
+                        # For Both: Explicitly None means Pending
+                        {"marketingInfo.applicationType": "Both", api_status_field: None},
+                        # For Single: Global Pending
+                        {"marketingInfo.applicationType": app_type, "status": SignupStatus.PENDING},
+                        # For Single: Global Requested
+                        {"marketingInfo.applicationType": app_type, "status": SignupStatus.REQUESTED_FOR_APPROVAL}
+                    ]
+                }
+            ]
+        }
+        pending_count = await db.signups.count_documents(pending_query)
+        
+        total_relevant = await db.signups.count_documents(base_query)
+
+        return {
+            "total": total_relevant,
+            "approved": approved_count,
+            "rejected": rejected_count,
+            "pending": pending_count
+        }
+
+    cake_stats = await get_granular_stats("cake_api_status", "Web Traffic")
+    ringba_stats = await get_granular_stats("ringba_api_status", "Call Traffic")
+
+
     # Top Referrers
     # Group by companyInfo.referral_id to avoid name change issues
     referral_pipeline = [
-        {"$match": {}},
+        {"$match": {}}, # Use global query if specific filtering needed, currently global top referrers
+
         {
             "$group": {
                 "_id": "$companyInfo.referral_id",
@@ -151,7 +232,9 @@ async def get_stats(user: User = Depends(get_current_admin)):
         "approved": approved,
         "rejected": rejected,
         "chart_data": chart_data,
-        "top_referrers": formatted_referrers
+        "top_referrers": formatted_referrers,
+        "cake_stats": cake_stats,
+        "ringba_stats": ringba_stats
     }
 
 @router.get("/signups", response_model=PaginatedSignups)
