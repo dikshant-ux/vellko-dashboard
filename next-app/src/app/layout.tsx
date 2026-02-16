@@ -15,25 +15,49 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://192.119.169.211/"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "http://192.119.169.211"
+  ),
+
   title: {
     default: "Vellko Affiliate",
-    template: "%s | Vellko Affiliate"
+    template: "%s | Vellko Affiliate",
   },
-  description: "Join the Vellko Affiliate Network and start earning today. High converting offers, timely payments, and dedicated support.",
+
+  description:
+    "Join the Vellko Affiliate Network and start earning today. High converting offers, timely payments, and dedicated support.",
+
   openGraph: {
     title: "Vellko Affiliate",
-    description: "Join the Vellko Affiliate Network and start earning today.",
-    url: "http://192.119.169.211/",
+    description:
+      "Join the Vellko Affiliate Network and start earning today.",
+    url: "/",
     siteName: "Vellko Affiliate",
     locale: "en_US",
     type: "website",
+
+    // ✅ ADD THIS
+    images: [
+      {
+        url: "/opengraph-image", // Next.js will convert to full URL using metadataBase
+        width: 1200,
+        height: 630,
+        alt: "Vellko Affiliate",
+      },
+    ],
   },
+
   twitter: {
     title: "Vellko Affiliate",
+    description:
+      "Join the Vellko Affiliate Network and start earning today.",
     card: "summary_large_image",
+
+    // ✅ ADD THIS
+    images: ["/opengraph-image"],
   },
 };
+
 
 export default function RootLayout({
   children,
