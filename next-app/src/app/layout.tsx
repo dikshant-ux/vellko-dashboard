@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://affiliate.vellko.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://192.119.169.211/"),
   title: {
     default: "Vellko Affiliate",
     template: "%s | Vellko Affiliate"
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Vellko Affiliate",
     description: "Join the Vellko Affiliate Network and start earning today.",
-    url: "https://affiliate.vellko.com",
+    url: "http://192.119.169.211/",
     siteName: "Vellko Affiliate",
     locale: "en_US",
     type: "website",
