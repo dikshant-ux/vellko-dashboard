@@ -354,7 +354,6 @@ class SignupDecision(BaseModel):
     reason: Optional[str] = ""
     addToCake: bool = False
     addToRingba: bool = False
-    affiliateManagerId: Optional[str] = None
 
 import httpx
 import xmltodict
@@ -590,10 +589,35 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                     cake_message = result.get('message', 'No message')
                     cake_affiliate_id = result.get('affiliate_id')
 
-                    # --- Cake V2 Assignment ---
-                    # If signup successful and manager ID provided, do assign
-                    # Priority: 1. Decision override, 2. Referrer Manager ID
-                    manager_id_to_assign = decision.affiliateManagerId or signup_data.get("referrer_manager_id")
+                    # Handle Duplicates: Extract ID from message and proceed to V2 if possible
+                    if not cake_success and "duplicate" in cake_message.lower():
+                        import re
+                        # Common Cake duplicate message: "Duplicate affiliate. Affiliate ID: 12345"
+                        match = re.search(r'Affiliate ID:\s*(\d+)', cake_message)
+                        if match:
+                            cake_affiliate_id = match.group(1)
+                            cake_success = True
+                            cake_message = f"Existing Affiliate Found (ID: {cake_affiliate_id}). Proceeding to manager assignment."
+
+                    # --- Cake V2 Assignment (Automated) ---
+                    # Logic: Look up referrer by ID or name, fetch their cake manager ID. Default to "0".
+                    manager_id_to_assign = "0"
+                    
+                    ref_id = signup_data.get("companyInfo", {}).get("referral_id")
+                    ref_name = signup_data.get("companyInfo", {}).get("referral")
+                    
+                    ref_user = None
+                    if ref_id:
+                        try:
+                            ref_user = await db.users.find_one({"_id": ObjectId(ref_id)})
+                        except:
+                            pass
+                    
+                    if not ref_user and ref_name:
+                        ref_user = await db.users.find_one({"full_name": ref_name})
+                    
+                    if ref_user and ref_user.get("cake_account_manager_id"):
+                        manager_id_to_assign = ref_user.get("cake_account_manager_id")
                     
                     if cake_success and cake_affiliate_id and manager_id_to_assign:
                         try:
@@ -737,39 +761,52 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     # Let's assume APPROVED if at least one requested API succeeded, or purely informational.
     # Usually we want to know if it failed.
     
-    # Strategy: Mark APPROVED if logic executed. Store messages.
-    # If one failed, we might want to keep PENDING or partial. 
-    # For now, simplistic approach: If any requested failed, error out? 
-    # Or just save what happened.
-    
+    # --- Granular Status Update (Boolean) ---
+    update_fields = {}
+    if decision.addToCake:
+        update_fields["cake_api_status"] = True if cake_success else False
+    if decision.addToRingba:
+        update_fields["ringba_api_status"] = True if ringba_success else False
+
+    # Determine overall status
     overall_success = True
     if decision.addToCake and not cake_success:
         overall_success = False
     if decision.addToRingba and not ringba_success:
         overall_success = False
-        
-    # If no API was selected (shouldn't happen with UI logic but possible), allow simple approve?
-    # Assuming manual approval if no flags? Let's treat no flags as "Manual Approval" or just respect overall_success=True.
+    
+    # If no API was selected, handle as success (manual approve)
     if not decision.addToCake and not decision.addToRingba:
         overall_success = True
 
+    # For the base status field:
+    new_status = SignupStatus.PENDING
+    if overall_success:
+        new_status = SignupStatus.APPROVED
+    
+    # --- Prepare Database Update ---
+    update_data = {
+        "status": new_status,
+        "cake_message": cake_message,
+        "cake_response": cake_raw_response,
+        "ringba_message": ringba_message,
+        "ringba_response": ringba_raw_response,
+        "decision_reason": decision.reason,
+        "processed_by": user.username,
+        "processed_at": datetime.utcnow(),
+        **update_fields
+    }
 
+    # Only Save ID if success
+    if cake_success:
+        update_data["cake_affiliate_id"] = cake_affiliate_id
+    if ringba_success:
+        update_data["ringba_affiliate_id"] = ringba_affiliate_id
+
+    # Save results
     await db.signups.update_one(
         {"_id": ObjectId(id)},
-        {
-            "$set": {
-                "status": SignupStatus.APPROVED if overall_success else SignupStatus.PENDING,
-                "cake_affiliate_id": cake_affiliate_id,
-                "cake_message": cake_message,
-                "cake_response": cake_raw_response,
-                "ringba_affiliate_id": ringba_affiliate_id,
-                "ringba_message": ringba_message,
-                "ringba_response": ringba_raw_response,
-                "decision_reason": decision.reason,
-                "processed_by": user.username,
-                "processed_at": datetime.utcnow()
-            }
-        }
+        {"$set": update_data}
     )
     
     if not overall_success:
@@ -784,20 +821,6 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         "cake": {"id": cake_affiliate_id, "message": cake_message},
         "ringba": {"id": ringba_affiliate_id, "message": ringba_message}
     }
-    
-    # Granular Status Update (Boolean)
-    update_fields = {}
-    if decision.addToCake and cake_success:
-        update_fields["cake_api_status"] = True
-        
-    if decision.addToRingba and ringba_success:
-        update_fields["ringba_api_status"] = True
-
-    if update_fields:
-        await db.signups.update_one(
-            {"_id": ObjectId(id)},
-            {"$set": update_fields}
-        )
 
     return {"message": "Approval Processed", "details": params_result}
 

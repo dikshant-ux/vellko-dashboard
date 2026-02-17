@@ -43,7 +43,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'request_approval' | null>(null);
     const [apiSelection, setApiSelection] = useState({ cake: false, ringba: false });
     const [showApiSelection, setShowApiSelection] = useState(false);
-    const [affiliateManagerId, setAffiliateManagerId] = useState("");
 
     // Document Upload State
     const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -321,12 +320,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             // Let's ensure target sets it correctly.
         }
 
-        // Pre-fill Manager ID from referrer
-        if (signup?.referrer_manager_id) {
-            setAffiliateManagerId(signup.referrer_manager_id);
-        } else {
-            setAffiliateManagerId("");
-        }
 
         setIsDecisionOpen(true);
     };
@@ -364,8 +357,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 body: JSON.stringify({
                     reason: decisionReason,
                     addToCake: apiSelection.cake,
-                    addToRingba: apiSelection.ringba,
-                    affiliateManagerId: apiSelection.cake ? affiliateManagerId : null
+                    addToRingba: apiSelection.ringba
                 })
             });
 
@@ -608,6 +600,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
 
             if (cake === true || ringba === true) return 'PARTIALLY APPROVED';
 
+            // If both failed but admin hasn't rejected, it's still PENDING (but failed)
+            if (cake === false && ringba === false && signup.status !== 'REJECTED') {
+                return 'FAILED (PENDING)';
+            }
+
             if (cake === false && ringba === false) return 'REJECTED';
 
             return signup.status;
@@ -616,13 +613,17 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         // If specific permission, only care about that status
         if (userPermission === 'Web Traffic') {
             if (signup.cake_api_status === true) return 'APPROVED';
-            if (signup.cake_api_status === false) return 'REJECTED';
+            if (signup.cake_api_status === false) {
+                return signup.status === 'REJECTED' ? 'REJECTED' : 'FAILED (PENDING)';
+            }
             return 'PENDING';
         }
 
         if (userPermission === 'Call Traffic') {
             if (signup.ringba_api_status === true) return 'APPROVED';
-            if (signup.ringba_api_status === false) return 'REJECTED';
+            if (signup.ringba_api_status === false) {
+                return signup.status === 'REJECTED' ? 'REJECTED' : 'FAILED (PENDING)';
+            }
             return 'PENDING';
         }
 
@@ -638,6 +639,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             REJECTED: "bg-red-100 text-red-800 hover:bg-red-100",
             "PARTIALLY APPROVED": "bg-blue-100 text-blue-800 hover:bg-blue-100",
             "APPROVED (PARTIAL)": "bg-orange-100 text-orange-800 hover:bg-orange-100",
+            "FAILED (PENDING)": "bg-red-50 text-red-600 border-red-200 hover:bg-red-50",
         };
         return <Badge className={variants[displayStatus] || variants[status] || ""} variant="secondary">{displayStatus}</Badge>;
     };
@@ -669,13 +671,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     signup.cake_api_status === true ? "border-green-500 text-green-600 bg-green-50" :
                                         signup.cake_api_status === false ? "border-red-500 text-red-600 bg-red-50" :
                                             "border-yellow-500 text-yellow-600 bg-yellow-50"
-                                }>Cake: {signup.cake_api_status === true ? 'Approved' : signup.cake_api_status === false ? 'Rejected' : 'Pending'}</Badge>
+                                }>Cake: {signup.cake_api_status === true ? 'Approved' : signup.cake_api_status === false ? 'Failed' : 'Pending'}</Badge>
 
                                 <Badge variant="outline" className={
                                     signup.ringba_api_status === true ? "border-green-500 text-green-600 bg-green-50" :
                                         signup.ringba_api_status === false ? "border-red-500 text-red-600 bg-red-50" :
                                             "border-yellow-500 text-yellow-600 bg-yellow-50"
-                                }>Ringba: {signup.ringba_api_status === true ? 'Approved' : signup.ringba_api_status === false ? 'Rejected' : 'Pending'}</Badge>
+                                }>Ringba: {signup.ringba_api_status === true ? 'Approved' : signup.ringba_api_status === false ? 'Failed' : 'Pending'}</Badge>
                             </div>
                         )}
                     </div>
@@ -717,7 +719,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                             signup.cake_api_status === false ? "text-red-600 bg-red-50 border-red-200" :
                                                 "text-yellow-600 bg-yellow-50 border-yellow-200"
                                     }>
-                                        {signup.cake_api_status === true ? 'Approved' : signup.cake_api_status === false ? 'Rejected' : 'Pending'}
+                                        {signup.cake_api_status === true ? 'Approved' : signup.cake_api_status === false ? 'Failed' : 'Pending'}
                                     </Badge>
                                 </CardTitle>
                             </CardHeader>
@@ -737,16 +739,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                 <>
                                                     {!signup.cake_affiliate_id && (
                                                         <>
-                                                            {signup.cake_api_status !== false && (
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    onClick={() => initiateAction('reject', 'cake')}
-                                                                    disabled={!!actionLoading}
-                                                                >
-                                                                    Reject
-                                                                </Button>
-                                                            )}
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                onClick={() => initiateAction('reject', 'cake')}
+                                                                disabled={!!actionLoading}
+                                                            >
+                                                                Reject
+                                                            </Button>
                                                             <Button
                                                                 size="sm"
                                                                 className="bg-green-600 hover:bg-green-700"
@@ -777,7 +777,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                             signup.ringba_api_status === false ? "text-red-600 bg-red-50 border-red-200" :
                                                 "text-yellow-600 bg-yellow-50 border-yellow-200"
                                     }>
-                                        {signup.ringba_api_status === true ? 'Approved' : signup.ringba_api_status === false ? 'Rejected' : 'Pending'}
+                                        {signup.ringba_api_status === true ? 'Approved' : signup.ringba_api_status === false ? 'Failed' : 'Pending'}
                                     </Badge>
                                 </CardTitle>
                             </CardHeader>
@@ -797,16 +797,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                 <>
                                                     {!signup.ringba_affiliate_id && (
                                                         <>
-                                                            {signup.ringba_api_status !== false && (
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    onClick={() => initiateAction('reject', 'ringba')}
-                                                                    disabled={!!actionLoading}
-                                                                >
-                                                                    Reject
-                                                                </Button>
-                                                            )}
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                onClick={() => initiateAction('reject', 'ringba')}
+                                                                disabled={!!actionLoading}
+                                                            >
+                                                                Reject
+                                                            </Button>
                                                             <Button
                                                                 size="sm"
                                                                 className="bg-green-600 hover:bg-green-700"
@@ -946,17 +944,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         {pendingAction === 'approve' && !showApiSelection && (
                             <div className="text-sm text-muted-foreground mb-2">
                                 Creating affiliate in: {apiSelection.cake ? <b>Cake</b> : ''} {apiSelection.ringba ? <b>Ringba</b> : ''}
-                            </div>
-                        )}
-                        {apiSelection.cake && (
-                            <div className="grid gap-2">
-                                <Label htmlFor="managerId">Cake Account Manager ID</Label>
-                                <Input
-                                    id="managerId"
-                                    placeholder="e.g. 123"
-                                    value={affiliateManagerId}
-                                    onChange={(e) => setAffiliateManagerId(e.target.value)}
-                                />
                             </div>
                         )}
                         <div className="grid gap-2">
