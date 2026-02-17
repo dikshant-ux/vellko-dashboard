@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from database import db, settings
 import secrets
 from email_utils import send_otp_email
-import jwt
+from jose import jwt
 import httpx
 import xmltodict
 import auth
