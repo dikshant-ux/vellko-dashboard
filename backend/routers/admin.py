@@ -248,9 +248,7 @@ async def get_signups(
     user: User = Depends(get_current_admin)
 ):
     query = {}
-    if status:
-        query["status"] = status
-        
+    
     # Role based filtering
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Filter by referral_id if available, fallback to name
@@ -271,11 +269,6 @@ async def get_signups(
             query["companyInfo.referral"] = referral
     
     # Application permission filtering
-    # Super admin sees everything, no filtering needed
-    # Application permission filtering
-    # Super admin sees everything unless specific filter requested
-    # But adhere to user's permission first.
-    
     # 1. Determine User's Max Permission Set
     user_allowed_types = ["Web Traffic", "Call Traffic", "Both"] # Default All
     if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
@@ -287,36 +280,53 @@ async def get_signups(
         # If Both, allowed all.
     
     # 2. Determine Requested Filter
-    # If frontend requests a specific type (e.g. toggle "Web Only"), we must respect it
-    # BUT only if it is within user's allowed permissions.
-    
     final_types_filter = user_allowed_types
-    
     if application_type:
-        # Frontend requests specific view
         if application_type == "Web Traffic":
-             # Requested Web. Intersect with Allowed.
-             # If user is Web or Both -> Result ["Web Traffic", "Both"]
-             # If user is Call -> Result [] (Empty)
              if "Web Traffic" in user_allowed_types:
-                  final_types_filter = ["Web Traffic", "Both"] # Show Web specific AND Shared
+                  final_types_filter = ["Web Traffic", "Both"]
              else:
-                  final_types_filter = [] # Forbidden
+                  final_types_filter = []
         elif application_type == "Call Traffic":
              if "Call Traffic" in user_allowed_types:
                   final_types_filter = ["Call Traffic", "Both"]
              else:
                   final_types_filter = []
-        # If application_type is "Both" specifically? usually frontend toggle is Web vs Call.
-        # If they want "All", they send nothing.
     
-    # Apply Filter
+    # 3. Apply Filters to Query
     if final_types_filter:
         query["marketingInfo.applicationType"] = {"$in": final_types_filter}
     else:
-        # If filter resulted in empty allowed list, force empty result
         query["marketingInfo.applicationType"] = {"$in": []}
- 
+
+    if status:
+        if application_type == "Web Traffic":
+            if status == SignupStatus.PENDING:
+                query["cake_api_status"] = None
+                query["status"] = {"$ne": SignupStatus.REJECTED}
+            elif status == SignupStatus.APPROVED:
+                query["cake_api_status"] = True
+            elif status == SignupStatus.REJECTED:
+                query["$or"] = [{"cake_api_status": False}, {"status": SignupStatus.REJECTED}]
+            elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
+                query["requested_cake_approval"] = True
+            else:
+                query["status"] = status
+        elif application_type == "Call Traffic":
+            if status == SignupStatus.PENDING:
+                query["ringba_api_status"] = None
+                query["status"] = {"$ne": SignupStatus.REJECTED}
+            elif status == SignupStatus.APPROVED:
+                query["ringba_api_status"] = True
+            elif status == SignupStatus.REJECTED:
+                query["$or"] = [{"ringba_api_status": False}, {"status": SignupStatus.REJECTED}]
+            elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
+                query["requested_ringba_approval"] = True
+            else:
+                query["status"] = status
+        else:
+            # Default behavior (Both or All)
+            query["status"] = status
 
     total_count = await db.signups.count_documents(query)
     

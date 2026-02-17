@@ -318,7 +318,6 @@ export default function SharePage() {
                                     <TableRow>
                                         {isColumnVisible('id') && <TableHead className="w-[80px]">ID</TableHead>}
                                         {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                                        {isColumnVisible('advertiser') && <TableHead>Advertiser</TableHead>}
                                         {isColumnVisible('vertical') && <TableHead>Vertical</TableHead>}
                                         {isColumnVisible('status') && <TableHead>Status</TableHead>}
                                         {isColumnVisible('type') && <TableHead>Type</TableHead>}
@@ -329,7 +328,7 @@ export default function SharePage() {
                                 <TableBody>
                                     {offers.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="h-24 text-center">
+                                            <TableCell colSpan={7} className="h-24 text-center">
                                                 No offers found matching the shared criteria.
                                             </TableCell>
                                         </TableRow>
@@ -342,7 +341,6 @@ export default function SharePage() {
                                                         <span className="font-medium">{offer.site_offer_name}</span>
                                                     </div>
                                                 </TableCell>}
-                                                {isColumnVisible('advertiser') && <TableCell>{offer.brand_advertiser_name || offer.brand_advertiser_id}</TableCell>}
                                                 {isColumnVisible('vertical') && <TableCell>{offer.vertical_name}</TableCell>}
                                                 {isColumnVisible('status') && <TableCell>
                                                     <Badge variant={

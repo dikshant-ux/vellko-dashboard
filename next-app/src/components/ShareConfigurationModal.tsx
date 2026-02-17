@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Copy, Check, Share2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthFetch } from '@/hooks/useAuthFetch';
@@ -255,7 +254,10 @@ export function ShareConfigurationModal({
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[200px] p-0" align="start">
-                                        <ScrollArea className="h-[200px]">
+                                        <div
+                                            className="h-[200px] overflow-y-auto"
+                                            onWheel={(e) => e.stopPropagation()}
+                                        >
                                             <div className="p-2 space-y-2">
                                                 <div className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
                                                     onClick={() => setSelectedMediaTypes([])}>
@@ -293,7 +295,7 @@ export function ShareConfigurationModal({
                                                     </div>
                                                 ))}
                                             </div>
-                                        </ScrollArea>
+                                        </div>
                                     </PopoverContent>
                                 </Popover>
                             </div>
@@ -313,7 +315,10 @@ export function ShareConfigurationModal({
 
                         <div className="grid gap-2">
                             <Label>Visible Columns</Label>
-                            <ScrollArea className="h-[100px] w-full rounded-md border p-2">
+                            <div
+                                className="h-[120px] w-full rounded-md border p-2 overflow-y-auto bg-background"
+                                onWheel={(e) => e.stopPropagation()}
+                            >
                                 <div className="space-y-2">
                                     {availableColumns.map((col) => (
                                         <div key={col.id} className="flex items-center space-x-2">
@@ -334,7 +339,7 @@ export function ShareConfigurationModal({
                                         </div>
                                     ))}
                                 </div>
-                            </ScrollArea>
+                            </div>
                         </div>
                     </div>
                 ) : (

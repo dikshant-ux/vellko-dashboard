@@ -215,8 +215,6 @@ export default function SharedLinksPage() {
                 availableColumns={[
                     { id: "id", label: "ID" },
                     { id: "name", label: "Name" },
-                    { id: "advertiser_id", label: "Advertiser ID" },
-                    { id: "advertiser", label: "Advertiser" },
                     { id: "vertical", label: "Vertical" },
                     { id: "status", label: "Status" },
                     { id: "type", label: "Type" },

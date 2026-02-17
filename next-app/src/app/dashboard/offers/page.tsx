@@ -61,7 +61,6 @@ export default function OffersPage() {
     const [columnVisibility, setColumnVisibility] = useState({
         id: true,
         name: true,
-        advertiser: true,
         vertical: true,
         status: true,
         payout: true,
@@ -170,8 +169,6 @@ export default function OffersPage() {
     const availableColumns = [
         { id: "id", label: "ID" },
         { id: "name", label: "Name" },
-        { id: "advertiser_id", label: "Advertiser ID" },
-        { id: "advertiser", label: "Advertiser" },
         { id: "vertical", label: "Vertical" },
         { id: "status", label: "Status" },
         { id: "type", label: "Type" },
@@ -229,14 +226,6 @@ export default function OffersPage() {
                                             onCheckedChange={(c) => setTempColumnVisibility({ ...tempColumnVisibility, name: !!c })}
                                         />
                                         <Label htmlFor="col-name">Offer Name</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id="col-advertiser"
-                                            checked={tempColumnVisibility.advertiser}
-                                            onCheckedChange={(c) => setTempColumnVisibility({ ...tempColumnVisibility, advertiser: !!c })}
-                                        />
-                                        <Label htmlFor="col-advertiser">Advertiser</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <Checkbox
@@ -346,7 +335,6 @@ export default function OffersPage() {
                                     </div>
                                 </TableHead>
                             )}
-                            {columnVisibility.advertiser && <TableHead>Advertiser ID</TableHead>}
                             {columnVisibility.vertical && <TableHead>Vertical</TableHead>}
                             {columnVisibility.status && <TableHead>Status</TableHead>}
                             {columnVisibility.type && <TableHead>Type</TableHead>}
@@ -357,7 +345,7 @@ export default function OffersPage() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center">
+                                <TableCell colSpan={7} className="h-24 text-center">
                                     <div className="flex justify-center items-center gap-2">
                                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         <span>Loading offers...</span>
@@ -366,7 +354,7 @@ export default function OffersPage() {
                             </TableRow>
                         ) : offers.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center">
+                                <TableCell colSpan={7} className="h-24 text-center">
                                     No offers found.
                                 </TableCell>
                             </TableRow>
@@ -382,7 +370,6 @@ export default function OffersPage() {
                                             </div>
                                         </TableCell>
                                     )}
-                                    {columnVisibility.advertiser && <TableCell>{offer.brand_advertiser_id}</TableCell>}
                                     {columnVisibility.vertical && <TableCell>{offer.vertical_name}</TableCell>}
                                     {columnVisibility.status && (
                                         <TableCell>

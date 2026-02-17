@@ -112,23 +112,40 @@ function SignupsContent() {
             const userRole = session?.user?.role;
             const appType = s.marketingInfo?.applicationType;
 
+            // If a specific traffic filter is active, show status for that integration
+            if (filterAppType === 'Web Traffic') {
+                if (s.cake_api_status === true) return 'APPROVED';
+                if (s.cake_api_status === false) return 'REJECTED';
+                if (s.requested_cake_approval === true) return 'REQUESTED_FOR_APPROVAL';
+                if (s.status === 'REJECTED') return 'REJECTED';
+                return 'PENDING';
+            }
+
+            if (filterAppType === 'Call Traffic') {
+                if (s.ringba_api_status === true) return 'APPROVED';
+                if (s.ringba_api_status === false) return 'REJECTED';
+                if (s.requested_ringba_approval === true) return 'REQUESTED_FOR_APPROVAL';
+                if (s.status === 'REJECTED') return 'REJECTED';
+                return 'PENDING';
+            }
+
             if (appType !== 'Both') return s.status;
 
             if (userRole === 'SUPER_ADMIN' || userPermission === 'Both' || !userPermission) {
 
                 const cake = s.cake_api_status;
                 const ringba = s.ringba_api_status;
-            
+
                 // Fully approved
                 if (cake === true && ringba === true) {
                     return 'APPROVED';
                 }
-            
+
                 // Fully rejected
                 if (cake === false && ringba === false) {
                     return 'REJECTED';
                 }
-            
+
                 // Partial approval (one approved, one pending/rejected/null)
                 if (
                     (cake === true && ringba !== true) ||
@@ -136,25 +153,27 @@ function SignupsContent() {
                 ) {
                     return 'PARTIALLY APPROVED';
                 }
-            
+
                 // Both pending/null
                 if (cake == null && ringba == null) {
                     return 'PENDING';
                 }
-            
+
                 return s.status;
             }
-            
+
 
             if (userPermission === 'Web Traffic') {
                 if (s.cake_api_status === true) return 'APPROVED';
                 if (s.cake_api_status === false) return 'REJECTED';
+                if (s.requested_cake_approval === true) return 'REQUESTED_FOR_APPROVAL';
                 return 'PENDING';
             }
 
             if (userPermission === 'Call Traffic') {
                 if (s.ringba_api_status === true) return 'APPROVED';
                 if (s.ringba_api_status === false) return 'REJECTED';
+                if (s.requested_ringba_approval === true) return 'REQUESTED_FOR_APPROVAL';
                 return 'PENDING';
             }
 
@@ -212,7 +231,10 @@ function SignupsContent() {
                             variant={filterAppType === 'Web Traffic' ? 'secondary' : 'ghost'}
                             size="sm"
                             className={`text-xs h-8 ${filterAppType === 'Web Traffic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
-                            onClick={() => setFilterAppType(filterAppType === 'Web Traffic' ? null : 'Web Traffic')}
+                            onClick={() => {
+                                setFilterAppType(filterAppType === 'Web Traffic' ? null : 'Web Traffic');
+                                setCurrentPage(1);
+                            }}
                         >
                             Web Traffic
                         </Button>
@@ -220,7 +242,10 @@ function SignupsContent() {
                             variant={filterAppType === 'Call Traffic' ? 'secondary' : 'ghost'}
                             size="sm"
                             className={`text-xs h-8 ${filterAppType === 'Call Traffic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
-                            onClick={() => setFilterAppType(filterAppType === 'Call Traffic' ? null : 'Call Traffic')}
+                            onClick={() => {
+                                setFilterAppType(filterAppType === 'Call Traffic' ? null : 'Call Traffic');
+                                setCurrentPage(1);
+                            }}
                         >
                             Call Traffic
                         </Button>
