@@ -83,7 +83,7 @@ async def get_offers(
     # Assuming CAKE_API_KEY is in settings. If not, I will use the one from the prompt.
     
     # User provided key specific for this endpoint
-    api_key = "3YmDJeT3VHTFhDqAjr2OlQ" 
+    api_key = settings.CAKE_API_KEY 
     # api_key = settings.CAKE_API_KEY if hasattr(settings, 'CAKE_API_KEY') and settings.CAKE_API_KEY else "3YmDJeT3VHTFhDqAjr2OlQ"
     base_url = settings.CAKE_API_OFFERS_URL
     
@@ -204,7 +204,7 @@ async def get_media_types():
     """
     Fetch available media types from Cake Marketing API.
     """
-    api_key = "3YmDJeT3VHTFhDqAjr2OlQ"
+    api_key = settings.CAKE_API_KEY
     base_url = settings.CAKE_API_MEDIA_TYPES_URL
     params = {"api_key": api_key}
 

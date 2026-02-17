@@ -282,8 +282,7 @@ async def get_shared_data(
     if not media_type_ids and filters.get("media_type_id"):
         media_type_ids = [filters.get("media_type_id")]
     
-    # Using the same hardcoded key from offers.py for consistency
-    api_key = "3YmDJeT3VHTFhDqAjr2OlQ"
+    api_key = settings.CAKE_API_KEY
     url = settings.CAKE_API_OFFERS_URL
     
     # If multiple media types are selected, we fetch all (media_type_id=0) and filter in Python
