@@ -245,3 +245,34 @@ async def send_approval_request_email(to_emails: list[str], signup_data: dict, s
     except Exception as e:
         print(f"Error preparing approval request email: {str(e)}")
         return False
+
+async def send_otp_email(to_email: str, otp: str):
+    """
+    Sends an OTP email for shared offer list access.
+    """
+    try:
+        # Simple inline HTML for now to avoid creating a new file if possible, or use a generic template
+        # Keeping it simple for this task
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                    <h2 style="color: #333;">Access Verification</h2>
+                    <p>You have requested access to a shared offer list.</p>
+                    <p>Your One-Time Password (OTP) is:</p>
+                    <h1 style="color: #0070f3; letter-spacing: 5px;">{otp}</h1>
+                    <p>This code is valid for 10 minutes.</p>
+                    <p>If you did not request this, please ignore this email.</p>
+                </div>
+            </body>
+        </html>
+        """
+        
+        return await send_email(
+            to_email=to_email,
+            subject="Your Access Code - Vellko",
+            html_content=html_content
+        )
+    except Exception as e:
+        print(f"Error preparing OTP email: {str(e)}")
+        return False

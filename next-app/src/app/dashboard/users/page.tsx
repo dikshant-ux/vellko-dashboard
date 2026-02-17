@@ -19,12 +19,12 @@ export default function UsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false });
+    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, cake_account_manager_id: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
-    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_signups: false });
+    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_signups: false, cake_account_manager_id: '' });
     const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
@@ -61,7 +61,7 @@ export default function UsersPage() {
             .then(async res => {
                 if (res && res.ok) {
                     setOpen(false);
-                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false });
+                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, cake_account_manager_id: '' });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
@@ -151,7 +151,8 @@ export default function UsersPage() {
             email: user.email || '',
             application_permission: user.application_permission || 'Both',
             can_approve_signups: user.can_approve_signups ?? false,
-            password: '' // Leave empty
+            password: '', // Leave empty
+            cake_account_manager_id: user.cake_account_manager_id || ''
         });
         setEditOpen(true);
     };
@@ -166,6 +167,7 @@ export default function UsersPage() {
         if (editForm.email !== editingUser.email) updateData.email = editForm.email;
         if (editForm.application_permission !== editingUser.application_permission) updateData.application_permission = editForm.application_permission;
         if (editForm.can_approve_signups !== editingUser.can_approve_signups) updateData.can_approve_signups = editForm.can_approve_signups;
+        if (editForm.cake_account_manager_id !== editingUser.cake_account_manager_id) updateData.cake_account_manager_id = editForm.cake_account_manager_id;
         if (editForm.password) updateData.password = editForm.password; // Only send if changed
 
         authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editingUser.username}`, {
@@ -239,43 +241,49 @@ export default function UsersPage() {
                                     </button>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Role</Label>
-                                <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v })}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="USER">User</SelectItem>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Role</Label>
+                                    <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v })}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="USER">User</SelectItem>
+                                            <SelectItem value="ADMIN">Admin</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Application Permission</Label>
+                                    <Select value={newUser.application_permission} onValueChange={v => setNewUser({ ...newUser, application_permission: v })}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {/* Super admin and Both permission admin can create any user */}
+                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
+                                                <>
+                                                    <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                                    <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                                    <SelectItem value="Both">Both</SelectItem>
+                                                </>
+                                            )}
+                                            {/* Web admin can only create Web users */}
+                                            {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
+                                                <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                            )}
+                                            {/* Call admin can only create Call users */}
+                                            {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
+                                                <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>Application Permission</Label>
-                                <Select value={newUser.application_permission} onValueChange={v => setNewUser({ ...newUser, application_permission: v })}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {/* Super admin and Both permission admin can create any user */}
-                                        {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
-                                            <>
-                                                <SelectItem value="Web Traffic">Web Traffic</SelectItem>
-                                                <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                                <SelectItem value="Both">Both</SelectItem>
-                                            </>
-                                        )}
-                                        {/* Web admin can only create Web users */}
-                                        {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
-                                            <SelectItem value="Web Traffic">Web Traffic</SelectItem>
-                                        )}
-                                        {/* Call admin can only create Call users */}
-                                        {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
-                                            <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                <Label>Cake Account Manager ID</Label>
+                                <Input value={newUser.cake_account_manager_id} onChange={e => setNewUser({ ...newUser, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
                             </div>
                             <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
                                 <div className="space-y-0.5">
@@ -478,6 +486,10 @@ export default function UsersPage() {
                                     )}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Cake Account Manager ID</Label>
+                            <Input value={editForm.cake_account_manager_id} onChange={e => setEditForm({ ...editForm, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
                         </div>
                         <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
                             <div className="space-y-0.5">

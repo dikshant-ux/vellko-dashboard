@@ -97,6 +97,7 @@ class SignupInDB(SignupCreate):
     approval_requested_at: Optional[datetime] = None
     requested_cake_approval: Optional[bool] = None
     requested_ringba_approval: Optional[bool] = None
+    referrer_manager_id: Optional[str] = None
     
     # Enhanced Integration Status (Boolean)
     # True = Approved, False = Rejected, None = Pending/Skipped
@@ -131,6 +132,7 @@ class User(BaseModel):
     two_factor_secret: Optional[str] = None
     is_two_factor_enabled: Optional[bool] = False
     can_approve_signups: Optional[bool] = True
+    cake_account_manager_id: Optional[str] = None
 
     @validator('username', pre=True)
     def trim_username(cls, v):
@@ -145,6 +147,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     application_permission: Optional[ApplicationPermission] = None
     can_approve_signups: Optional[bool] = None
+    cake_account_manager_id: Optional[str] = None
 
 class UserRoleUpdate(BaseModel):
     role: UserRole

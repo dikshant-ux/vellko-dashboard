@@ -10,6 +10,8 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
 
+import { Country, State, ICountry, IState } from 'country-state-city';
+
 export default function AffiliateSignup() {
     const [form, setForm] = useState<any>({
         companyInfo: {
@@ -60,6 +62,9 @@ export default function AffiliateSignup() {
     const [ipAddress, setIpAddress] = useState("0.0.0.0");
     const [referrals, setReferrals] = useState<{ id: string, name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Dynamic Location State
+    const [availableStates, setAvailableStates] = useState<IState[]>([]);
 
     // IM Handles State
     const [imHandles, setImHandles] = useState<Record<string, string>>({
@@ -123,6 +128,32 @@ export default function AffiliateSignup() {
         }
     }, [form.marketingInfo.applicationType]);
 
+    // Update states when country changes
+    useEffect(() => {
+        const countryCode = form.companyInfo.country;
+        if (countryCode) {
+            const states = State.getStatesOfCountry(countryCode);
+            setAvailableStates(states);
+
+            // If current state is not in the new list, reset it
+            // Unless it's a text input fallback (not implemented here yet, always dropdown)
+            // Or if the list is empty (some countries might not have states in lib)
+            if (states.length > 0) {
+                const currentStateExists = states.some(s => s.isoCode === form.companyInfo.state);
+                if (!currentStateExists) {
+                    handleChange('companyInfo', 'state', '');
+                }
+            } else {
+                // If no states found, maybe clear state or allow text input? 
+                // For now, let's just clear it to avoid invalid selection
+                handleChange('companyInfo', 'state', '');
+            }
+        } else {
+            setAvailableStates([]);
+            handleChange('companyInfo', 'state', '');
+        }
+    }, [form.companyInfo.country]);
+
     const handleChange = (section: any, field: any, value: any) => {
         setForm((prev: any) => ({
             ...prev,
@@ -185,10 +216,16 @@ export default function AffiliateSignup() {
         if (!form.companyInfo.address.trim()) newErrors['companyInfo.address'] = "Address is required";
         if (!form.companyInfo.city.trim()) newErrors['companyInfo.city'] = "City is required";
 
-        if (!form.companyInfo.state.trim() || form.companyInfo.state === "##") {
-            newErrors['companyInfo.state'] = "Please select a valid state";
-        } else if (form.companyInfo.state.length > 20) {
-            newErrors['companyInfo.state'] = "State is too long (max 20 chars)";
+        if (!form.companyInfo.state.trim() && availableStates.length > 0) {
+            // Only require state if the country has states
+            newErrors['companyInfo.state'] = "Please select a state";
+        }
+
+        if (form.companyInfo.state.length > 20) {
+            // ISO codes are usually 2-3 chars, but full names could be longer? 
+            // Library uses ISO codes for value usually. 
+            // Let's relax this check or ensure we store ISO.
+            // We are storing ISO codes from the library values.
         }
 
         if (form.companyInfo.corporateWebsite.trim()) {
@@ -438,7 +475,6 @@ export default function AffiliateSignup() {
                                                                     Selected
                                                                 </span>
                                                             </div>
-
                                                         )}
                                                     </div>
                                                 </div>
@@ -466,7 +502,6 @@ export default function AffiliateSignup() {
                                                                     Selected
                                                                 </span>
                                                             </div>
-
                                                         )}
                                                     </div>
                                                 </div>
@@ -494,7 +529,6 @@ export default function AffiliateSignup() {
                                                                     Selected
                                                                 </span>
                                                             </div>
-
                                                         )}
                                                     </div>
                                                 </div>
@@ -537,9 +571,16 @@ export default function AffiliateSignup() {
 
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">State <span className="text-danger">*</span></label>
-                                        <select className={`form-select ${errors['companyInfo.state'] ? 'is-invalid' : ''}`} required value={form.companyInfo.state} onChange={e => handleChange('companyInfo', 'state', e.target.value)}>
-                                            {Object.entries(US_STATES).map(([code, name]) => (
-                                                <option key={code} value={code}>{name}</option>
+                                        <select
+                                            className={`form-select ${errors['companyInfo.state'] ? 'is-invalid' : ''}`}
+                                            required
+                                            value={form.companyInfo.state}
+                                            onChange={e => handleChange('companyInfo', 'state', e.target.value)}
+                                            disabled={!availableStates.length}
+                                        >
+                                            <option value="">{availableStates.length ? "Select State" : "No States Available / Select Country First"}</option>
+                                            {availableStates.map((state) => (
+                                                <option key={state.isoCode} value={state.isoCode}>{state.name}</option>
                                             ))}
                                         </select>
                                         <div className="invalid-feedback">{errors['companyInfo.state']}</div>
@@ -554,8 +595,8 @@ export default function AffiliateSignup() {
                                         <div className="col-md-6">
                                             <label className="form-label small text-muted">Country <span className="text-danger">*</span></label>
                                             <select className={`form-select ${errors['companyInfo.country'] ? 'is-invalid' : ''}`} required value={form.companyInfo.country} onChange={e => handleChange('companyInfo', 'country', e.target.value)}>
-                                                {Object.entries(COUNTRIES).map(([code, name]) => (
-                                                    <option key={code} value={code}>{name}</option>
+                                                {Country.getAllCountries().map((country) => (
+                                                    <option key={country.isoCode} value={country.isoCode}>{country.name}</option>
                                                 ))}
                                             </select>
                                             <div className="invalid-feedback">{errors['companyInfo.country']}</div>

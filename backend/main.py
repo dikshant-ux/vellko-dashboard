@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from routers import public, users, admin, two_factor
+from routers import public, users, admin, two_factor, offers, shared_offers
 from database import settings
 
 app = FastAPI(title="Vellko Affiliate Dashboard API")
@@ -30,6 +30,8 @@ app.include_router(admin.router)
 from routers import settings as settings_router
 app.include_router(settings_router.router)
 app.include_router(two_factor.router, prefix="/auth/2fa", tags=["2FA"])
+app.include_router(offers.router)
+app.include_router(shared_offers.router)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

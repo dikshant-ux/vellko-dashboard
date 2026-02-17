@@ -43,6 +43,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'request_approval' | null>(null);
     const [apiSelection, setApiSelection] = useState({ cake: false, ringba: false });
     const [showApiSelection, setShowApiSelection] = useState(false);
+    const [affiliateManagerId, setAffiliateManagerId] = useState("");
 
     // Document Upload State
     const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -319,6 +320,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             // So global reject would reject both if not targeted?
             // Let's ensure target sets it correctly.
         }
+
+        // Pre-fill Manager ID from referrer
+        if (signup?.referrer_manager_id) {
+            setAffiliateManagerId(signup.referrer_manager_id);
+        } else {
+            setAffiliateManagerId("");
+        }
+
         setIsDecisionOpen(true);
     };
 
@@ -355,7 +364,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 body: JSON.stringify({
                     reason: decisionReason,
                     addToCake: apiSelection.cake,
-                    addToRingba: apiSelection.ringba
+                    addToRingba: apiSelection.ringba,
+                    affiliateManagerId: apiSelection.cake ? affiliateManagerId : null
                 })
             });
 
@@ -936,6 +946,17 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         {pendingAction === 'approve' && !showApiSelection && (
                             <div className="text-sm text-muted-foreground mb-2">
                                 Creating affiliate in: {apiSelection.cake ? <b>Cake</b> : ''} {apiSelection.ringba ? <b>Ringba</b> : ''}
+                            </div>
+                        )}
+                        {apiSelection.cake && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="managerId">Cake Account Manager ID</Label>
+                                <Input
+                                    id="managerId"
+                                    placeholder="e.g. 123"
+                                    value={affiliateManagerId}
+                                    onChange={(e) => setAffiliateManagerId(e.target.value)}
+                                />
                             </div>
                         )}
                         <div className="grid gap-2">

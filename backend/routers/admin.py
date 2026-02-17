@@ -336,12 +336,25 @@ async def get_signup(id: str, user: User = Depends(get_current_admin)):
     signup = await db.signups.find_one({"_id": ObjectId(id)})
     if not signup:
         raise HTTPException(status_code=404, detail="Signup not found")
+    
+    # Enrich with referrer's manager ID
+    referrer_id = signup.get("companyInfo", {}).get("referral_id")
+    if referrer_id:
+        try:
+            referrer_user = await db.users.find_one({"_id": ObjectId(referrer_id)})
+            if referrer_user:
+                signup["referrer_manager_id"] = referrer_user.get("cake_account_manager_id")
+        except:
+            # Fallback for old style data or invalid IDs
+            pass
+            
     return signup
 
 class SignupDecision(BaseModel):
     reason: Optional[str] = ""
     addToCake: bool = False
     addToRingba: bool = False
+    affiliateManagerId: Optional[str] = None
 
 import httpx
 import xmltodict
@@ -576,18 +589,147 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                     cake_success = str(result.get('success', 'false')).lower() == 'true'
                     cake_message = result.get('message', 'No message')
                     cake_affiliate_id = result.get('affiliate_id')
+
+                    # --- Cake V2 Assignment ---
+                    # If signup successful and manager ID provided, do assign
+                    # Priority: 1. Decision override, 2. Referrer Manager ID
+                    manager_id_to_assign = decision.affiliateManagerId or signup_data.get("referrer_manager_id")
+                    
+                    if cake_success and cake_affiliate_id and manager_id_to_assign:
+                        try:
+                            v2_params = {
+                                "api_key": settings.CAKE_API_KEY,
+                                "affiliate_id": cake_affiliate_id,
+                                "affiliate_name": signup_data.get("companyInfo", {}).get("companyName", ""),
+                                "third_party_name": "",
+                                "account_status_id": 1,
+                                "inactive_reason_id": 0,
+                                "affiliate_tier_id": 0,
+                                "account_manager_id": manager_id_to_assign,
+                                "hide_offers": "FALSE",
+                                "website": signup_data.get("companyInfo", {}).get("corporateWebsite", ""),
+                                "tax_class": signup_data.get("paymentInfo", {}).get("taxClass", ""),
+                                "ssn_tax_id": signup_data.get("paymentInfo", {}).get("ssnTaxId", ""),
+                                "vat_tax_required": "FALSE",
+                                "swift_iban": "",
+                                "payment_to": 0,
+                                "payment_fee": 0.0,
+                                "payment_min_threshold": -1,
+                                "currency_id": 0,
+                                "payment_setting_id": 0,
+                                "billing_cycle_id": 0,
+                                "payment_type_id": 0,
+                                "payment_type_info": "",
+                                "address_street": signup_data.get("companyInfo", {}).get("address", ""),
+                                "address_street2": signup_data.get("companyInfo", {}).get("address2", ""),
+                                "address_city": signup_data.get("companyInfo", {}).get("city", ""),
+                                "address_state": signup_data.get("companyInfo", {}).get("state", ""),
+                                "address_zip_code": signup_data.get("companyInfo", {}).get("zip", ""),
+                                "address_country": signup_data.get("companyInfo", {}).get("country", ""),
+                                "media_type_ids": "",
+                                "price_format_ids": "",
+                                "vertical_category_ids": "",
+                                "country_codes": "",
+                                "tags": "",
+                                "pixel_html": "",
+                                "postback_url": "",
+                                "postback_delay_ms": 0,
+                                "fire_global_pixel": "FALSE",
+                                "date_added": (signup_data.get("created_at") or datetime.utcnow()).strftime("%m/%d/%Y %H:%M:%S"),
+                                "online_signup": "TRUE",
+                                "signup_ip_address": signup_data.get("ipAddress", "0.0.0.0"),
+                                "referral_affiliate_id": 0,
+                                "referral_notes": "",
+                                "terms_and_conditions_agreed": "TRUE",
+                                "notes": decision.reason or ""
+                            }
+                            v2_response = await client.get(settings.CAKE_API_V2_URL, params=v2_params, timeout=20.0)
+                            # We log the V2 result but don't necessarily fail the whole thing if V2 fails (as V4 worked)
+                            if v2_response.status_code != 200:
+                                cake_message += f" (Manager Assignment V2 Failed: {v2_response.status_code})"
+                            else:
+                                v2_xml = xmltodict.parse(v2_response.text)
+                                v2_result = v2_xml.get('affiliate_response', {})
+                                v2_success = str(v2_result.get('success', 'false')).lower() == 'true'
+                                if v2_success:
+                                    cake_message += " (Manager Assigned)"
+                                else:
+                                    v2_msg = v2_result.get('message', 'Unknown Error')
+                                    cake_message += f" (Manager Assignment V2 Error: {v2_msg})"
+                        except Exception as v2_err:
+                            cake_message += f" (Manager Assignment V2 Exception: {str(v2_err)})"
+
                 else:
                     cake_message = f"CAKE API Error: {response.status_code}"
         except Exception as e:
             cake_message = f"CAKE Connection Error: {str(e)}"
     
     # Ringba Logic (Placeholder)
+    # Ringba Logic
     if decision.addToRingba:
-        # TODO: Implement actual Ringba API call
-        ringba_success = True
-        ringba_message = "Ringba API Coming Soon"
-        ringba_raw_response = "Mock Success"
-        ringba_affiliate_id = "MOCK-123"
+        try:
+            ringba_payload = {
+                "name": f"{signup_data.get('accountInfo', {}).get('firstName', '')} {signup_data.get('accountInfo', {}).get('lastName', '')}".strip() or "Unknown",
+                "subId": str(id),
+                "createNumbers": True,
+                "doNotCreateUser": True,
+                "blockCallsIfCapped": False,
+                "accessToRecordings": True
+            }
+            
+            headers = {
+                "Authorization": f"Token {settings.RINGBA_API_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            
+            ringba_url = f"{settings.RINGBA_API_URL}/{settings.RINGBA_ACCOUNT_ID}/Publishers"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(ringba_url, json=ringba_payload, headers=headers, timeout=30.0)
+                ringba_raw_response = response.text
+                
+                if response.status_code in [200, 201]:
+                    result = response.json()
+                    ringba_success = True
+                    # Correctly map ringba affiliate id from publishers object
+                    # User provided sample: {"transactionId": "...", "publishers": {"id": "123", ...}}
+                    ringba_affiliate_id = result.get("publishers", {}).get("id")
+                    
+                    if not ringba_affiliate_id:
+                        # Fallback if structure is different or top level
+                        ringba_affiliate_id = result.get("id")
+                        
+                    ringba_message = "Ringba Publisher Created Successfully"
+
+                    # Send Invitation if publisher created successfully
+                    if ringba_affiliate_id:
+                        try:
+                            invite_url = f"{settings.RINGBA_API_URL}/{settings.RINGBA_ACCOUNT_ID}/Affiliates/{ringba_affiliate_id}/Invitations"
+                            
+                            email = signup_data.get('accountInfo', {}).get('email')
+                            first_name = signup_data.get('accountInfo', {}).get('firstName', '')
+                            last_name = signup_data.get('accountInfo', {}).get('lastName', '')
+
+                            invite_payload = {
+                                "email": email,
+                                "confirmEmail": email,
+                                "firstName": first_name,
+                                "lastName": last_name
+                            }
+
+                            invite_response = await client.post(invite_url, json=invite_payload, headers=headers, timeout=30.0)
+                            
+                            if invite_response.status_code in [200, 201]:
+                                ringba_message += ". Invitation Sent."
+                            else:
+                                ringba_message += f". Publisher Created but Invitation Failed: {invite_response.status_code}"
+                        except Exception as invite_err:
+                            ringba_message += f". Publisher Created but Invitation Error: {str(invite_err)}"
+                else:
+                    ringba_message = f"Ringba API Error: {response.status_code} - {response.text}"
+                    
+        except Exception as e:
+            ringba_message = f"Ringba Connection Error: {str(e)}"
 
     # Determine overall status
     # If both requested, both must succeed? Or partial?
@@ -1212,6 +1354,8 @@ async def update_user(username: str, user_update: UserUpdate, user: User = Depen
         update_data["can_approve_signups"] = user_update.can_approve_signups
     if user_update.password is not None:
         update_data["hashed_password"] = get_password_hash(user_update.password)
+    if user_update.cake_account_manager_id is not None:
+        update_data["cake_account_manager_id"] = user_update.cake_account_manager_id
     
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")

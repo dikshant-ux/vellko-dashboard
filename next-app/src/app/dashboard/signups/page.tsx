@@ -115,20 +115,36 @@ function SignupsContent() {
             if (appType !== 'Both') return s.status;
 
             if (userRole === 'SUPER_ADMIN' || userPermission === 'Both' || !userPermission) {
+
                 const cake = s.cake_api_status;
                 const ringba = s.ringba_api_status;
-
-                if (cake === true && ringba === true) return 'APPROVED';
-
-                // Refined Partial Logic
-                if ((cake === true && ringba === false) || (ringba === true && cake === false)) {
-                    return 'APPROVED (PARTIAL)';
+            
+                // Fully approved
+                if (cake === true && ringba === true) {
+                    return 'APPROVED';
                 }
-
-                if (cake === true || ringba === true) return 'PARTIALLY APPROVED';
-                if (cake === false && ringba === false) return 'REJECTED';
+            
+                // Fully rejected
+                if (cake === false && ringba === false) {
+                    return 'REJECTED';
+                }
+            
+                // Partial approval (one approved, one pending/rejected/null)
+                if (
+                    (cake === true && ringba !== true) ||
+                    (ringba === true && cake !== true)
+                ) {
+                    return 'PARTIALLY APPROVED';
+                }
+            
+                // Both pending/null
+                if (cake == null && ringba == null) {
+                    return 'PENDING';
+                }
+            
                 return s.status;
             }
+            
 
             if (userPermission === 'Web Traffic') {
                 if (s.cake_api_status === true) return 'APPROVED';
