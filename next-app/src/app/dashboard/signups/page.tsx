@@ -38,7 +38,7 @@ function SignupsContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("");
-    const [filterAppType, setFilterAppType] = useState<string | null>(null);
+    const [filterAppType, setFilterAppType] = useState<string | null>('Web Traffic');
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -114,16 +114,18 @@ function SignupsContent() {
 
             // If a specific traffic filter is active, show status for that integration
             if (filterAppType === 'Web Traffic') {
-                if (s.cake_api_status === true) return 'APPROVED';
-                if (s.cake_api_status === false) return 'REJECTED';
+                if (s.cake_api_status === 'APPROVED') return 'APPROVED';
+                if (s.cake_api_status === 'REJECTED') return 'REJECTED';
+                if (s.cake_api_status === 'FAILED') return 'FAILED (PENDING)';
                 if (s.requested_cake_approval === true) return 'REQUESTED_FOR_APPROVAL';
                 if (s.status === 'REJECTED') return 'REJECTED';
                 return 'PENDING';
             }
 
             if (filterAppType === 'Call Traffic') {
-                if (s.ringba_api_status === true) return 'APPROVED';
-                if (s.ringba_api_status === false) return 'REJECTED';
+                if (s.ringba_api_status === 'APPROVED') return 'APPROVED';
+                if (s.ringba_api_status === 'REJECTED') return 'REJECTED';
+                if (s.ringba_api_status === 'FAILED') return 'FAILED (PENDING)';
                 if (s.requested_ringba_approval === true) return 'REQUESTED_FOR_APPROVAL';
                 if (s.status === 'REJECTED') return 'REJECTED';
                 return 'PENDING';
@@ -137,25 +139,26 @@ function SignupsContent() {
                 const ringba = s.ringba_api_status;
 
                 // Fully approved
-                if (cake === true && ringba === true) {
+                if (cake === 'APPROVED' && ringba === 'APPROVED') {
                     return 'APPROVED';
                 }
 
                 // Fully rejected
-                if (cake === false && ringba === false) {
+                if (cake === 'REJECTED' && ringba === 'REJECTED') {
                     return 'REJECTED';
                 }
 
-                // Partial approval (one approved, one pending/rejected/null)
+                // Partial approval (one approved, one pending/rejected/failed/null)
                 if (
-                    (cake === true && ringba !== true) ||
-                    (ringba === true && cake !== true)
+                    (cake === 'APPROVED' && ringba !== 'APPROVED') ||
+                    (ringba === 'APPROVED' && cake !== 'APPROVED')
                 ) {
                     return 'PARTIALLY APPROVED';
                 }
 
-                // Both pending/null
-                if (cake == null && ringba == null) {
+                // Both pending/null/failed
+                if ((cake == null || cake === 'FAILED') && (ringba == null || ringba === 'FAILED')) {
+                    if (cake === 'FAILED' || ringba === 'FAILED') return 'FAILED (PENDING)';
                     return 'PENDING';
                 }
 
@@ -164,15 +167,17 @@ function SignupsContent() {
 
 
             if (userPermission === 'Web Traffic') {
-                if (s.cake_api_status === true) return 'APPROVED';
-                if (s.cake_api_status === false) return 'REJECTED';
+                if (s.cake_api_status === 'APPROVED') return 'APPROVED';
+                if (s.cake_api_status === 'REJECTED') return 'REJECTED';
+                if (s.cake_api_status === 'FAILED') return 'FAILED (PENDING)';
                 if (s.requested_cake_approval === true) return 'REQUESTED_FOR_APPROVAL';
                 return 'PENDING';
             }
 
             if (userPermission === 'Call Traffic') {
-                if (s.ringba_api_status === true) return 'APPROVED';
-                if (s.ringba_api_status === false) return 'REJECTED';
+                if (s.ringba_api_status === 'APPROVED') return 'APPROVED';
+                if (s.ringba_api_status === 'REJECTED') return 'REJECTED';
+                if (s.ringba_api_status === 'FAILED') return 'FAILED (PENDING)';
                 if (s.requested_ringba_approval === true) return 'REQUESTED_FOR_APPROVAL';
                 return 'PENDING';
             }
@@ -189,6 +194,7 @@ function SignupsContent() {
             REQUESTED_FOR_APPROVAL: "bg-purple-500/15 text-purple-700 hover:bg-purple-500/25 border-purple-200",
             "PARTIALLY APPROVED": "bg-blue-500/15 text-blue-700 hover:bg-blue-500/25 border-blue-200",
             "APPROVED (PARTIAL)": "bg-orange-500/15 text-orange-700 hover:bg-orange-500/25 border-orange-200",
+            "FAILED (PENDING)": "bg-red-500/15 text-red-700 hover:bg-red-500/25 border-red-200",
         };
         return <Badge variant="outline" className={`${variants[status] || variants[signup.status] || ""} border font-medium whitespace-nowrap`}>{status}</Badge>;
     };
@@ -228,9 +234,9 @@ function SignupsContent() {
                 {session?.user?.application_permission === 'Both' && (
                     <div className="flex items-center space-x-1 border rounded-lg p-1 bg-muted/40">
                         <Button
-                            variant={filterAppType === 'Web Traffic' ? 'secondary' : 'ghost'}
+                            variant={filterAppType === 'Web Traffic' ? 'default' : 'ghost'}
                             size="sm"
-                            className={`text-xs h-8 ${filterAppType === 'Web Traffic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                            className={`text-xs h-8 px-4 transition-all duration-200 ${filterAppType === 'Web Traffic' ? 'bg-primary text-primary-foreground shadow-md font-bold' : 'text-muted-foreground hover:bg-muted font-medium'}`}
                             onClick={() => {
                                 setFilterAppType(filterAppType === 'Web Traffic' ? null : 'Web Traffic');
                                 setCurrentPage(1);
@@ -239,9 +245,9 @@ function SignupsContent() {
                             Web Traffic
                         </Button>
                         <Button
-                            variant={filterAppType === 'Call Traffic' ? 'secondary' : 'ghost'}
+                            variant={filterAppType === 'Call Traffic' ? 'default' : 'ghost'}
                             size="sm"
-                            className={`text-xs h-8 ${filterAppType === 'Call Traffic' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                            className={`text-xs h-8 px-4 transition-all duration-200 ${filterAppType === 'Call Traffic' ? 'bg-primary text-primary-foreground shadow-md font-bold' : 'text-muted-foreground hover:bg-muted font-medium'}`}
                             onClick={() => {
                                 setFilterAppType(filterAppType === 'Call Traffic' ? null : 'Call Traffic');
                                 setCurrentPage(1);

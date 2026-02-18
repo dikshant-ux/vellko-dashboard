@@ -72,27 +72,8 @@ async def get_stats(user: User = Depends(get_current_admin)):
     approved = await count_status(SignupStatus.APPROVED)
     rejected = await count_status(SignupStatus.REJECTED)
 
-    # Chart Data (Last 7 days)
-    # Using aggregation to group by date
-    pipeline = [
-        {"$match": query},
-        {
-            "$group": {
-                "_id": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                },
-                "count": {"$sum": 1}
-            }
-        },
-        {"$sort": {"_id": 1}},
-        {"$limit": 7}
-    ]
-    chart_data_cursor = db.signups.aggregate(pipeline)
-    chart_data_list = await chart_data_cursor.to_list(length=7)
-    
-    # Fill in missing days for a nice chart (optional, but good for UI)
-    # For simplicity, returning what DB gives. Frontend can handle gaps or we stick to existing points.
-    chart_data = [{"date": item["_id"], "count": item["count"]} for item in chart_data_list]
+    # Remove Chart Data as requested for cleaner UI/Dashboard
+    # (Removed pipeline and chart_data_cursor logic)
 
     # --- Application Specific Stats (Granular) ---
     async def get_granular_stats(api_status_field: str, app_type: str):
@@ -104,13 +85,13 @@ async def get_stats(user: User = Depends(get_current_admin)):
         ]
         
         # Approved Count
-        # Logic: Explicitly True OR (Implicitly True for Single-Type apps via Global Status)
+        # Logic: Explicitly "APPROVED" OR (Implicitly "APPROVED" for Single-Type apps via Global Status)
         approved_query = {
             "$and": [
                 base_query,
                 {
                     "$or": [
-                        {api_status_field: True},
+                        {api_status_field: "APPROVED"},
                         {
                             "marketingInfo.applicationType": app_type,
                             "status": SignupStatus.APPROVED,
@@ -128,7 +109,7 @@ async def get_stats(user: User = Depends(get_current_admin)):
                 base_query,
                 {
                     "$or": [
-                        {api_status_field: False},
+                        {api_status_field: "REJECTED"},
                         {
                             "marketingInfo.applicationType": app_type,
                             "status": SignupStatus.REJECTED,
@@ -149,6 +130,8 @@ async def get_stats(user: User = Depends(get_current_admin)):
                 base_query,
                 {
                     "$or": [
+                        # Explicitly FAILED means Pending/Needs Action
+                        {api_status_field: "FAILED"},
                         # For Both: Explicitly None means Pending
                         {"marketingInfo.applicationType": "Both", api_status_field: None},
                         # For Single: Global Pending
@@ -174,67 +157,76 @@ async def get_stats(user: User = Depends(get_current_admin)):
     ringba_stats = await get_granular_stats("ringba_api_status", "Call Traffic")
 
 
-    # Top Referrers
-    # Group by companyInfo.referral_id to avoid name change issues
-    referral_pipeline = [
-        {"$match": {}}, # Use global query if specific filtering needed, currently global top referrers
-
-        {
-            "$group": {
-                "_id": "$companyInfo.referral_id",
-                "name": {"$first": "$companyInfo.referral"}, # Fallback name
-                "count": {"$sum": 1}
-            }
-        },
-        {"$match": {"_id": {"$ne": None}, "_id": {"$ne": ""}}}, # Exclude empty referrals
-        # Lookup to get current user name ensuring up-to-date info
-        {
-            "$addFields": {
-                "convertedId": {
-                    "$cond": {
-                        "if": {"$and": [{"$ne": ["$_id", None]}, {"$ne": ["$_id", ""]}]},
-                        "then": {"$toObjectId": "$_id"},
-                        "else": None
+    # --- Referrer Stats Aggregation Helper ---
+    async def get_top_referrers(match_filter: dict):
+        pipeline = [
+            {"$match": match_filter},
+            {
+                "$group": {
+                    "_id": "$companyInfo.referral_id",
+                    "name": {"$first": "$companyInfo.referral"}, # Fallback name
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$match": {"_id": {"$ne": None}, "_id": {"$ne": ""}}}, # Exclude empty referrers
+            {
+                "$addFields": {
+                    "convertedId": {
+                        "$cond": {
+                            "if": {"$and": [{"$ne": ["$_id", None]}, {"$ne": ["$_id", ""]}]},
+                            "then": {"$toObjectId": "$_id"},
+                            "else": None
+                        }
                     }
                 }
-            }
-        },
-        {
-            "$lookup": {
+            },
+            {"$lookup": {
                 "from": "users",
                 "localField": "convertedId",
                 "foreignField": "_id",
                 "as": "user_info"
-            }
-        },
-        {
-            "$project": {
-                "name": {
-                    "$cond": {
-                        "if": {"$gt": [{"$size": "$user_info"}, 0]},
-                        "then": {"$arrayElemAt": ["$user_info.full_name", 0]},
-                        "else": "$name" # Use historically saved name if user not found/deleted
-                    }
-                },
-                "count": 1
-            }
-        },
-        {"$sort": {"count": -1}},
-        {"$limit": 5}
-    ]
-    referrers_cursor = db.signups.aggregate(referral_pipeline)
-    top_referrers = await referrers_cursor.to_list(length=5)
-    formatted_referrers = [{"name": item.get("name") or "Unknown", "count": item["count"]} for item in top_referrers]
+            }},
+            {
+                "$project": {
+                    "name": {
+                        "$cond": {
+                            "if": {"$gt": [{"$size": "$user_info"}, 0]},
+                            "then": {"$arrayElemAt": ["$user_info.full_name", 0]},
+                            "else": "$name"
+                        }
+                    },
+                    "count": 1
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]
+        cursor = db.signups.aggregate(pipeline)
+        results = await cursor.to_list(length=5)
+        return [{"name": item.get("name") or "Unknown", "count": item["count"]} for item in results]
+
+    # Global Top Referrers
+    formatted_referrers = await get_top_referrers(query)
     
+    # Platform Specific Top Referrers (All applications for that platform)
+    cake_referrer_query = query.copy()
+    cake_referrer_query["marketingInfo.applicationType"] = {"$in": ["Web Traffic", "Both"]}
+    top_cake_referrers = await get_top_referrers(cake_referrer_query)
+
+    ringba_referrer_query = query.copy()
+    ringba_referrer_query["marketingInfo.applicationType"] = {"$in": ["Call Traffic", "Both"]}
+    top_ringba_referrers = await get_top_referrers(ringba_referrer_query)
+
     return {
         "total": total,
         "pending": pending,
         "approved": approved,
         "rejected": rejected,
-        "chart_data": chart_data,
-        "top_referrers": formatted_referrers,
         "cake_stats": cake_stats,
-        "ringba_stats": ringba_stats
+        "ringba_stats": ringba_stats,
+        "top_referrers": formatted_referrers,
+        "top_cake_referrers": top_cake_referrers,
+        "top_ringba_referrers": top_ringba_referrers
     }
 
 @router.get("/signups", response_model=PaginatedSignups)
@@ -302,24 +294,24 @@ async def get_signups(
     if status:
         if application_type == "Web Traffic":
             if status == SignupStatus.PENDING:
-                query["cake_api_status"] = None
+                query["cake_api_status"] = {"$in": [None, "FAILED"]}
                 query["status"] = {"$ne": SignupStatus.REJECTED}
             elif status == SignupStatus.APPROVED:
-                query["cake_api_status"] = True
+                query["cake_api_status"] = "APPROVED"
             elif status == SignupStatus.REJECTED:
-                query["$or"] = [{"cake_api_status": False}, {"status": SignupStatus.REJECTED}]
+                query["$or"] = [{"cake_api_status": "REJECTED"}, {"status": SignupStatus.REJECTED}]
             elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
                 query["requested_cake_approval"] = True
             else:
                 query["status"] = status
         elif application_type == "Call Traffic":
             if status == SignupStatus.PENDING:
-                query["ringba_api_status"] = None
+                query["ringba_api_status"] = {"$in": [None, "FAILED"]}
                 query["status"] = {"$ne": SignupStatus.REJECTED}
             elif status == SignupStatus.APPROVED:
-                query["ringba_api_status"] = True
+                query["ringba_api_status"] = "APPROVED"
             elif status == SignupStatus.REJECTED:
-                query["$or"] = [{"ringba_api_status": False}, {"status": SignupStatus.REJECTED}]
+                query["$or"] = [{"ringba_api_status": "REJECTED"}, {"status": SignupStatus.REJECTED}]
             elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
                 query["requested_ringba_approval"] = True
             else:
@@ -774,11 +766,28 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     # --- Granular Status Update (Boolean) ---
     update_fields = {}
     if decision.addToCake:
-        update_fields["cake_api_status"] = True if cake_success else False
+        update_fields["cake_api_status"] = "APPROVED" if cake_success else "FAILED"
     if decision.addToRingba:
-        update_fields["ringba_api_status"] = True if ringba_success else False
+        update_fields["ringba_api_status"] = "APPROVED" if ringba_success else "FAILED"
 
-    # Determine overall status
+    # --- Robust Global Status Derivation ---
+    c_status = update_fields.get("cake_api_status", signup_data.get("cake_api_status"))
+    r_status = update_fields.get("ringba_api_status", signup_data.get("ringba_api_status"))
+    
+    app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+    
+    new_status = SignupStatus.PENDING
+    if c_status == "APPROVED" or r_status == "APPROVED":
+        new_status = SignupStatus.APPROVED
+    elif app_type == "Both":
+        if c_status == "REJECTED" and r_status == "REJECTED":
+            new_status = SignupStatus.REJECTED
+    elif app_type == "Web Traffic" and c_status == "REJECTED":
+        new_status = SignupStatus.REJECTED
+    elif app_type == "Call Traffic" and r_status == "REJECTED":
+        new_status = SignupStatus.REJECTED
+
+    # Determine overall process success for the HTTP response
     overall_success = True
     if decision.addToCake and not cake_success:
         overall_success = False
@@ -789,11 +798,6 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     if not decision.addToCake and not decision.addToRingba:
         overall_success = True
 
-    # For the base status field:
-    new_status = SignupStatus.PENDING
-    if overall_success:
-        new_status = SignupStatus.APPROVED
-    
     # --- Prepare Database Update ---
     update_data = {
         "status": new_status,
@@ -806,6 +810,17 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         "processed_at": datetime.utcnow(),
         **update_fields
     }
+    
+    # Per-platform info
+    if decision.addToCake:
+        update_data["cake_decision_reason"] = decision.reason
+        update_data["cake_processed_by"] = user.username
+        update_data["cake_processed_at"] = update_data["processed_at"]
+    
+    if decision.addToRingba:
+        update_data["ringba_decision_reason"] = decision.reason
+        update_data["ringba_processed_by"] = user.username
+        update_data["ringba_processed_at"] = update_data["processed_at"]
 
     # Only Save ID if success
     if cake_success:
@@ -825,6 +840,8 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
             detail_msg.append(f"Cake Failed: {cake_message}")
         if decision.addToRingba and not ringba_success:
             detail_msg.append(f"Ringba Failed: {ringba_message}")
+        # Even if it "failed", we save the partial state.
+        # The user sees a 400 but the DB might have partial success (e.g. one API worked).
         raise HTTPException(status_code=400, detail="; ".join(detail_msg))
 
     params_result = {
@@ -859,34 +876,61 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
                 raise HTTPException(status_code=403, detail="Call Traffic admins cannot reject Web Traffic signups")
 
     update_fields = {
-        "status": SignupStatus.REJECTED,
         "decision_reason": decision.reason,
         "processed_by": user.username,
         "processed_at": datetime.utcnow()
     }
-    
-    # Granular Rejection (Boolean)
-    # Only reject if strictly Pending (None). 
-    # If already True (Approved), leave it. If False (Rejected), leave it.
+
+    # Granular Rejection Logic
+    # If specific flags are provided, reject only those.
+    # Otherwise (e.g. from global Reject button), reject everything that is currently Pending (None).
     
     cake_status = signup_data.get("cake_api_status")
-    if cake_status is None:
-        update_fields["cake_api_status"] = False
-        
     ringba_status = signup_data.get("ringba_api_status")
-    if ringba_status is None:
-        update_fields["ringba_api_status"] = False
+    app_type = signup_data.get("marketingInfo", {}).get("applicationType")
 
-    # Check if there's any approval remaining -> Globally APPROVED
-    # Check if everything is rejected -> Globally REJECTED
-    # Existing logic overrides granular check for global status for now
-    # But if we want "Partially Approved", global status should be APPROVED if at least one is True.
+    # Determine what to reject
+    if not decision.addToCake and not decision.addToRingba:
+        # Global rejection (no specific API selected)
+        if cake_status is None or cake_status == "FAILED":
+            update_fields["cake_api_status"] = "REJECTED"
+            update_fields["cake_decision_reason"] = decision.reason
+            update_fields["cake_processed_by"] = user.username
+            update_fields["cake_processed_at"] = update_fields["processed_at"]
+        if ringba_status is None or ringba_status == "FAILED":
+            update_fields["ringba_api_status"] = "REJECTED"
+            update_fields["ringba_decision_reason"] = decision.reason
+            update_fields["ringba_processed_by"] = user.username
+            update_fields["ringba_processed_at"] = update_fields["processed_at"]
+    else:
+        # Granular rejection (specific API selected)
+        if decision.addToCake:
+            update_fields["cake_api_status"] = "REJECTED"
+            update_fields["cake_decision_reason"] = decision.reason
+            update_fields["cake_processed_by"] = user.username
+            update_fields["cake_processed_at"] = update_fields["processed_at"]
+        if decision.addToRingba:
+            update_fields["ringba_api_status"] = "REJECTED"
+            update_fields["ringba_decision_reason"] = decision.reason
+            update_fields["ringba_processed_by"] = user.username
+            update_fields["ringba_processed_at"] = update_fields["processed_at"]
+
+    # --- Robust Global Status Derivation ---
+    c_status = update_fields.get("cake_api_status", cake_status)
+    r_status = update_fields.get("ringba_api_status", ringba_status)
     
-    current_cake = update_fields.get("cake_api_status") if "cake_api_status" in update_fields else cake_status
-    current_ringba = update_fields.get("ringba_api_status") if "ringba_api_status" in update_fields else ringba_status
-    
-    if current_cake is True or current_ringba is True:
-         update_fields["status"] = SignupStatus.APPROVED
+    new_status = SignupStatus.PENDING
+    if c_status == "APPROVED" or r_status == "APPROVED":
+        new_status = SignupStatus.APPROVED
+    elif app_type == "Both":
+        if c_status == "REJECTED" and r_status == "REJECTED":
+            new_status = SignupStatus.REJECTED
+    elif app_type == "Web Traffic" and c_status == "REJECTED":
+        new_status = SignupStatus.REJECTED
+    elif app_type == "Call Traffic" and r_status == "REJECTED":
+        new_status = SignupStatus.REJECTED
+        
+    update_fields["status"] = new_status
 
     await db.signups.update_one(
         {"_id": ObjectId(id)},
@@ -1031,7 +1075,16 @@ async def reset_signup(id: str, user: User = Depends(get_current_admin)):
                 "decision_reason": None,
                 "processed_by": None,
                 "processed_at": None,
-                "cake_affiliate_id": None
+                "cake_affiliate_id": None,
+                "cake_api_status": None,
+                "cake_decision_reason": None,
+                "cake_processed_by": None,
+                "cake_processed_at": None,
+                "ringba_affiliate_id": None,
+                "ringba_api_status": None,
+                "ringba_decision_reason": None,
+                "ringba_processed_by": None,
+                "ringba_processed_at": None
             }
         }
     )

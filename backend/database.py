@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     CAKE_API_V2_URL: str = "https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate"
     CAKE_API_OFFERS_URL: str = "https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers"
     CAKE_API_MEDIA_TYPES_URL: str = "https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes"
+    CAKE_API_VERTICALS_URL: str = "https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals"
     
     # SMTP Settings
     SMTP_HOST: str = ""

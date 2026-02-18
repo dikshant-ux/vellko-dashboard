@@ -42,7 +42,6 @@ async def get_offers(
     sort_field: str = Query("offer_id", description="Field to sort by"),
     sort_descending: bool = Query(False, description="Sort descending"),
     search: Optional[str] = Query(None, description="Search term for offer name"),
-    vertical_id: int = Query(0, description="Filter by Vertical ID"),
     media_type_id: int = Query(0, description="Filter by Media Type ID"),
     site_offer_status_id: int = Query(0, description="Filter by Status ID")
 ):
@@ -92,7 +91,7 @@ async def get_offers(
         "site_offer_id": 0,
         "site_offer_name": search if search else "",
         "brand_advertiser_id": 0,
-        "vertical_id": vertical_id,
+        "vertical_id": 0,
         "site_offer_type_id": 0,
         "media_type_id": media_type_id,
         "tag_id": 0,
@@ -250,3 +249,69 @@ async def get_media_types():
 
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Connection error to upstream API: {str(e)}")
+@router.get("/verticals")
+async def get_verticals():
+    """
+    Fetch available verticals from Cake Marketing API.
+    """
+    api_key = settings.CAKE_API_KEY
+    base_url = settings.CAKE_API_VERTICALS_URL
+    params = {"api_key": api_key}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(base_url, params=params, timeout=30.0)
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="Failed to fetch verticals from upstream API")
+            
+            try:
+                data_dict = xmltodict.parse(response.content)
+            except Exception as e:
+                 raise HTTPException(status_code=500, detail=f"Failed to parse XML response: {str(e)}")
+
+            # The API returns ArrayOfVertical directly or vertical_export_response
+            # Checking for common patterns
+            root = data_dict.get('vertical_export_response') or data_dict.get('ArrayOfVertical') or {}
+            if not root:
+                return []
+
+            # Check for different possible key names (Cake API is inconsistent with case)
+            verticals_data = []
+            if 'verticals' in root:
+                v_container = root['verticals']
+                verticals_data = v_container.get('vertical') or v_container.get('Vertical') or []
+            else:
+                verticals_data = root.get('vertical') or root.get('Vertical') or []
+            
+            if isinstance(verticals_data, dict):
+                verticals_data = [verticals_data]
+            elif verticals_data is None:
+                verticals_data = []
+
+            result = []
+            for item in verticals_data:
+                name = item.get('vertical_name') or ''
+                if isinstance(name, str) and name.strip():
+                    result.append({
+                        "vertical_id": int(item.get('vertical_id', 0)),
+                        "vertical_name": name.strip()
+                    })
+            
+            return result
+
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Connection error to upstream API: {str(e)}")
+
+@router.get("/statuses")
+async def get_statuses():
+    """
+    Return standard Cake site offer statuses.
+    """
+    # These are usually fixed in Cake
+    return [
+        # {"status_id": 0, "status_name": "All Statuses"},
+        {"status_id": 1, "status_name": "Public"},
+        {"status_id": 2, "status_name": "Private"},
+        {"status_id": 3, "status_name": "Apply To Run"},
+        {"status_id": 4, "status_name": "Inactive"}
+    ]

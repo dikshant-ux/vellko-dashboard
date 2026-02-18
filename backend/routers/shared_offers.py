@@ -277,17 +277,22 @@ async def get_shared_data(
     api_search = search if search is not None else filters.get("search", "")
     
     vertical_id = filters.get("vertical_id", 0)
-    # Support both old singular and new plural media type filters
+    # Support both singular and plural media type filters
     media_type_ids = filters.get("media_type_ids", [])
     if not media_type_ids and filters.get("media_type_id"):
         media_type_ids = [filters.get("media_type_id")]
     
+    # Support both singular and plural status filters
+    site_offer_status_ids = filters.get("site_offer_status_ids", [])
+    if not site_offer_status_ids and filters.get("site_offer_status_id"):
+        site_offer_status_ids = [filters.get("site_offer_status_id")]
+
     api_key = settings.CAKE_API_KEY
     url = settings.CAKE_API_OFFERS_URL
     
-    # If multiple media types are selected, we fetch all (media_type_id=0) and filter in Python
-    # If exactly one is selected, we can use the API's filter
+    # API optimization: if exactly one is selected, use API filter
     cake_media_type_id = media_type_ids[0] if len(media_type_ids) == 1 else 0
+    cake_status_id = site_offer_status_ids[0] if len(site_offer_status_ids) == 1 else 0
 
     params = {
         "api_key": api_key,
@@ -300,7 +305,7 @@ async def get_shared_data(
         "tag_id": 0,
         "start_at_row": start_at_row,
         "row_limit": limit,
-        "site_offer_status_id": 0,
+        "site_offer_status_id": cake_status_id,
         "sort_field": "offer_id",
         "sort_descending": "FALSE"
     }
@@ -359,6 +364,13 @@ async def get_shared_data(
                  offer_media_type_id = int(get_text(offer_media_type_id_raw)) if offer_media_type_id_raw else 0
                  
                  if len(media_type_ids) > 1 and offer_media_type_id not in media_type_ids:
+                     continue
+
+                 offer_status_info = offer.get('site_offer_status', {})
+                 offer_status_id_raw = offer_status_info.get('site_offer_status_id', 0)
+                 offer_status_id = int(get_text(offer_status_id_raw)) if offer_status_id_raw else 0
+                 
+                 if len(site_offer_status_ids) > 1 and offer_status_id not in site_offer_status_ids:
                      continue
 
                  full_offer = {

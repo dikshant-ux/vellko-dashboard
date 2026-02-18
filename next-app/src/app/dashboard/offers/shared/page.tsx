@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ShareConfigurationModal } from '@/components/ShareConfigurationModal';
 import { Pencil } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface SharedLink {
     token: string;
@@ -95,20 +96,20 @@ export default function SharedLinksPage() {
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="p-4 md:p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Shared Links</h1>
-                    <p className="text-muted-foreground mt-2">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Shared Links</h1>
+                    <p className="text-sm md:text-base text-muted-foreground mt-1">
                         Manage your active shared offer lists.
                     </p>
                 </div>
-                <Button variant="outline" onClick={fetchLinks} disabled={isLoading}>
+                <Button variant="outline" onClick={fetchLinks} disabled={isLoading} className="w-full sm:w-auto shadow-sm">
                     Refresh
                 </Button>
             </div>
 
-            <div className="rounded-md border bg-card text-card-foreground shadow-md">
+            <div className="hidden md:block rounded-md border bg-card text-card-foreground shadow-md overflow-hidden">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
@@ -206,12 +207,108 @@ export default function SharedLinksPage() {
                 </Table>
             </div>
 
+            {/* Mobile View - Cards */}
+            <div className="md:hidden space-y-4">
+                {isLoading ? (
+                    <Card>
+                        <CardContent className="h-24 flex justify-center items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            <span>Loading...</span>
+                        </CardContent>
+                    </Card>
+                ) : links.length === 0 ? (
+                    <div className="h-24 flex flex-col items-center justify-center rounded-lg border border-dashed text-muted-foreground p-8 text-center">
+                        <p>No shared links found.</p>
+                    </div>
+                ) : (
+                    links.map((link) => {
+                        const isActive = link.active && new Date(link.expires_at) > new Date();
+                        return (
+                            <Card key={link.token} className="overflow-hidden shadow-sm">
+                                <CardHeader className="bg-muted/30 pb-3">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <div className="flex flex-col">
+                                            <CardTitle className="text-base leading-tight">
+                                                {link.name || "Untitled Share"}
+                                            </CardTitle>
+                                            <span className="text-xs text-muted-foreground mt-1 font-mono">
+                                                {link.token}
+                                            </span>
+                                        </div>
+                                        {isActive ? (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 shrink-0">
+                                                Active
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 shrink-0">
+                                                Expired
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-4 space-y-4">
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Created</p>
+                                            <p className="mt-0.5">{format(new Date(link.created_at), "MMM d, HH:mm")}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Expires</p>
+                                            <p className="mt-0.5">{format(new Date(link.expires_at), "MMM d, HH:mm")}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Views</p>
+                                            <p className="mt-0.5 font-medium">{link.views}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 pt-2 border-t">
+                                        <Button variant="outline" size="sm" onClick={() => copyLink(link.token)} className="flex-1 min-w-[100px]">
+                                            <Copy className="mr-2 h-4 w-4" /> Copy
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleEdit(link.token)} className="flex-1 min-w-[100px]">
+                                            <Pencil className="mr-2 h-4 w-4" /> Edit
+                                        </Button>
+                                        <Button variant="outline" size="sm" asChild className="flex-1 min-w-[100px]">
+                                            <a href={`/share/${link.token}`} target="_blank" rel="noreferrer">
+                                                <ExternalLink className="mr-2 h-4 w-4" /> View
+                                            </a>
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="outline" size="sm" className="flex-1 min-w-[100px] text-red-500 border-red-100 hover:bg-red-50 hover:text-red-700">
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent className="w-[calc(100%-2rem)] max-w-lg rounded-lg">
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Revoke Link?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This will permanently delete the shared link. Users will no longer be able to access it.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter className="flex-row gap-2 sm:flex-col mt-4">
+                                                    <AlertDialogCancel className="mt-0 flex-1">Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(link.token)} className="bg-red-600 hover:bg-red-700 flex-1">
+                                                        Delete
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })
+                )}
+            </div>
+
             <ShareConfigurationModal
                 open={isEditModalOpen}
                 setOpen={setIsEditModalOpen}
                 editToken={selectedToken}
                 onSuccess={fetchLinks}
-                currentFilters={{ search: "", media_type_id: 0, vertical_id: 0 }}
+                currentFilters={{ search: "", media_type_id: 0, vertical_id: 0, site_offer_status_id: 0 }}
                 availableColumns={[
                     { id: "id", label: "ID" },
                     { id: "name", label: "Name" },

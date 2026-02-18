@@ -8,9 +8,12 @@ import {
     LayoutDashboard,
     Users,
     FileText,
-    LogOut,
     Settings,
-    Menu
+    LogOut,
+    Menu,
+    Zap,
+    Link2,
+    ChevronRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,11 +32,13 @@ import {
 export default function MobileNav() {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
+    const [isOffersOpen, setIsOffersOpen] = useState(pathname.includes('/dashboard/offers'));
     const { data: session } = useSession();
 
     const navigation = [
         { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
         { name: 'Signups', href: '/dashboard/signups', icon: FileText },
+        { name: 'Offers', href: '/dashboard/offers', icon: Zap },
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
         ] : []),
@@ -70,7 +75,70 @@ export default function MobileNav() {
                         <nav className="space-y-2">
                             {navigation.map((item) => {
                                 const isActive = pathname.startsWith(item.href);
+                                const isOffers = item.name === 'Offers';
                                 const Icon = item.icon;
+                                const isOffersActive = pathname.startsWith('/dashboard/offers');
+
+                                if (isOffers) {
+                                    return (
+                                        <div key={item.name} className="space-y-1">
+                                            <div
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 outline-none ring-0 cursor-pointer",
+                                                    isOffersActive
+                                                        ? "bg-red-50 text-red-700"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                                onClick={() => setIsOffersOpen(!isOffersOpen)}
+                                            >
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <Icon className={cn(
+                                                        "h-5 w-5 transition-colors",
+                                                        isOffersActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
+                                                    )} />
+                                                    <span>{item.name}</span>
+                                                </div>
+
+                                                <ChevronRight
+                                                    className={cn(
+                                                        "h-4 w-4 transition-transform text-gray-400",
+                                                        isOffersOpen && "rotate-90"
+                                                    )}
+                                                />
+                                            </div>
+
+                                            {isOffersOpen && (
+                                                <div className="space-y-1 ml-4 pl-4 border-l border-gray-100">
+                                                    <Link
+                                                        href="/dashboard/offers"
+                                                        onClick={() => setOpen(false)}
+                                                        className={cn(
+                                                            "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                            pathname === '/dashboard/offers'
+                                                                ? "text-red-700 bg-red-50/50"
+                                                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                        )}
+                                                    >
+                                                        <span>All Offers</span>
+                                                    </Link>
+                                                    <Link
+                                                        href="/dashboard/offers/shared"
+                                                        onClick={() => setOpen(false)}
+                                                        className={cn(
+                                                            "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                            pathname.includes('/offers/shared')
+                                                                ? "text-red-700 bg-red-50/50"
+                                                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                        )}
+                                                    >
+                                                        <span>Shared Links</span>
+                                                    </Link>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
                                 return (
                                     <Link
                                         key={item.name}

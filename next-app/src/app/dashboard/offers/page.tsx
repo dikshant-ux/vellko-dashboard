@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ShareConfigurationModal } from "@/components/ShareConfigurationModal";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Offer {
     site_offer_id: string;
@@ -55,7 +56,9 @@ export default function OffersPage() {
     const [sortField, setSortField] = useState("offer_id");
     const [sortDesc, setSortDesc] = useState(false);
     const [mediaTypes, setMediaTypes] = useState<{ media_type_id: number, media_type_name: string }[]>([]);
+    const [statuses, setStatuses] = useState<{ status_id: number, status_name: string }[]>([]);
     const [selectedMediaType, setSelectedMediaType] = useState<string>("0");
+    const [selectedStatus, setSelectedStatus] = useState<string>("0");
 
     // Column Visibility State
     const [columnVisibility, setColumnVisibility] = useState({
@@ -108,19 +111,20 @@ export default function OffersPage() {
     }, [search]);
 
     useEffect(() => {
-        // Fetch media types
-        const fetchMediaTypes = async () => {
+        const fetchFilters = async () => {
             try {
-                const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`);
-                if (res && res.ok) {
-                    const data = await res.json();
-                    setMediaTypes(data);
-                }
+                const [mediaRes, statusRes] = await Promise.all([
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`),
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/statuses`)
+                ]);
+
+                if (mediaRes?.ok) setMediaTypes(await mediaRes.json());
+                if (statusRes?.ok) setStatuses(await statusRes.json());
             } catch (error) {
-                console.error("Failed to fetch media types", error);
+                console.error("Failed to fetch filters", error);
             }
         };
-        fetchMediaTypes();
+        fetchFilters();
     }, []);
 
     const fetchOffers = async () => {
@@ -132,6 +136,7 @@ export default function OffersPage() {
                 sort_field: sortField,
                 sort_descending: sortDesc.toString(),
                 media_type_id: selectedMediaType,
+                site_offer_status_id: selectedStatus,
                 ...(debouncedSearch && { search: debouncedSearch })
             });
 
@@ -153,7 +158,7 @@ export default function OffersPage() {
 
     useEffect(() => {
         fetchOffers();
-    }, [page, limit, sortField, sortDesc, debouncedSearch, selectedMediaType]);
+    }, [page, limit, sortField, sortDesc, debouncedSearch, selectedMediaType, selectedStatus]);
 
     // Prepare available columns for the modal
 
@@ -177,11 +182,11 @@ export default function OffersPage() {
     ];
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="p-4 md:p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Affiliate Offers</h1>
-                    <p className="text-muted-foreground mt-2">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Affiliate Offers</h1>
+                    <p className="text-sm md:text-base text-muted-foreground mt-1">
                         Manage and view all available offers from integrated networks.
                     </p>
                 </div>
@@ -190,7 +195,8 @@ export default function OffersPage() {
                         currentFilters={{
                             search: search || "",
                             media_type_id: Number(selectedMediaType || 0),
-                            vertical_id: 0 // Add vertical filter state later if implemented
+                            vertical_id: 0,
+                            site_offer_status_id: Number(selectedStatus || 0)
                         }}
                         availableColumns={availableColumns}
                         currentVisibleColumns={columnVisibility}
@@ -275,16 +281,16 @@ export default function OffersPage() {
                 </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 flex-1">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full flex-1">
                     <Input
                         placeholder="Search offers..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="max-w-sm bg-background shadow-sm"
+                        className="w-full sm:max-w-sm bg-background shadow-sm"
                     />
                     <Select value={selectedMediaType} onValueChange={(val) => { setSelectedMediaType(val); setPage(1); }}>
-                        <SelectTrigger className="w-[180px] bg-background shadow-sm">
+                        <SelectTrigger className="w-full sm:w-[150px] bg-background shadow-sm">
                             <SelectValue placeholder="Media Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -296,28 +302,24 @@ export default function OffersPage() {
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                        <span>Rows per page</span>
-                        <Select value={limit.toString()} onValueChange={(val) => { setLimit(Number(val)); setPage(1); }}>
-                            <SelectTrigger className="h-8 w-[70px] bg-background shadow-sm">
-                                <SelectValue placeholder={limit.toString()} />
-                            </SelectTrigger>
-                            <SelectContent side="top">
-                                {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((pageSize) => (
-                                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                                        {pageSize}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <span>Showing {offers.length} of {totalRows} offers</span>
+
+                    <Select value={selectedStatus} onValueChange={(val) => { setSelectedStatus(val); setPage(1); }}>
+                        <SelectTrigger className="w-full sm:w-[150px] bg-background shadow-sm">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="0">All Statuses</SelectItem>
+                            {statuses.map((s) => (
+                                <SelectItem key={s.status_id} value={s.status_id.toString()}>
+                                    {s.status_name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
-            <div className="rounded-md border bg-card shadow-sm">
+            <div className="hidden md:block rounded-md border bg-card shadow-sm overflow-hidden">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
@@ -398,28 +400,111 @@ export default function OffersPage() {
                 </Table>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1 || isLoading}
-                >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                </Button>
-                <div className="text-sm font-medium">
-                    Page {page} of {Math.max(1, totalPages)}
+            {/* Mobile View - Cards */}
+            <div className="md:hidden space-y-4">
+                {isLoading ? (
+                    <Card>
+                        <CardContent className="h-24 flex justify-center items-center gap-2">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            <span>Loading offers...</span>
+                        </CardContent>
+                    </Card>
+                ) : offers.length === 0 ? (
+                    <Card>
+                        <CardContent className="h-24 flex justify-center items-center">
+                            No offers found.
+                        </CardContent>
+                    </Card>
+                ) : (
+                    offers.map((offer) => (
+                        <Card key={offer.site_offer_id} className="overflow-hidden shadow-sm">
+                            <CardHeader className="bg-muted/30 pb-3">
+                                <div className="flex justify-between items-start gap-2">
+                                    <div className="flex flex-col">
+                                        <CardTitle className="text-base leading-tight">
+                                            {offer.site_offer_name}
+                                        </CardTitle>
+                                        <span className="text-xs text-muted-foreground mt-1">
+                                            ID: {offer.site_offer_id} • {offer.third_party_name}
+                                        </span>
+                                    </div>
+                                    <Badge variant={offer.status === 'Public' ? 'secondary' : 'outline'} className="shrink-0">
+                                        {offer.status}
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="pt-4 grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Vertical</p>
+                                    <p className="mt-0.5 font-medium">{offer.vertical_name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Payout</p>
+                                    <p className="mt-0.5 font-bold text-green-600">{offer.payout}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Type</p>
+                                    <p className="mt-0.5">{offer.price_format}</p>
+                                </div>
+                                <div className="col-span-2 pt-2 border-t">
+                                    {offer.preview_link && (
+                                        <Button className="w-full" variant="outline" size="sm" asChild>
+                                            <a href={offer.preview_link} target="_blank" rel="noopener noreferrer">
+                                                Preview Offer
+                                            </a>
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2 border-t mt-4">
+                <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-muted-foreground order-2 md:order-1">
+                    <div className="flex items-center gap-2">
+                        <span>Rows per page</span>
+                        <Select value={limit.toString()} onValueChange={(val) => { setLimit(Number(val)); setPage(1); }}>
+                            <SelectTrigger className="h-8 w-[70px] bg-background shadow-sm">
+                                <SelectValue placeholder={limit.toString()} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <span>Showing {offers.length} of {totalRows} offers</span>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages || isLoading}
-                >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
+                <div className="flex items-center gap-2 order-1 md:order-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1 || isLoading}
+                        className="h-8 shadow-sm"
+                    >
+                        <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Previous</span>
+                    </Button>
+                    <div className="text-sm font-medium px-3 h-8 flex items-center bg-muted/30 rounded-md border">
+                        Page {page} of {Math.max(1, totalPages)}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages || isLoading}
+                        className="h-8 shadow-sm"
+                    >
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-4 w-4 sm:ml-1" />
+                    </Button>
+                </div>
             </div>
         </div>
     );

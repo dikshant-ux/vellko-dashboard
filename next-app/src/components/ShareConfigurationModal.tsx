@@ -37,6 +37,7 @@ interface ShareModalProps {
         search: string;
         media_type_id: number;
         vertical_id: number;
+        site_offer_status_id: number;
     };
     availableColumns: { id: string; label: string }[];
     currentVisibleColumns: Record<string, boolean>;
@@ -69,26 +70,31 @@ export function ShareConfigurationModal({
         Object.keys(currentVisibleColumns).filter(k => currentVisibleColumns[k])
     );
     const [mediaTypes, setMediaTypes] = useState<{ media_type_id: number, media_type_name: string }[]>([]);
+    const [statuses, setStatuses] = useState<{ status_id: number, status_name: string }[]>([]);
     const [selectedMediaTypes, setSelectedMediaTypes] = useState<number[]>(
         currentFilters.media_type_id ? [currentFilters.media_type_id] : []
+    );
+    const [selectedStatusIds, setSelectedStatusIds] = useState<number[]>(
+        currentFilters.site_offer_status_id ? [currentFilters.site_offer_status_id] : []
     );
     const [editFilters, setEditFilters] = useState<any>(null);
 
     const isEdit = !!editToken;
 
     useEffect(() => {
-        const fetchMediaTypes = async () => {
+        const fetchFilters = async () => {
             try {
-                const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`);
-                if (res && res.ok) {
-                    const data = await res.json();
-                    setMediaTypes(data);
-                }
+                const [mediaRes, statusRes] = await Promise.all([
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`),
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/statuses`)
+                ]);
+                if (mediaRes?.ok) setMediaTypes(await mediaRes.json());
+                if (statusRes?.ok) setStatuses(await statusRes.json());
             } catch (error) {
-                console.error("Failed to fetch media types", error);
+                console.error("Failed to fetch filters", error);
             }
         };
-        fetchMediaTypes();
+        fetchFilters();
     }, []);
 
     useEffect(() => {
@@ -108,6 +114,12 @@ export function ShareConfigurationModal({
                             setSelectedMediaTypes(data.filters.media_type_ids);
                         } else if (data.filters && data.filters.media_type_id) {
                             setSelectedMediaTypes([data.filters.media_type_id]);
+                        }
+
+                        if (data.filters && data.filters.site_offer_status_ids) {
+                            setSelectedStatusIds(data.filters.site_offer_status_ids);
+                        } else if (data.filters && data.filters.site_offer_status_id) {
+                            setSelectedStatusIds([data.filters.site_offer_status_id]);
                         }
                     } else {
                         toast.error("Failed to load link configuration");
@@ -137,12 +149,15 @@ export function ShareConfigurationModal({
             const method = isEdit ? 'PATCH' : 'POST';
 
             const filtersToSave = isEdit && editFilters
-                ? { ...editFilters, media_type_ids: selectedMediaTypes }
-                : { ...currentFilters, media_type_ids: selectedMediaTypes };
+                ? { ...editFilters, media_type_ids: selectedMediaTypes, site_offer_status_ids: selectedStatusIds }
+                : { ...currentFilters, media_type_ids: selectedMediaTypes, site_offer_status_ids: selectedStatusIds };
 
-            // Remove the old singular field if it exists
+            // Remove old singular fields if they exist
             if ('media_type_id' in filtersToSave) {
                 delete (filtersToSave as any).media_type_id;
+            }
+            if ('site_offer_status_id' in filtersToSave) {
+                delete (filtersToSave as any).site_offer_status_id;
             }
 
             const res = await authFetch(url, {
@@ -191,6 +206,7 @@ export function ShareConfigurationModal({
         setDuration("24");
         setSelectedColumns(Object.keys(currentVisibleColumns).filter(k => currentVisibleColumns[k]));
         setSelectedMediaTypes(currentFilters.media_type_id ? [currentFilters.media_type_id] : []);
+        setSelectedStatusIds(currentFilters.site_offer_status_id ? [currentFilters.site_offer_status_id] : []);
         setEditFilters(null);
     };
 
@@ -300,7 +316,67 @@ export function ShareConfigurationModal({
                                 </Popover>
                             </div>
                         </div>
-                        <p className="-mt-2 text-xs text-muted-foreground italic">Restricts shared page to selected media type filters.</p>
+
+                        <div className="grid grid-cols-2 gap-4 -mt-2">
+                            <div className="grid gap-2">
+                                <Label>Statuses</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between font-normal text-xs md:text-sm">
+                                            {selectedStatusIds.length === 0 ? "All Statuses" :
+                                                selectedStatusIds.length === 1 ? statuses.find(s => s.status_id === selectedStatusIds[0])?.status_name :
+                                                    `${selectedStatusIds.length} Selected`}
+                                            <Plus className="ml-2 h-4 w-4 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[200px] p-0" align="start">
+                                        <div
+                                            className="h-[200px] overflow-y-auto"
+                                            onWheel={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="p-2 space-y-2">
+                                                <div className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
+                                                    onClick={() => setSelectedStatusIds([])}>
+                                                    <Checkbox
+                                                        id="st-all"
+                                                        checked={selectedStatusIds.length === 0}
+                                                        onCheckedChange={() => setSelectedStatusIds([])}
+                                                    />
+                                                    <Label htmlFor="st-all" className="text-sm cursor-pointer flex-1">All Statuses</Label>
+                                                </div>
+                                                {statuses.map((s) => (
+                                                    <div key={s.status_id}
+                                                        className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
+                                                        onClick={() => {
+                                                            if (selectedStatusIds.includes(s.status_id)) {
+                                                                setSelectedStatusIds(selectedStatusIds.filter(id => id !== s.status_id));
+                                                            } else {
+                                                                setSelectedStatusIds([...selectedStatusIds, s.status_id]);
+                                                            }
+                                                        }}>
+                                                        <Checkbox
+                                                            id={`st-${s.status_id}`}
+                                                            checked={selectedStatusIds.includes(s.status_id)}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked) {
+                                                                    setSelectedStatusIds([...selectedStatusIds, s.status_id]);
+                                                                } else {
+                                                                    setSelectedStatusIds(selectedStatusIds.filter(id => id !== s.status_id));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Label htmlFor={`st-${s.status_id}`} className="text-sm cursor-pointer flex-1">
+                                                            {s.status_name}
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        </div>
+                        <p className="-mt-2 text-xs text-muted-foreground italic">Restricts shared page to selected Type and Status filters.</p>
 
                         <div className="grid gap-2">
                             <Label htmlFor="emails">Allowed Emails (Optional, Comma Separated)</Label>

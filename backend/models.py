@@ -85,6 +85,16 @@ class SignupInDB(SignupCreate):
     ringba_affiliate_id: Optional[str] = None
     ringba_message: Optional[str] = None
     ringba_response: Optional[str] = None
+    cake_api_status: Optional[str] = None
+    cake_decision_reason: Optional[str] = None
+    cake_processed_by: Optional[str] = None
+    cake_processed_at: Optional[datetime] = None
+    
+    ringba_api_status: Optional[str] = None
+    ringba_decision_reason: Optional[str] = None
+    ringba_processed_by: Optional[str] = None
+    ringba_processed_at: Optional[datetime] = None
+
     decision_reason: Optional[str] = None
     processed_by: Optional[str] = None
     processed_at: Optional[datetime] = None
@@ -98,11 +108,6 @@ class SignupInDB(SignupCreate):
     requested_cake_approval: Optional[bool] = None
     requested_ringba_approval: Optional[bool] = None
     referrer_manager_id: Optional[str] = None
-    
-    # Enhanced Integration Status (Boolean)
-    # True = Approved, False = Rejected, None = Pending/Skipped
-    cake_api_status: Optional[bool] = None
-    ringba_api_status: Optional[bool] = None
     
     class Config:
         populate_by_name = True
