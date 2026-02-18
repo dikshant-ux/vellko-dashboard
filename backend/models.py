@@ -79,6 +79,11 @@ class SignupNote(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 
+class QAResponse(BaseModel):
+    question_text: str
+    answer: str
+    required: bool = True
+
 class SignupInDB(SignupCreate):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     status: SignupStatus = SignupStatus.PENDING
@@ -146,10 +151,6 @@ class User(BaseModel):
     can_approve_signups: Optional[bool] = True
     cake_account_manager_id: Optional[str] = None
     
-class QAResponse(BaseModel):
-    question_text: str
-    answer: str
-    required: bool = True
 
 class UserCreate(User):
     password: str
