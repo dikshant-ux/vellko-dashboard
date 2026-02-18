@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Lock, Save, Eye, EyeOff, ShieldCheck, Smartphone, CheckCircle, AlertTriangle, Mail, Plus, Trash2, Edit, Check, X } from "lucide-react";
+import { User, Lock, Save, Eye, EyeOff, ShieldCheck, Smartphone, CheckCircle, AlertTriangle, Mail, Plus, Trash2, Edit, Check, X, Link2 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,6 +39,29 @@ export default function SettingsPage() {
     });
     const [isTestingSmtp, setIsTestingSmtp] = useState(false);
 
+    // API Connections State
+    const [apiConnections, setApiConnections] = useState<any[]>([]);
+    const [isApiDialogOpen, setIsApiDialogOpen] = useState(false);
+    const [currentApi, setCurrentApi] = useState<any | null>(null);
+    const [apiForm, setApiForm] = useState({
+        name: '',
+        type: 'CAKE',
+        is_active: false,
+        cake_details: {
+            api_key: '',
+            api_url: 'https://demo-new.cakemarketing.com/api/4/signup.asmx/Affiliate',
+            api_v2_url: 'https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate',
+            api_offers_url: 'https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers',
+            api_media_types_url: 'https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes',
+            api_verticals_url: 'https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals'
+        },
+        ringba_details: {
+            api_token: '',
+            api_url: 'https://api.ringba.com/v2',
+            account_id: ''
+        }
+    });
+
     useEffect(() => {
         if (session?.user?.name) {
             setProfile(p => ({ ...p, full_name: session.user.name || '' }));
@@ -60,6 +83,11 @@ export default function SettingsPage() {
             if (session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') {
                 fetchSmtpConfigs();
             }
+
+            // Fetch API Connections if Super Admin
+            if (session.user.role === 'SUPER_ADMIN') {
+                fetchApiConnections();
+            }
         }
     }, [session]);
 
@@ -68,6 +96,13 @@ export default function SettingsPage() {
             .then(res => res && res.ok ? res.json() : [])
             .then(data => setSmtpConfigs(data || []))
             .catch(err => console.error("Failed to fetch SMTP configs", err));
+    };
+
+    const fetchApiConnections = () => {
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/connections`)
+            .then(res => res && res.ok ? res.json() : [])
+            .then(data => setApiConnections(data || []))
+            .catch(err => console.error("Failed to fetch API connections", err));
     };
 
     const handleProfileUpdate = (e: React.FormEvent) => {
@@ -290,20 +325,127 @@ export default function SettingsPage() {
             .finally(() => setIsTestingSmtp(false));
     };
 
+    const handleOpenApiDialog = (config: any = null) => {
+        if (config) {
+            setCurrentApi(config);
+            setApiForm({
+                name: config.name || '',
+                type: config.type,
+                is_active: config.is_active,
+                cake_details: config.cake_details || {
+                    api_key: '',
+                    api_url: 'https://demo-new.cakemarketing.com/api/4/signup.asmx/Affiliate',
+                    api_v2_url: 'https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate',
+                    api_offers_url: 'https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers',
+                    api_media_types_url: 'https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes',
+                    api_verticals_url: 'https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals'
+                },
+                ringba_details: config.ringba_details || {
+                    api_token: '',
+                    api_url: 'https://api.ringba.com/v2',
+                    account_id: ''
+                }
+            });
+        } else {
+            setCurrentApi(null);
+            setApiForm({
+                name: '',
+                type: 'CAKE',
+                is_active: false,
+                cake_details: {
+                    api_key: '',
+                    api_url: 'https://demo-new.cakemarketing.com/api/4/signup.asmx/Affiliate',
+                    api_v2_url: 'https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate',
+                    api_offers_url: 'https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers',
+                    api_media_types_url: 'https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes',
+                    api_verticals_url: 'https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals'
+                },
+                ringba_details: {
+                    api_token: '',
+                    api_url: 'https://api.ringba.com/v2',
+                    account_id: ''
+                }
+            });
+        }
+        setIsApiDialogOpen(true);
+    };
+
+    const handleSaveApiConnection = () => {
+        setLoading(true);
+        const url = currentApi
+            ? `${process.env.NEXT_PUBLIC_API_URL}/admin/settings/connections/${currentApi._id}`
+            : `${process.env.NEXT_PUBLIC_API_URL}/admin/settings/connections`;
+
+        const method = currentApi ? 'PUT' : 'POST';
+
+        authFetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(apiForm)
+        })
+            .then(async res => {
+                if (res && res.ok) {
+                    alert(`API Connection ${currentApi ? 'updated' : 'created'} successfully`);
+                    setIsApiDialogOpen(false);
+                    fetchApiConnections();
+                } else {
+                    const err = res ? await res.json() : { detail: "Unknown error" };
+                    alert(err.detail || "Failed to save API connection");
+                }
+            })
+            .catch(() => alert("Error saving API connection"))
+            .finally(() => setLoading(false));
+    };
+
+    const handleDeleteApiConnection = (id: string) => {
+        if (!confirm("Are you sure you want to delete this API connection?")) return;
+
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/connections/${id}`, {
+            method: 'DELETE',
+        })
+            .then(res => {
+                if (res && res.ok) {
+                    fetchApiConnections();
+                } else {
+                    alert("Failed to delete connection");
+                }
+            });
+    };
+
+    const handleActivateApiConnection = (id: string) => {
+        authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/connections/${id}/activate`, {
+            method: 'POST',
+        })
+            .then(res => {
+                if (res && res.ok) {
+                    fetchApiConnections();
+                } else {
+                    alert("Failed to activate connection");
+                }
+            });
+    };
+
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
-                <p className="text-muted-foreground mt-1">Manage your account preferences.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Settings</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">Manage your account preferences.</p>
+                </div>
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="flex flex-wrap h-auto w-full grid-cols-2 md:grid-cols-4 max-w-[550px]">
-                    <TabsTrigger value="profile">Profile</TabsTrigger>
-                    <TabsTrigger value="security">Security</TabsTrigger>
-                    <TabsTrigger value="2fa">2FA</TabsTrigger>
+                <TabsList className="inline-flex h-auto p-1 bg-muted/50 rounded-xl overflow-x-auto max-w-full justify-start md:justify-center">
+                    <TabsTrigger value="profile" className="rounded-lg px-4 py-2 text-sm">Profile</TabsTrigger>
+                    <TabsTrigger value="security" className="rounded-lg px-4 py-2 text-sm">Security</TabsTrigger>
+                    <TabsTrigger value="2fa" className="rounded-lg px-4 py-2 text-sm">2FA</TabsTrigger>
                     {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
-                        <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
+                        <TabsTrigger value="smtp" className="rounded-lg px-4 py-2 text-sm">SMTP Settings</TabsTrigger>
+                    )}
+                    {session?.user?.role === 'SUPER_ADMIN' && (
+                        <TabsTrigger value="connections" className="rounded-lg px-4 py-2 text-sm">API Connections</TabsTrigger>
                     )}
                 </TabsList>
 
@@ -445,28 +587,34 @@ export default function SettingsPage() {
                                         </div>
 
                                         {setupData && (
-                                            <div className="border border-gray-200 rounded-xl p-6 animate-in fade-in slide-in-from-top-4">
+                                            <div className="border border-gray-200 rounded-xl p-4 sm:p-6 animate-in fade-in slide-in-from-top-4">
                                                 <h3 className="font-semibold text-lg mb-4">Scan QR Code</h3>
-                                                <div className="flex flex-col md:flex-row gap-6 items-center">
-                                                    <div className="bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
-                                                        <QRCode value={setupData.otpauth_url} size={160} />
+                                                <div className="flex flex-col gap-8 items-center text-center sm:text-left">
+                                                    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                                                        <QRCode value={setupData.otpauth_url} size={180} />
                                                     </div>
-                                                    <div className="flex-1 space-y-4 w-full">
+                                                    <div className="flex-1 space-y-6 w-full max-w-sm">
                                                         <div>
-                                                            <Label>1. Scan the code</Label>
-                                                            <p className="text-sm text-muted-foreground">Open your authenticator app and scan the image.</p>
+                                                            <div className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-1">Step 1</div>
+                                                            <Label className="text-base">Scan the code</Label>
+                                                            <p className="text-sm text-muted-foreground mt-1">Open your authenticator app (like Google Authenticator) and scan the QR code above.</p>
                                                         </div>
-                                                        <div className="space-y-2">
-                                                            <Label>2. Enter Verification Code</Label>
-                                                            <div className="flex gap-2">
+                                                        <div className="space-y-3">
+                                                            <div className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-1">Step 2</div>
+                                                            <Label className="text-base">Enter Verification Code</Label>
+                                                            <div className="flex flex-col gap-3">
                                                                 <Input
                                                                     value={otpCode}
                                                                     onChange={(e) => setOtpCode(e.target.value)}
-                                                                    placeholder="000 000"
-                                                                    className="font-mono tracking-widest text-center text-lg"
+                                                                    placeholder="000000"
+                                                                    className="font-mono tracking-[0.5em] text-center text-xl h-12"
                                                                     maxLength={6}
                                                                 />
-                                                                <Button onClick={confirm2FASetup} disabled={isVerifying || otpCode.length < 6}>
+                                                                <Button 
+                                                                    onClick={confirm2FASetup} 
+                                                                    disabled={isVerifying || otpCode.length < 6}
+                                                                    className="w-full bg-red-600 hover:bg-red-700 text-white h-11"
+                                                                >
                                                                     {isVerifying ? "Verifying..." : "Verify & Enable"}
                                                                 </Button>
                                                             </div>
@@ -485,20 +633,21 @@ export default function SettingsPage() {
                 {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
                     <TabsContent value="smtp" className="mt-6">
                         <Card className="border-none shadow-md">
-                            <CardHeader className="flex flex-row items-center justify-between">
+                            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
                                     <CardTitle className="flex items-center gap-2">
                                         <Mail className="h-5 w-5 text-red-600" />
                                         SMTP Settings
                                     </CardTitle>
-                                    <CardDescription>Manage your email sending configurations.</CardDescription>
+                                    <CardDescription className="text-xs sm:text-sm">Manage your email sending configurations.</CardDescription>
                                 </div>
-                                <Button onClick={() => handleOpenSmtpDialog()} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+                                <Button onClick={() => handleOpenSmtpDialog()} size="sm" className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
                                     <Plus className="h-4 w-4 mr-2" /> Add SMTP
                                 </Button>
                             </CardHeader>
-                            <CardContent>
-                                <div className="rounded-md border">
+                            <CardContent className="p-0 sm:p-6">
+                                {/* Desktop View Table */}
+                                <div className="hidden md:block rounded-md border overflow-hidden">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -513,7 +662,7 @@ export default function SettingsPage() {
                                         <TableBody>
                                             {smtpConfigs.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                                                         No SMTP configurations found. System using defaults (if set).
                                                     </TableCell>
                                                 </TableRow>
@@ -556,11 +705,63 @@ export default function SettingsPage() {
                                         </TableBody>
                                     </Table>
                                 </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="md:hidden space-y-4 p-4">
+                                    {smtpConfigs.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
+                                            No SMTP configurations found.
+                                        </div>
+                                    ) : (
+                                        smtpConfigs.map((config) => (
+                                            <Card key={config._id} className="border border-gray-100 shadow-sm overflow-hidden bg-white">
+                                                <CardContent className="p-4 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="font-bold text-gray-900">{config.name || 'SMTP Config'}</div>
+                                                        <div className="flex items-center gap-1">
+                                                            {!config.is_active && (
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => handleActivateSmtp(config._id)}>
+                                                                    <Check className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleOpenSmtpDialog(config)}>
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteSmtp(config._id)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                        <div className="space-y-1">
+                                                            <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Host</div>
+                                                            <div className="text-gray-700 truncate">{config.host}:{config.port}</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Status</div>
+                                                            <div>
+                                                                {config.is_active ? (
+                                                                    <Badge className="bg-green-50 text-green-700 border-green-100 hover:bg-green-50 px-2 flex w-fit h-5">Active</Badge>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="text-gray-400 border-gray-100 px-2 flex w-fit h-5">Inactive</Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="col-span-2 space-y-1 pt-1">
+                                                            <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">From Email</div>
+                                                            <div className="text-gray-600 truncate">{config.from_email}</div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
 
                         <Dialog open={isSmtpDialogOpen} onOpenChange={setIsSmtpDialogOpen}>
-                            <DialogContent>
+                            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>{currentSmtp ? 'Edit SMTP Configuration' : 'Add New SMTP Configuration'}</DialogTitle>
                                     <DialogDescription>
@@ -628,16 +829,314 @@ export default function SettingsPage() {
                                         )}
                                     </div>
                                 </div>
-                                <DialogFooter className="flex justify-between sm:justify-between w-full">
-                                    <Button type="button" variant="secondary" onClick={handleTestSmtp} disabled={isTestingSmtp || loading}>
+                                <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:pt-6 border-t mt-4">
+                                    <Button type="button" variant="secondary" onClick={handleTestSmtp} disabled={isTestingSmtp || loading} className="w-full sm:w-auto">
                                         {isTestingSmtp ? <span className="animate-pulse">Testing...</span> : "Test Connection"}
                                     </Button>
-                                    <div className="flex gap-2">
-                                        <Button variant="outline" onClick={() => setIsSmtpDialogOpen(false)}>Cancel</Button>
-                                        <Button onClick={handleSaveSmtp} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
-                                            {loading ? "Saving..." : "Save Configuration"}
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <Button variant="outline" onClick={() => setIsSmtpDialogOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+                                        <Button onClick={handleSaveSmtp} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white flex-1 sm:flex-none">
+                                            {loading ? "Saving..." : "Save"}
                                         </Button>
                                     </div>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </TabsContent>
+                )}
+
+                {session?.user?.role === 'SUPER_ADMIN' && (
+                    <TabsContent value="connections" className="mt-6">
+                        <Card className="border-none shadow-md">
+                            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Link2 className="h-5 w-5 text-red-600" />
+                                        API Connections
+                                    </CardTitle>
+                                    <CardDescription className="text-xs sm:text-sm">Manage Cake and Ringba API integrations.</CardDescription>
+                                </div>
+                                <Button onClick={() => handleOpenApiDialog()} size="sm" className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
+                                    <Plus className="h-4 w-4 mr-2" /> Add Connection
+                                </Button>
+                            </CardHeader>
+                            <CardContent className="p-0 sm:p-6">
+                                {/* Desktop View Table */}
+                                <div className="hidden md:block rounded-md border overflow-hidden">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Name</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Created</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {apiConnections.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                                        No API connections found.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                apiConnections.map((conn) => (
+                                                    <TableRow key={conn._id}>
+                                                        <TableCell className="font-medium">
+                                                            {conn.name}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{conn.type}</Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {conn.is_active ? (
+                                                                <Badge className="bg-green-600 hover:bg-green-700">Active</Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {new Date(conn.created_at).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-2">
+                                                                {!conn.is_active && (
+                                                                    <Button variant="ghost" size="icon" onClick={() => handleActivateApiConnection(conn._id)} title="Activate">
+                                                                        <Check className="h-4 w-4 text-green-600" />
+                                                                    </Button>
+                                                                )}
+                                                                <Button variant="ghost" size="icon" onClick={() => handleOpenApiDialog(conn)}>
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteApiConnection(conn._id)}>
+                                                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="md:hidden space-y-4 p-4">
+                                    {apiConnections.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
+                                            No API connections found.
+                                        </div>
+                                    ) : (
+                                        apiConnections.map((conn) => (
+                                            <Card key={conn._id} className="border border-gray-100 shadow-sm overflow-hidden bg-white">
+                                                <CardContent className="p-4 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="font-bold text-gray-900">{conn.name}</div>
+                                                        <div className="flex items-center gap-1">
+                                                            {!conn.is_active && (
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => handleActivateApiConnection(conn._id)}>
+                                                                    <Check className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleOpenApiDialog(conn)}>
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteApiConnection(conn._id)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                        <div className="space-y-1">
+                                                            <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type</div>
+                                                            <div className="text-gray-700 font-medium">{conn.type}</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Status</div>
+                                                            <div>
+                                                                {conn.is_active ? (
+                                                                    <Badge className="bg-green-50 text-green-700 border-green-100 hover:bg-green-50 px-2 flex w-fit h-5">Active</Badge>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="text-gray-400 border-gray-100 px-2 flex w-fit h-5">Inactive</Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="col-span-2 space-y-1 pt-1">
+                                                            <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Date Added</div>
+                                                            <div className="text-gray-600">{new Date(conn.created_at).toLocaleDateString()}</div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Dialog open={isApiDialogOpen} onOpenChange={setIsApiDialogOpen}>
+                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                    <DialogTitle>{currentApi ? 'Edit API Connection' : 'Add New API Connection'}</DialogTitle>
+                                    <DialogDescription>
+                                        Manage your external API credentials here.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-6 py-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="api-name">Connection Name</Label>
+                                            <Input
+                                                id="api-name"
+                                                value={apiForm.name}
+                                                onChange={e => setApiForm({ ...apiForm, name: e.target.value })}
+                                                placeholder="e.g. CAKE Production"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="api-type">API Type</Label>
+                                            <Select
+                                                value={apiForm.type}
+                                                onValueChange={v => setApiForm({ ...apiForm, type: v })}
+                                                disabled={!!currentApi}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="CAKE">Cake Marketing</SelectItem>
+                                                    <SelectItem value="RINGBA">Ringba</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    {apiForm.type === 'CAKE' ? (
+                                        <div className="space-y-4 border-t pt-4">
+                                            <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Cake Details</h4>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="cake-key">API Key</Label>
+                                                <Input
+                                                    id="cake-key"
+                                                    value={apiForm.cake_details.api_key}
+                                                    onChange={e => setApiForm({
+                                                        ...apiForm,
+                                                        cake_details: { ...apiForm.cake_details, api_key: e.target.value }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="cake-url">Signup API URL (V4)</Label>
+                                                    <Input
+                                                        id="cake-url"
+                                                        value={apiForm.cake_details.api_url}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            cake_details: { ...apiForm.cake_details, api_url: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="cake-v2">AddEdit API URL (V2)</Label>
+                                                    <Input
+                                                        id="cake-v2"
+                                                        value={apiForm.cake_details.api_v2_url}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            cake_details: { ...apiForm.cake_details, api_v2_url: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="cake-offers">Export Offers URL</Label>
+                                                    <Input
+                                                        id="cake-offers"
+                                                        value={apiForm.cake_details.api_offers_url}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            cake_details: { ...apiForm.cake_details, api_offers_url: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="cake-media">Media Types URL</Label>
+                                                    <Input
+                                                        id="cake-media"
+                                                        value={apiForm.cake_details.api_media_types_url}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            cake_details: { ...apiForm.cake_details, api_media_types_url: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4 border-t pt-4">
+                                            <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Ringba Details</h4>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="ringba-token">API Token</Label>
+                                                <Input
+                                                    id="ringba-token"
+                                                    value={apiForm.ringba_details.api_token}
+                                                    onChange={e => setApiForm({
+                                                        ...apiForm,
+                                                        ringba_details: { ...apiForm.ringba_details, api_token: e.target.value }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="ringba-url">API URL</Label>
+                                                    <Input
+                                                        id="ringba-url"
+                                                        value={apiForm.ringba_details.api_url}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            ringba_details: { ...apiForm.ringba_details, api_url: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="ringba-account">Account ID</Label>
+                                                    <Input
+                                                        id="ringba-account"
+                                                        value={apiForm.ringba_details.account_id}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            ringba_details: { ...apiForm.ringba_details, account_id: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-2 pt-2 border-t mt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="api_is_active"
+                                            checked={apiForm.is_active}
+                                            onChange={e => setApiForm({ ...apiForm, is_active: e.target.checked })}
+                                            className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
+                                        />
+                                        <Label htmlFor="api_is_active" className="cursor-pointer">Set as Active Connection</Label>
+                                        {apiForm.is_active && (
+                                            <span className="text-xs text-yellow-600 flex items-center gap-1">
+                                                <AlertTriangle className="h-3 w-3" /> Will deactivate other {apiForm.type} connections
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsApiDialogOpen(false)}>Cancel</Button>
+                                    <Button onClick={handleSaveApiConnection} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
+                                        {loading ? "Saving..." : "Save Connection"}
+                                    </Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body, File, Upload
 from typing import List, Optional
 import smtplib
 import asyncio
-from database import db
-from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission
+from database import db, get_active_cake_connection, get_active_ringba_connection
+from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission, QAResponse
 from auth import get_current_user
 from bson import ObjectId
 from pydantic import BaseModel
@@ -63,14 +63,19 @@ async def get_stats(user: User = Depends(get_current_admin)):
     total = await db.signups.count_documents(query)
     
     # Helper to count with status and existing query filter
-    async def count_status(status):
+    async def count_status(status_list):
         status_query = query.copy()
-        status_query["status"] = status
+        status_query["status"] = {"$in": status_list}
         return await db.signups.count_documents(status_query)
 
-    pending = await count_status(SignupStatus.PENDING)
-    approved = await count_status(SignupStatus.APPROVED)
-    rejected = await count_status(SignupStatus.REJECTED)
+    # Pending should include both PENDING and REQUESTED_FOR_APPROVAL
+    pending = await count_status([
+        SignupStatus.PENDING,
+        SignupStatus.REQUESTED_FOR_APPROVAL
+    ])
+
+    approved = await count_status([SignupStatus.APPROVED])
+    rejected = await count_status([SignupStatus.REJECTED])
 
     # Remove Chart Data as requested for cleaner UI/Dashboard
     # (Removed pipeline and chart_data_cursor logic)
@@ -356,10 +361,11 @@ class SignupDecision(BaseModel):
     reason: Optional[str] = ""
     addToCake: bool = False
     addToRingba: bool = False
+    cake_qa_responses: Optional[List[QAResponse]] = None
+    ringba_qa_responses: Optional[List[QAResponse]] = None
 
 import httpx
 import xmltodict
-from database import settings
 
 @router.post("/signups/{id}/approve")
 async def approve_signup(id: str, decision: SignupDecision = Body(...), user: User = Depends(get_current_admin)):
@@ -503,8 +509,11 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
 
     # timezone logic - user requested "EST"
     
+    cake_conn = await get_active_cake_connection()
+    ringba_conn = await get_active_ringba_connection()
+
     api_params = {
-        "api_key": settings.CAKE_API_KEY,
+        "api_key": cake_conn["api_key"],
         "affiliate_id": "0",  # 0 to create
         "affiliate_name": val(ci.get("companyName")),
         "third_party_name": "", 
@@ -580,7 +589,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     if decision.addToCake:
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(settings.CAKE_API_URL, params=api_params, timeout=30.0)
+                response = await client.get(cake_conn["api_url"], params=api_params, timeout=30.0)
                 cake_raw_response = response.text
                 if response.status_code == 200:
                     # Parse XML
@@ -624,7 +633,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                     if cake_success and cake_affiliate_id and manager_id_to_assign:
                         try:
                             v2_params = {
-                                "api_key": settings.CAKE_API_KEY,
+                                "api_key": cake_conn["api_key"],
                                 "affiliate_id": cake_affiliate_id,
                                 "affiliate_name": signup_data.get("companyInfo", {}).get("companyName", ""),
                                 "third_party_name": "",
@@ -669,7 +678,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                                 "terms_and_conditions_agreed": "TRUE",
                                 "notes": decision.reason or ""
                             }
-                            v2_response = await client.get(settings.CAKE_API_V2_URL, params=v2_params, timeout=20.0)
+                            v2_response = await client.get(cake_conn["api_v2_url"], params=v2_params, timeout=20.0)
                             # We log the V2 result but don't necessarily fail the whole thing if V2 fails (as V4 worked)
                             if v2_response.status_code != 200:
                                 cake_message += f" (Manager Assignment V2 Failed: {v2_response.status_code})"
@@ -704,11 +713,11 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
             }
             
             headers = {
-                "Authorization": f"Token {settings.RINGBA_API_TOKEN}",
+                "Authorization": f"Token {ringba_conn['api_token']}",
                 "Content-Type": "application/json"
             }
             
-            ringba_url = f"{settings.RINGBA_API_URL}/{settings.RINGBA_ACCOUNT_ID}/Publishers"
+            ringba_url = f"{ringba_conn['api_url']}/{ringba_conn['account_id']}/Publishers"
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(ringba_url, json=ringba_payload, headers=headers, timeout=30.0)
@@ -730,7 +739,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                     # Send Invitation if publisher created successfully
                     if ringba_affiliate_id:
                         try:
-                            invite_url = f"{settings.RINGBA_API_URL}/{settings.RINGBA_ACCOUNT_ID}/Affiliates/{ringba_affiliate_id}/Invitations"
+                            invite_url = f"{ringba_conn['api_url']}/{ringba_conn['account_id']}/Affiliates/{ringba_affiliate_id}/Invitations"
                             
                             email = signup_data.get('accountInfo', {}).get('email')
                             first_name = signup_data.get('accountInfo', {}).get('firstName', '')
@@ -821,6 +830,11 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         update_data["ringba_decision_reason"] = decision.reason
         update_data["ringba_processed_by"] = user.username
         update_data["ringba_processed_at"] = update_data["processed_at"]
+
+    if decision.cake_qa_responses:
+        update_data["cake_qa_responses"] = [r.dict() for r in decision.cake_qa_responses]
+    if decision.ringba_qa_responses:
+        update_data["ringba_qa_responses"] = [r.dict() for r in decision.ringba_qa_responses]
 
     # Only Save ID if success
     if cake_success:
@@ -914,6 +928,11 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
             update_fields["ringba_decision_reason"] = decision.reason
             update_fields["ringba_processed_by"] = user.username
             update_fields["ringba_processed_at"] = update_fields["processed_at"]
+
+    if decision.cake_qa_responses:
+        update_fields["cake_qa_responses"] = [r.dict() for r in decision.cake_qa_responses]
+    if decision.ringba_qa_responses:
+        update_fields["ringba_qa_responses"] = [r.dict() for r in decision.ringba_qa_responses]
 
     # --- Robust Global Status Derivation ---
     c_status = update_fields.get("cake_api_status", cake_status)
@@ -1100,6 +1119,15 @@ async def upload_document(id: str, file: UploadFile = File(...), user: User = De
         referral = signup_data.get("companyInfo", {}).get("referral")
         if referral != user.full_name:
              raise HTTPException(status_code=403, detail="Not authorized to upload documents for this signup")
+
+    # Restricted extensions
+    ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx', '.zip', '.jpg', '.jpeg', '.png', '.gif', '.webp'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"File type not allowed. Supported types: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
 
     # Ensure uploads directory exists
     upload_dir = f"uploads/{id}"

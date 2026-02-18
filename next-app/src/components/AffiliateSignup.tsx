@@ -271,8 +271,13 @@ export default function AffiliateSignup() {
         else if (!/\S+@\S+\.\S+/.test(form.accountInfo.email)) newErrors['accountInfo.email'] = "Invalid email format";
 
         // IM Handle Validation
-        if (!imHandles[primaryIm] || !imHandles[primaryIm].trim()) {
+        const primaryHandle = imHandles[primaryIm];
+        if (!primaryHandle || !primaryHandle.trim()) {
             newErrors['accountInfo.imHandle'] = "Primary IM Handle is required";
+        } else if (primaryHandle.length < 3) {
+            newErrors['accountInfo.imHandle'] = "IM Handle is too short (min 3 chars)";
+        } else if (primaryHandle.length > 30) {
+            newErrors['accountInfo.imHandle'] = "IM Handle is too long (max 30 symbols)";
         }
 
         // Payment Info Validation
@@ -309,7 +314,6 @@ export default function AffiliateSignup() {
         // We send the whole form object which matches the Pydantic schema structure.
 
         // Prepare IM Data
-        const primaryHandle = imHandles[primaryIm];
         const finalForm = {
             ...form,
             accountInfo: {
@@ -774,6 +778,7 @@ export default function AffiliateSignup() {
                                                                 value={imHandles[key]}
                                                                 onChange={e => handleImChange(key, e.target.value)}
                                                                 required={primaryIm === key}
+                                                                maxLength={30}
                                                             />
                                                             {primaryIm === key && errors['accountInfo.imHandle'] && (
                                                                 <div className="invalid-feedback">{errors['accountInfo.imHandle']}</div>

@@ -4,7 +4,7 @@ import httpx
 import xmltodict
 import math
 from pydantic import BaseModel
-from database import settings
+from database import db, settings, get_active_cake_connection
 
 router = APIRouter(
     prefix="/offers",
@@ -79,12 +79,10 @@ async def get_offers(
     # The user gave a full URL: https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers
     
     # I'll check if settings has CAKE_API_KEYUrl, if not hardcode for now based on request.
-    # Assuming CAKE_API_KEY is in settings. If not, I will use the one from the prompt.
-    
-    # User provided key specific for this endpoint
-    api_key = settings.CAKE_API_KEY 
-    # api_key = settings.CAKE_API_KEY if hasattr(settings, 'CAKE_API_KEY') and settings.CAKE_API_KEY else "3YmDJeT3VHTFhDqAjr2OlQ"
-    base_url = settings.CAKE_API_OFFERS_URL
+    # Assuming CAKE_API_KEY    # api_key = settings.CAKE_API_KEY if hasattr(settings, 'CAKE_API_KEY') and settings.CAKE_API_KEY else "3YmDJeT3VHTFhDqAjr2OlQ"
+    cake_conn = await get_active_cake_connection()
+    api_key = cake_conn["api_key"]
+    base_url = cake_conn["api_offers_url"]
     
     params = {
         "api_key": api_key,
@@ -203,8 +201,9 @@ async def get_media_types():
     """
     Fetch available media types from Cake Marketing API.
     """
-    api_key = settings.CAKE_API_KEY
-    base_url = settings.CAKE_API_MEDIA_TYPES_URL
+    cake_conn = await get_active_cake_connection()
+    api_key = cake_conn["api_key"]
+    base_url = cake_conn["api_media_types_url"]
     params = {"api_key": api_key}
 
     async with httpx.AsyncClient() as client:
@@ -254,8 +253,9 @@ async def get_verticals():
     """
     Fetch available verticals from Cake Marketing API.
     """
-    api_key = settings.CAKE_API_KEY
-    base_url = settings.CAKE_API_VERTICALS_URL
+    cake_conn = await get_active_cake_connection()
+    api_key = cake_conn["api_key"]
+    base_url = cake_conn["api_verticals_url"]
     params = {"api_key": api_key}
 
     async with httpx.AsyncClient() as client:

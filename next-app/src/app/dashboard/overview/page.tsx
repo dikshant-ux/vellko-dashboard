@@ -61,7 +61,6 @@ export default function OverviewPage() {
 
             {/* Global Stats Row - Hidden for high-level roles to avoid confusion */}
             {!(session?.user?.role === 'SUPER_ADMIN' ||
-                session?.user?.role === 'ADMIN' ||
                 session?.user?.application_permission === 'Both') && (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 
@@ -102,7 +101,7 @@ export default function OverviewPage() {
 
             {/* Application Breakdown - Visible to Admins or 'Both' permission users */}
             {(session?.user?.role === 'SUPER_ADMIN' ||
-                session?.user?.role === 'ADMIN' ||
+                
                 session?.user?.application_permission === 'Both') && (
                     <div className="grid gap-4 md:grid-cols-2">
                         <Card className="border-l-4 border-l-blue-500 shadow-md">

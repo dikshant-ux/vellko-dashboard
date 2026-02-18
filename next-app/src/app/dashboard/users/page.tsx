@@ -194,14 +194,14 @@ export default function UsersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">User Management</h1>
-                    <p className="text-muted-foreground mt-1">Manage system access and roles.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">User Management</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">Manage system access and roles.</p>
                 </div>
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
-                        <Button className="bg-red-600 hover:bg-red-700 text-white">
+                        <Button className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
                             <Plus className="mr-2 h-4 w-4" /> Add User
                         </Button>
                     </DialogTrigger>
@@ -320,8 +320,9 @@ export default function UsersPage() {
                 <CardHeader>
                     <CardTitle>System Users</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="overflow-x-auto">
+                <CardContent className="p-0 sm:p-6">
+                    {/* Desktop View Table */}
+                    <div className="hidden md:block overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -433,6 +434,127 @@ export default function UsersPage() {
                                 )}
                             </TableBody>
                         </Table>
+                    </div>
+
+                    {/* Mobile View Cards */}
+                    <div className="md:hidden space-y-4 p-4">
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                <Loader2 className="h-8 w-8 text-red-600 animate-spin" />
+                                <p className="text-sm text-muted-foreground font-medium">Loading users...</p>
+                            </div>
+                        ) : users.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
+                                No users found.
+                            </div>
+                        ) : (
+                            users.map((user) => (
+                                <Card key={user.username} className="border border-gray-100 shadow-sm overflow-hidden bg-white hover:border-red-100 transition-colors">
+                                    <CardContent className="p-5 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 font-bold border border-red-100">
+                                                    {user.full_name?.charAt(0) || user.username.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-gray-900">{user.full_name || user.username}</div>
+                                                    <div className="text-xs text-muted-foreground">{user.email || user.username}</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {/* Edit User Mobile */}
+                                                {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' &&
+                                                    !(['ADMIN'].includes(session?.user?.role || '') && ['Web Traffic', 'Call Traffic'].includes(session?.user?.application_permission || '') && user.application_permission === 'Both') && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 text-gray-400 hover:text-blue-600 shrink-0"
+                                                            onClick={() => handleEditUser(user)}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                {/* Delete User Mobile */}
+                                                {session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' &&
+                                                    !(user.role === 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') && // Only Super Admin can delete Admins
+                                                    !(['ADMIN'].includes(session?.user?.role || '') && ['Web Traffic', 'Call Traffic'].includes(session?.user?.application_permission || '') && user.application_permission === 'Both') && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 text-gray-400 hover:text-red-600 shrink-0"
+                                                            onClick={() => handleDeleteUser(user.username)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Access Level</div>
+                                                <div>
+                                                    {session?.user?.role === 'SUPER_ADMIN' && user.role !== 'SUPER_ADMIN' && user.username !== session?.user?.name ? (
+                                                        <Select
+                                                            value={user.role}
+                                                            onValueChange={(val) => handleUpdateRole(user.username, val)}
+                                                        >
+                                                            <SelectTrigger
+                                                                className={`h-7 border-none bg-transparent focus:ring-0 focus:ring-offset-0 px-2 py-0 inline-flex items-center gap-1 rounded-full text-xs font-semibold w-auto ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`}
+                                                            >
+                                                                <SelectValue>
+                                                                    <div className="flex items-center">
+                                                                        {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                                                                        <span>{user.role}</span>
+                                                                    </div>
+                                                                </SelectValue>
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="USER">User</SelectItem>
+                                                                <SelectItem value="ADMIN">Admin</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    ) : (
+                                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'
+                                                            }`}>
+                                                            {['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? <Shield className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                                                            {user.role}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Status</div>
+                                                <div>
+                                                    <button
+                                                        onClick={() => handleToggleStatus(user.username, user.disabled)}
+                                                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition-colors ${user.disabled
+                                                            ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                                                            : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                            }`}
+                                                    >
+                                                        {user.disabled ? (
+                                                            <><Ban className="h-3 w-3 mr-1.5" /> Deactivated</>
+                                                        ) : (
+                                                            <><CheckCircle className="h-3 w-3 mr-1.5" /> Active</>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {user.application_permission && (
+                                            <div className="pt-3 mt-3 border-t border-gray-50 flex items-center justify-between">
+                                                <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Permissions</div>
+                                                <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                                                    {user.application_permission}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
                     </div>
                 </CardContent>
             </Card>

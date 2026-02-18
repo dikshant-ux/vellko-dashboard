@@ -10,6 +10,10 @@ class SignupStatus(str, Enum):
     REJECTED = "REJECTED"
     REQUESTED_FOR_APPROVAL = "REQUESTED_FOR_APPROVAL"
 
+class APIConnectionType(str, Enum):
+    CAKE = "CAKE"
+    RINGBA = "RINGBA"
+
 class CompanyInfo(BaseModel):
     companyName: str
     address: str
@@ -39,7 +43,7 @@ class AccountInfo(BaseModel):
     email: EmailStr
     timezone: str
     imService: Optional[str] = ""
-    imHandle: Optional[str] = ""
+    imHandle: Optional[str] = Field(default="", min_length=3, max_length=30)
     additionalImChannels: Optional[Dict[str, str]] = Field(default_factory=dict)
 
 class PaymentInfo(BaseModel):
@@ -94,6 +98,9 @@ class SignupInDB(SignupCreate):
     ringba_decision_reason: Optional[str] = None
     ringba_processed_by: Optional[str] = None
     ringba_processed_at: Optional[datetime] = None
+    
+    cake_qa_responses: Optional[List[QAResponse]] = None
+    ringba_qa_responses: Optional[List[QAResponse]] = None
 
     decision_reason: Optional[str] = None
     processed_by: Optional[str] = None
@@ -138,10 +145,11 @@ class User(BaseModel):
     is_two_factor_enabled: Optional[bool] = False
     can_approve_signups: Optional[bool] = True
     cake_account_manager_id: Optional[str] = None
-
-    @validator('username', pre=True)
-    def trim_username(cls, v):
-        return v.strip() if isinstance(v, str) else v
+    
+class QAResponse(BaseModel):
+    question_text: str
+    answer: str
+    required: bool = True
 
 class UserCreate(User):
     password: str
@@ -253,3 +261,78 @@ class PaginatedSignups(BaseModel):
     total: int
     page: int
     limit: int
+
+# API Connection Models
+class CakeDetails(BaseModel):
+    api_key: str
+    api_url: str = "https://demo-new.cakemarketing.com/api/4/signup.asmx/Affiliate"
+    api_v2_url: str = "https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate"
+    api_offers_url: str = "https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers"
+    api_media_types_url: str = "https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes"
+    api_verticals_url: str = "https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals"
+
+class RingbaDetails(BaseModel):
+    api_token: str
+    api_url: str = "https://api.ringba.com/v2"
+    account_id: str
+
+class APIConnection(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str
+    type: APIConnectionType
+    is_active: bool = False
+    cake_details: Optional[CakeDetails] = None
+    ringba_details: Optional[RingbaDetails] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+class APIConnectionCreate(BaseModel):
+    name: str
+    type: APIConnectionType
+    is_active: Optional[bool] = False
+    cake_details: Optional[CakeDetails] = None
+    ringba_details: Optional[RingbaDetails] = None
+
+class APIConnectionUpdate(BaseModel):
+    name: Optional[str] = None
+    is_active: Optional[bool] = None
+    cake_details: Optional[CakeDetails] = None
+    ringba_details: Optional[RingbaDetails] = None
+class QAFieldType(str, Enum):
+    TEXT = "Text"
+    DROPDOWN = "Dropdown"
+    YES_NO = "Yes/No"
+
+class QAQuestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(ObjectId()))
+    text: str
+    field_type: QAFieldType = QAFieldType.TEXT
+    required: bool = True
+    options: Optional[List[str]] = None # For Dropdown
+
+class QAForm(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str
+    api_type: APIConnectionType # Reusing existing enum for Web/Call
+    status: str = "Inactive" # "Active" or "Inactive"
+    questions: List[QAQuestion] = Field(default_factory=list)
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+class QAFormCreate(BaseModel):
+    name: str
+    api_type: APIConnectionType
+    questions: List[QAQuestion]
+
+class QAFormUpdate(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    questions: Optional[List[QAQuestion]] = None

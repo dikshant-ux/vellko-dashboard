@@ -1,5 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb://127.0.0.1:27017"
@@ -42,3 +43,36 @@ db = client[settings.DATABASE_NAME]
 
 async def get_database():
     return db
+
+def decrypt_if_needed(val: str) -> str:
+    from encryption_utils import decrypt_field
+    return decrypt_field(val)
+
+async def get_active_cake_connection():
+    connection = await db.api_connections.find_one({"type": "CAKE", "is_active": True})
+    if connection:
+        details = connection.get("cake_details", {})
+        if details.get("api_key"):
+            details["api_key"] = decrypt_if_needed(details["api_key"])
+        return details
+    return {
+        "api_key": settings.CAKE_API_KEY,
+        "api_url": settings.CAKE_API_URL,
+        "api_v2_url": settings.CAKE_API_V2_URL,
+        "api_offers_url": settings.CAKE_API_OFFERS_URL,
+        "api_media_types_url": settings.CAKE_API_MEDIA_TYPES_URL,
+        "api_verticals_url": settings.CAKE_API_VERTICALS_URL
+    }
+
+async def get_active_ringba_connection():
+    connection = await db.api_connections.find_one({"type": "RINGBA", "is_active": True})
+    if connection:
+        details = connection.get("ringba_details", {})
+        if details.get("api_token"):
+            details["api_token"] = decrypt_if_needed(details["api_token"])
+        return details
+    return {
+        "api_token": settings.RINGBA_API_TOKEN,
+        "api_url": settings.RINGBA_API_URL,
+        "account_id": settings.RINGBA_ACCOUNT_ID
+    }

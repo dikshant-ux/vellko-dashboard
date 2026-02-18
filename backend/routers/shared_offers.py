@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import uuid
 from datetime import datetime, timedelta, timezone
-from database import db, settings
+from database import db, settings, get_active_cake_connection
 import secrets
 from email_utils import send_otp_email
 from jose import jwt
@@ -287,13 +287,14 @@ async def get_shared_data(
     if not site_offer_status_ids and filters.get("site_offer_status_id"):
         site_offer_status_ids = [filters.get("site_offer_status_id")]
 
-    api_key = settings.CAKE_API_KEY
-    url = settings.CAKE_API_OFFERS_URL
-    
     # API optimization: if exactly one is selected, use API filter
     cake_media_type_id = media_type_ids[0] if len(media_type_ids) == 1 else 0
     cake_status_id = site_offer_status_ids[0] if len(site_offer_status_ids) == 1 else 0
 
+    cake_conn = await get_active_cake_connection()
+    api_key = cake_conn["api_key"]
+    url = cake_conn["api_offers_url"]
+    
     params = {
         "api_key": api_key,
         "site_offer_id": 0,

@@ -13,7 +13,8 @@ import {
     Menu,
     Zap,
     Link2,
-    ChevronRight
+    ChevronRight,
+    HelpCircle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export default function MobileNav() {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
     const [isOffersOpen, setIsOffersOpen] = useState(pathname.includes('/dashboard/offers'));
+    const [isQAOpen, setIsQAOpen] = useState(pathname.includes('/dashboard/qa-forms'));
     const { data: session } = useSession();
 
     const navigation = [
@@ -41,6 +43,7 @@ export default function MobileNav() {
         { name: 'Offers', href: '/dashboard/offers', icon: Zap },
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
+            { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ];
@@ -133,6 +136,75 @@ export default function MobileNav() {
                                                     >
                                                         <span>Shared Links</span>
                                                     </Link>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                const isQA = item.name === 'Q/A Forms';
+                                if (isQA) {
+                                    const isQAActive = pathname.startsWith('/dashboard/qa-forms');
+                                    const showWeb = session?.user?.role === 'SUPER_ADMIN' || ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '');
+                                    const showCall = session?.user?.role === 'SUPER_ADMIN' || ['Call Traffic', 'Both'].includes(session?.user?.application_permission || '');
+
+                                    return (
+                                        <div key={item.name} className="space-y-1">
+                                            <div
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 outline-none ring-0 cursor-pointer",
+                                                    isQAActive
+                                                        ? "bg-red-50 text-red-700"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                                onClick={() => setIsQAOpen(!isQAOpen)}
+                                            >
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <Icon className={cn(
+                                                        "h-5 w-5 transition-colors",
+                                                        isQAActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
+                                                    )} />
+                                                    <span>{item.name}</span>
+                                                </div>
+
+                                                <ChevronRight
+                                                    className={cn(
+                                                        "h-4 w-4 transition-transform text-gray-400",
+                                                        isQAOpen && "rotate-90"
+                                                    )}
+                                                />
+                                            </div>
+
+                                            {isQAOpen && (
+                                                <div className="space-y-1 ml-4 pl-4 border-l border-gray-100">
+                                                    {showWeb && (
+                                                        <Link
+                                                            href="/dashboard/qa-forms/web"
+                                                            onClick={() => setOpen(false)}
+                                                            className={cn(
+                                                                "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                                pathname === '/dashboard/qa-forms/web'
+                                                                    ? "text-red-700 bg-red-50/50"
+                                                                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                            )}
+                                                        >
+                                                            <span>Web Forms</span>
+                                                        </Link>
+                                                    )}
+                                                    {showCall && (
+                                                        <Link
+                                                            href="/dashboard/qa-forms/call"
+                                                            onClick={() => setOpen(false)}
+                                                            className={cn(
+                                                                "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                                pathname === '/dashboard/qa-forms/call'
+                                                                    ? "text-red-700 bg-red-50/50"
+                                                                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                            )}
+                                                        >
+                                                            <span>Call Forms</span>
+                                                        </Link>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

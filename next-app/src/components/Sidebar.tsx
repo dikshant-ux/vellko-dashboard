@@ -11,7 +11,9 @@ import {
     ChevronLeft,
     ChevronRight,
     Settings,
-    Zap
+    Zap,
+    HelpCircle,
+    ChevronDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,12 +26,16 @@ import {
 export default function Sidebar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isOffersOpen, setIsOffersOpen] = useState(false);
+    const [isQAOpen, setIsQAOpen] = useState(false);
     const pathname = usePathname();
     const { data: session } = useSession();
 
     useEffect(() => {
         if (pathname.startsWith('/dashboard/offers')) {
             setIsOffersOpen(true);
+        }
+        if (pathname.startsWith('/dashboard/qa-forms')) {
+            setIsQAOpen(true);
         }
     }, [pathname]);
 
@@ -39,6 +45,7 @@ export default function Sidebar() {
         { name: 'Offers', href: '/dashboard/offers', icon: Zap },
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
+            { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ];
@@ -106,13 +113,13 @@ export default function Sidebar() {
                                         onClick={() => setIsOffersOpen(!isOffersOpen)}
                                         title={isCollapsed ? item.name : undefined}
                                     >
-                                        <Link href={item.href} className="flex items-center gap-3 flex-1">
+                                        <div className="flex items-center gap-3 flex-1">
                                             <Icon className={cn(
                                                 "h-[1.15rem] w-[1.15rem] transition-colors",
                                                 isActive && !pathname.includes('shared') ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
                                             )} />
                                             {!isCollapsed && <span>{item.name}</span>}
-                                        </Link>
+                                        </div>
 
                                         {!isCollapsed && (
                                             <ChevronRight
@@ -122,27 +129,103 @@ export default function Sidebar() {
                                                 )}
                                             />
                                         )}
-
-                                        {isActive && !pathname.includes('shared') && !isCollapsed && !isOffersOpen && (
-                                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-red-600 shadow-sm shadow-red-500/50" />
-                                        )}
                                     </div>
 
                                     {!isCollapsed && isOffersOpen && (
-                                        <Link
-                                            href="/dashboard/offers/shared"
-                                            className={cn(
-                                                "group flex items-center gap-3 rounded-lg pl-11 pr-4 py-2 text-sm font-medium transition-all duration-200 outline-none ring-0",
-                                                pathname.includes('/offers/shared')
-                                                    ? "text-red-700 bg-red-50/50"
-                                                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                        <div className="space-y-1 ml-4 pl-2 border-l border-gray-100">
+                                            <Link
+                                                href="/dashboard/offers"
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                    pathname === '/dashboard/offers'
+                                                        ? "text-red-700 bg-red-50/50"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                            >
+                                                <span>All Offers</span>
+                                            </Link>
+                                            <Link
+                                                href="/dashboard/offers/shared"
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                    pathname.includes('/offers/shared')
+                                                        ? "text-red-700 bg-red-50/50"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                            >
+                                                <span>Shared Links</span>
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+
+                        const isQA = item.name === 'Q/A Forms';
+                        if (isQA) {
+                            const showWeb = session?.user?.role === 'SUPER_ADMIN' || ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '');
+                            const showCall = session?.user?.role === 'SUPER_ADMIN' || ['Call Traffic', 'Both'].includes(session?.user?.application_permission || '');
+
+                            return (
+                                <div key={item.name} className="space-y-1">
+                                    <div
+                                        className={cn(
+                                            "group flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 outline-none ring-0 cursor-pointer",
+                                            isActive
+                                                ? "bg-red-50 text-red-700"
+                                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80",
+                                            isCollapsed && "justify-center px-2"
+                                        )}
+                                        onClick={() => setIsQAOpen(!isQAOpen)}
+                                        title={isCollapsed ? item.name : undefined}
+                                    >
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <Icon className={cn(
+                                                "h-[1.15rem] w-[1.15rem] transition-colors",
+                                                isActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
+                                            )} />
+                                            {!isCollapsed && <span>{item.name}</span>}
+                                        </div>
+
+                                        {!isCollapsed && (
+                                            <ChevronRight
+                                                className={cn(
+                                                    "h-4 w-4 transition-transform text-gray-400",
+                                                    isQAOpen && "rotate-90"
+                                                )}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {!isCollapsed && isQAOpen && (
+                                        <div className="space-y-1 ml-4 pl-2 border-l border-gray-100">
+                                            {showWeb && (
+                                                <Link
+                                                    href="/dashboard/qa-forms/web"
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/qa-forms/web'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Web Forms</span>
+                                                </Link>
                                             )}
-                                        >
-                                            <span>Shared Links</span>
-                                            {pathname.includes('/offers/shared') && (
-                                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-red-600 shadow-sm shadow-red-500/50" />
+                                            {showCall && (
+                                                <Link
+                                                    href="/dashboard/qa-forms/call"
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/qa-forms/call'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Call Forms</span>
+                                                </Link>
                                             )}
-                                        </Link>
+                                        </div>
                                     )}
                                 </div>
                             );
