@@ -129,7 +129,7 @@ export default function SharePage() {
                 localStorage.setItem(`share_token_${token}`, data.access_token);
                 setAccessToken(data.access_token);
                 // Initial Fetch with defaults
-                await fetchOffers(data.access_token, 1, 10, '', '0');
+                await fetchOffers(data.access_token, 1, 10, '');
             } else {
                 const data = await res.json();
                 setError(data.detail || "Invalid OTP");
