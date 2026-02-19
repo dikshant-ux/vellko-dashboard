@@ -53,9 +53,6 @@ export default function SharePage() {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRows, setTotalRows] = useState(0);
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [verticals, setVerticals] = useState<{ vertical_id: number, vertical_name: string }[]>([]);
-    const [selectedVertical, setSelectedVertical] = useState<string>("0");
-    const [verticalSearch, setVerticalSearch] = useState("");
     const [isFetching, setIsFetching] = useState(false);
 
     // Debounce search
@@ -78,25 +75,14 @@ export default function SharePage() {
             // We can let the existing "Fetch on params change" effect handle the actual fetch 
             // because it depends on `accessToken` and `step`.
         }
-
-        // Fetch verticals list
-        const fetchVerticals = async () => {
-            try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/verticals`);
-                if (res.ok) setVerticals(await res.json());
-            } catch (error) {
-                console.error("Failed to fetch verticals", error);
-            }
-        };
-        fetchVerticals();
     }, [token]);
 
     // Fetch on params change
     useEffect(() => {
         if (accessToken && step === 'view') {
-            fetchOffers(accessToken, page, limit, debouncedSearch, selectedVertical);
+            fetchOffers(accessToken, page, limit, debouncedSearch);
         }
-    }, [page, limit, debouncedSearch, selectedVertical, accessToken, step]);
+    }, [page, limit, debouncedSearch, accessToken, step]);
 
     const handleRequestOtp = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -157,7 +143,7 @@ export default function SharePage() {
         }
     };
 
-    const fetchOffers = async (tokenStr: string, p: number, l: number, s: string, v: string) => {
+    const fetchOffers = async (tokenStr: string, p: number, l: number, s: string) => {
         setIsFetching(true);
         try {
             // Build query params
@@ -166,7 +152,6 @@ export default function SharePage() {
                 page: p.toString(),
                 limit: l.toString(),
                 search: s,
-                ...(v && v !== "0" ? { vertical_id: v } : {}),
             });
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/share/${token}/data?${query.toString()}`);
@@ -311,65 +296,6 @@ export default function SharePage() {
                                 />
                             </div>
                             <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground whitespace-nowrap">Vertical</span>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" className="w-full md:w-[200px] justify-between font-normal bg-background shadow-sm">
-                                                <span className="truncate">
-                                                    {selectedVertical === "0"
-                                                        ? "All Verticals"
-                                                        : verticals.find(v => v.vertical_id.toString() === selectedVertical)?.vertical_name || "Vertical"}
-                                                </span>
-                                                <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0" align="start">
-                                            <div className="p-2 border-b">
-                                                <Input
-                                                    placeholder="Search verticals..."
-                                                    value={verticalSearch}
-                                                    onChange={(e) => setVerticalSearch(e.target.value)}
-                                                    className="h-8 text-sm"
-                                                />
-                                            </div>
-                                            <div className="max-h-[300px] overflow-y-auto p-1">
-                                                <div
-                                                    className={`flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer text-sm ${selectedVertical === "0" ? "bg-muted font-medium" : ""}`}
-                                                    onClick={() => {
-                                                        setSelectedVertical("0");
-                                                        setPage(1);
-                                                    }}
-                                                >
-                                                    All Verticals
-                                                </div>
-                                                {verticals
-                                                    .filter(v =>
-                                                        v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())
-                                                    )
-                                                    .slice(0, 100)
-                                                    .map((v) => (
-                                                        <div
-                                                            key={v.vertical_id}
-                                                            className={`flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer text-sm ${selectedVertical === v.vertical_id.toString() ? "bg-muted font-medium" : ""}`}
-                                                            onClick={() => {
-                                                                setSelectedVertical(v.vertical_id.toString());
-                                                                setPage(1);
-                                                            }}
-                                                        >
-                                                            {v.vertical_name}
-                                                        </div>
-                                                    ))
-                                                }
-                                                {verticals.filter(v => v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())).length > 100 && (
-                                                    <div className="p-2 text-xs text-muted-foreground text-center border-t mt-1">
-                                                        Showing first 100 matches. Please search to refine.
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm text-muted-foreground whitespace-nowrap">Rows</span>
                                     <Select
