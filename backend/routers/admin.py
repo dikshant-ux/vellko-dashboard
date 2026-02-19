@@ -517,7 +517,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         "affiliate_id": "0",  # 0 to create
         "affiliate_name": val(ci.get("companyName")),
         "third_party_name": "", 
-        "account_status_id": "1",  # Pending
+        "account_status_id": "1",  # active
         "inactive_reason_id": "0",
         "affiliate_tier_id": "0",
         "account_manager_id": "0",
@@ -641,7 +641,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                                 "inactive_reason_id": 0,
                                 "affiliate_tier_id": 0,
                                 "account_manager_id": manager_id_to_assign,
-                                "hide_offers": "FALSE",
+                                "hide_offers": "TRUE",
                                 "website": signup_data.get("companyInfo", {}).get("corporateWebsite", ""),
                                 "tax_class": signup_data.get("paymentInfo", {}).get("taxClass", ""),
                                 "ssn_tax_id": signup_data.get("paymentInfo", {}).get("ssnTaxId", ""),
@@ -678,7 +678,9 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                                 "terms_and_conditions_agreed": "TRUE",
                                 "notes": decision.reason or ""
                             }
-                            v2_response = await client.get(cake_conn["api_v2_url"], params=v2_params, timeout=20.0)
+                            v2_url = cake_conn.get("api_v2_url")
+                            print(f"DEBUG: Hitting Cake V2 URL: '{v2_url}'")
+                            v2_response = await client.get(v2_url, params=v2_params, timeout=20.0)
                             # We log the V2 result but don't necessarily fail the whole thing if V2 fails (as V4 worked)
                             if v2_response.status_code != 200:
                                 cake_message += f" (Manager Assignment V2 Failed: {v2_response.status_code})"

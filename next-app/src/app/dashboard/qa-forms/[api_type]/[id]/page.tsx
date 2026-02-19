@@ -51,7 +51,10 @@ export default function EditQAFormPage() {
                 if (res.ok) {
                     const data = await res.json();
                     setFormName(data.name);
-                    setQuestions(data.questions || []);
+                    setQuestions((data.questions || []).map((q: any) => ({
+                        ...q,
+                        options: Array.isArray(q.options) ? q.options.join(", ") : (q.options || "")
+                    })));
                 } else {
                     alert("Form not found");
                     router.push(`/dashboard/qa-forms/${api_type}`);
@@ -69,7 +72,7 @@ export default function EditQAFormPage() {
     }, [session, id, api_type]);
 
     const addQuestion = () => {
-        setQuestions([...questions, { text: "", field_type: "Text", required: true, options: [] }]);
+        setQuestions([...questions, { text: "", field_type: "Text", required: true, options: "" }]);
     };
 
     const removeQuestion = (index: number) => {
@@ -102,7 +105,10 @@ export default function EditQAFormPage() {
                 },
                 body: JSON.stringify({
                     name: formName,
-                    questions: questions
+                    questions: questions.map(q => ({
+                        ...q,
+                        options: q.field_type === 'Dropdown' ? (typeof q.options === 'string' ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : q.options) : []
+                    }))
                 })
             });
 
@@ -246,8 +252,8 @@ export default function EditQAFormPage() {
                                             <Input
                                                 placeholder="Option 1, Option 2, Option 3"
                                                 className="border-gray-100 focus:border-red-500 h-9 text-sm"
-                                                value={q.options?.join(", ") || ""}
-                                                onChange={(e) => updateQuestion(idx, 'options', e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                                                value={q.options || ""}
+                                                onChange={(e) => updateQuestion(idx, 'options', e.target.value)}
                                             />
                                         </div>
                                     )}

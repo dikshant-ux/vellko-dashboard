@@ -37,14 +37,14 @@ export default function NewQAFormPage() {
 
     const [formName, setFormName] = useState("");
     const [questions, setQuestions] = useState<any[]>([
-        { text: "", field_type: "Text", required: true, options: [] }
+        { text: "", field_type: "Text", required: true, options: "" }
     ]);
 
     const display_name = api_type === 'web' ? 'Web Traffic' : 'Call Traffic';
     const internal_api_type = api_type === 'web' ? 'CAKE' : 'RINGBA';
 
     const addQuestion = () => {
-        setQuestions([...questions, { text: "", field_type: "Text", required: true, options: [] }]);
+        setQuestions([...questions, { text: "", field_type: "Text", required: true, options: "" }]);
     };
 
     const removeQuestion = (index: number) => {
@@ -78,7 +78,10 @@ export default function NewQAFormPage() {
                 body: JSON.stringify({
                     name: formName,
                     api_type: internal_api_type,
-                    questions: questions
+                    questions: questions.map(q => ({
+                        ...q,
+                        options: q.field_type === 'Dropdown' ? (typeof q.options === 'string' ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : q.options) : []
+                    }))
                 })
             });
 
@@ -219,8 +222,8 @@ export default function NewQAFormPage() {
                                             <Input
                                                 placeholder="Option 1, Option 2, Option 3"
                                                 className="border-gray-100 focus:border-red-500 h-9 text-sm"
-                                                value={q.options?.join(", ") || ""}
-                                                onChange={(e) => updateQuestion(idx, 'options', e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                                                value={q.options || ""}
+                                                onChange={(e) => updateQuestion(idx, 'options', e.target.value)}
                                             />
                                         </div>
                                     )}
