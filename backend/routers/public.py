@@ -31,23 +31,16 @@ async def get_referrers(application_type: str = None):
 async def create_signup(signup: SignupCreate):
     signup_dict = signup.dict()
     
-    # Check for existing email to allow updates
+    # SECURITY FIX: Reject if email already exists to prevent unauthenticated data overwrite.
+    # A malicious actor could overwrite a pending application's payment info by submitting
+    # with the target's email. Now we reject (409 Conflict) and direct them to login.
     existing = await db.signups.find_one({"accountInfo.email": signup.accountInfo.email})
     
     if existing:
-        # Update existing record
-        update_data = signup_dict
-        update_data["status"] = SignupStatus.PENDING # Re-review needed
-        update_data["is_updated"] = True
-        update_data["updated_at"] = datetime.utcnow()
-        # Ensure created_at is not overwritten if it exists in DB, 
-        # but SignupCreate doesn't have it, so we are fine.
-        
-        await db.signups.update_one(
-            {"_id": existing["_id"]},
-            {"$set": update_data}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An application with this email already exists. Please contact support to check your application status."
         )
-        return {"id": str(existing["_id"]), "message": "Application updated successfully"}
 
     # Create new record
     signup_dict["status"] = SignupStatus.PENDING

@@ -28,7 +28,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -41,15 +41,22 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    return username
-
-async def get_current_active_user(current_user: str = Depends(get_current_user)) -> User:
-    user_data = await db.users.find_one({"username": current_user})
+    
+    # SECURITY FIX: Always check DB so disabled users cannot use existing tokens.
+    user_data = await db.users.find_one({"username": username})
     if not user_data:
-        raise HTTPException(status_code=404, detail="User not found")
-        
+        raise credentials_exception
+    
     user = User(**user_data)
     if user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-        
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been disabled. Please contact an administrator."
+        )
     return user
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    # Disabled check is now in get_current_user, but kept here for backwards compat.
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user

@@ -8,23 +8,16 @@ from datetime import datetime
 
 router = APIRouter(prefix="/admin/qa-forms", tags=["QA Forms"])
 
-async def get_current_admin(username: str = Depends(get_current_user)):
-    user_data = await db.users.find_one({"username": username})
-    if not user_data:
-        raise HTTPException(status_code=401, detail="User not found")
-    user = User(**user_data)
-    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+async def get_current_admin(current_user: User = Depends(get_current_user)):
+    # current_user is already a validated User object (disabled check already done)
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return user
+    return current_user
 
-async def get_current_approver(username: str = Depends(get_current_user)):
-    user_data = await db.users.find_one({"username": username})
-    if not user_data:
-        raise HTTPException(status_code=401, detail="User not found")
-    user = User(**user_data)
+async def get_current_approver(current_user: User = Depends(get_current_user)):
     # Allow if Admin/Super Admin OR if can_approve_signups is True
-    if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or user.can_approve_signups:
-        return user
+    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or current_user.can_approve_signups:
+        return current_user
     raise HTTPException(status_code=403, detail="Not authorized")
 
 def check_permission(user: User, api_type: APIConnectionType):

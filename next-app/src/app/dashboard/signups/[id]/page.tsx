@@ -1309,7 +1309,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 />
                             ) : (
                                 <span className="col-span-2 text-blue-600 underline">
-                                    {signup.companyInfo?.corporateWebsite ? <a href={signup.companyInfo.corporateWebsite} target="_blank">{signup.companyInfo.corporateWebsite}</a> : '-'}
+                                    {signup.companyInfo?.corporateWebsite ? (() => {
+                                        // SECURITY FIX: Only render real http/https URLs as clickable links.
+                                        // Prevents Stored XSS from javascript: or data: URLs in pre-existing DB records.
+                                        const url = signup.companyInfo.corporateWebsite;
+                                        const isHttpUrl = /^https?:\/\//i.test(url);
+                                        return isHttpUrl
+                                            ? <a href={url} target="_blank" rel="noopener noreferrer">{url}</a>
+                                            : <span className="text-muted-foreground">{url}</span>;
+                                    })() : '-'}
                                 </span>
                             )}
                         </div>

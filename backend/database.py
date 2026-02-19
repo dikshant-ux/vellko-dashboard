@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # SECURITY: Separate encryption key for DB secrets (SMTP passwords, etc.).
+    # Set this in .env to a long random string. Defaults to SECRET_KEY if not set (backward compat).
+    DATA_ENCRYPTION_KEY: str = ""
+    
     # Cake Marketing
     CAKE_API_KEY: str = ""
     CAKE_API_URL: str = "https://demo-new.cakemarketing.com/api/4/signup.asmx/Affiliate"

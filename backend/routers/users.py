@@ -7,14 +7,12 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    user_data = await db.users.find_one({"username": current_user})
-    if not user_data:
-        raise HTTPException(status_code=404, detail="User not found")
-    return User(**user_data)
+    # current_user is already a User object from get_current_user
+    return current_user
 
 @router.put("/me", response_model=User)
-async def update_user_me(user_update: UserUpdate, current_user: str = Depends(get_current_user)):
-    existing_user_data = await db.users.find_one({"username": current_user})
+async def update_user_me(user_update: UserUpdate, current_user: User = Depends(get_current_user)):
+    existing_user_data = await db.users.find_one({"username": current_user.username})
     if not existing_user_data:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -39,10 +37,10 @@ async def update_user_me(user_update: UserUpdate, current_user: str = Depends(ge
                 )
 
         await db.users.update_one(
-            {"username": current_user},
+            {"username": current_user.username},
             {"$set": update_data}
         )
         
     # Return updated user
-    updated_user_data = await db.users.find_one({"username": current_user})
+    updated_user_data = await db.users.find_one({"username": current_user.username})
     return User(**updated_user_data)

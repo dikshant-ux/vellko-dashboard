@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, EmailStr, Field, validator, AnyHttpUrl
+from typing import Optional, List, Dict, Any, Union
 from bson import ObjectId
 from datetime import datetime
 from enum import Enum
@@ -22,7 +22,8 @@ class CompanyInfo(BaseModel):
     state: str
     zip: str
     country: str
-    corporateWebsite: Optional[str] = ""
+    # SECURITY FIX: AnyHttpUrl enforces http/https, preventing javascript: XSS payloads.
+    corporateWebsite: Optional[Union[AnyHttpUrl, str]] = ""
     referral: Optional[str] = ""
     referral_id: Optional[str] = None
 

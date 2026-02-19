@@ -5,24 +5,23 @@ from models import User, UserRole, SMTPConfig, SMTPConfigCreate, SMTPConfigUpdat
 from auth import get_current_user
 from bson import ObjectId
 from datetime import datetime
-from encryption_utils import encrypt_field, decrypt_field
+from encryption_utils import encrypt_field, decrypt_field, encrypt_smtp_password
 
 router = APIRouter(prefix="/admin/settings", tags=["settings"])
 
-async def get_current_admin(current_user: str = Depends(get_current_user)):
-    user_data = await db.users.find_one({"username": current_user})
-    if not user_data:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user = User(**user_data)
-    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+async def get_current_admin(current_user: User = Depends(get_current_user)):
+    # current_user is already a validated User from get_current_user
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return user
+    return current_user
 
 @router.get("/smtp", response_model=List[SMTPConfig])
 async def get_smtp_configs(user: User = Depends(get_current_admin)):
     cursor = db.smtp_configs.find({}).sort("created_at", -1)
     configs = await cursor.to_list(length=100)
+    # Mask the password so ciphertext is never exposed to frontend
+    for c in configs:
+        c["password"] = "****"
     return configs
 
 @router.post("/smtp", response_model=SMTPConfig)
@@ -30,6 +29,10 @@ async def create_smtp_config(config: SMTPConfigCreate, user: User = Depends(get_
     config_dict = config.dict()
     config_dict["created_at"] = datetime.utcnow()
     config_dict["updated_at"] = datetime.utcnow()
+    
+    # SECURITY FIX: Encrypt SMTP password before saving to DB
+    if config_dict.get("password"):
+        config_dict["password"] = encrypt_smtp_password(config_dict["password"])
     
     # If this is the first config, make it active by default
     count = await db.smtp_configs.count_documents({})
@@ -41,6 +44,8 @@ async def create_smtp_config(config: SMTPConfigCreate, user: User = Depends(get_
         
     result = await db.smtp_configs.insert_one(config_dict)
     created_config = await db.smtp_configs.find_one({"_id": result.inserted_id})
+    # Mask password in response
+    created_config["password"] = "****"
     return created_config
 
 @router.put("/smtp/{id}", response_model=SMTPConfig)
@@ -50,6 +55,14 @@ async def update_smtp_config(id: str, config: SMTPConfigUpdate, user: User = Dep
          raise HTTPException(status_code=400, detail="No data provided")
          
     update_data["updated_at"] = datetime.utcnow()
+    
+    # SECURITY FIX: Encrypt password if being updated, skip mask value
+    if "password" in update_data:
+        if update_data["password"] and update_data["password"] != "****":
+            update_data["password"] = encrypt_smtp_password(update_data["password"])
+        else:
+            # Don't overwrite the stored password if masked value sent
+            del update_data["password"]
     
     if update_data.get("is_active"):
         # Deactivate others
@@ -64,6 +77,7 @@ async def update_smtp_config(id: str, config: SMTPConfigUpdate, user: User = Dep
         raise HTTPException(status_code=404, detail="Config not found")
         
     updated_config = await db.smtp_configs.find_one({"_id": ObjectId(id)})
+    updated_config["password"] = "****"
     return updated_config
 
 @router.delete("/smtp/{id}")

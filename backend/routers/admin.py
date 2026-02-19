@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body, File, Upload
 from typing import List, Optional
 import smtplib
 import asyncio
+import secrets
 from database import db, get_active_cake_connection, get_active_ringba_connection
 from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission, QAResponse
 from auth import get_current_user
@@ -10,22 +11,17 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import os
 import shutil
-from email_utils import send_invitation_email, send_referral_assignment_email
+from email_utils import send_invitation_email, send_referral_assignment_email, send_cake_credentials_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-async def get_current_admin(username: str = Depends(get_current_user)):
-    user_data = await db.users.find_one({"username": username})
-    if not user_data:
-        raise HTTPException(status_code=401, detail="User not found")
-    user = User(**user_data)
-    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        # Check if they are a manager/user (logic can be expanded later for filtered clean views)
-        # For now, let's allow all authenticated users to access dashboard data, 
-        # but in real implementation logic should filter based on role.
-        # Assuming Dashboard requirement: "User (Referral / Manager) Can view only their referred signups"
+async def get_current_admin(current_user: User = Depends(get_current_user)):
+    # current_user is already a validated, non-disabled User object from get_current_user.
+    # The role check below may allow USER roles for dashboard data access (see comment below).
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        # Allow all authenticated users to access dashboard data (filtered by role inside routes).
         pass
-    return user
+    return current_user
 
 @router.get("/stats")
 async def get_stats(user: User = Depends(get_current_admin)):
@@ -545,7 +541,9 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         "contact_last_name": val(ai.get("lastName")),
         "contact_middle_name": "",
         "contact_email_address": val(ai.get("email")),
-        "contact_password": "ChangeMe123!",
+        # SECURITY FIX: Generate a random secure password instead of hardcoded 'ChangeMe123!'.
+        # Captured below so we can email it to the affiliate after successful account creation.
+        "contact_password": (_cake_generated_password := secrets.token_urlsafe(12)),
         "contact_title": val(ai.get("title")),
         "contact_phone_work": val(ai.get("workPhone")),
         "contact_phone_cell": val(ai.get("cellPhone")),
@@ -700,6 +698,17 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                     cake_message = f"CAKE API Error: {response.status_code}"
         except Exception as e:
             cake_message = f"CAKE Connection Error: {str(e)}"
+
+    # If Cake succeeded, send the generated password to the affiliate via email (fire-and-forget)
+    if cake_success and ai.get("email"):
+        try:
+            await send_cake_credentials_email(
+                to_email=val(ai.get("email")),
+                first_name=val(ai.get("firstName")),
+                password=_cake_generated_password
+            )
+        except Exception as email_err:
+            print(f"Warning: Failed to send Cake credentials email: {email_err}")
     
     # Ringba Logic (Placeholder)
     # Ringba Logic

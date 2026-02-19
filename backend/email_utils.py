@@ -6,6 +6,7 @@ import os
 import asyncio
 from database import settings, db
 from models import SMTPConfig
+from encryption_utils import decrypt_smtp_password
 
 # Setup Jinja2 environment for loading templates
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "email")
@@ -37,7 +38,8 @@ async def get_active_smtp_config():
             "host": config_data["host"],
             "port": config_data["port"],
             "username": config_data["username"],
-            "password": config_data["password"],
+            # SECURITY FIX: Decrypt password from DB before use (handles pre-migration plaintext gracefully).
+            "password": decrypt_smtp_password(config_data["password"]),
             "from_email": config_data["from_email"],
             "reply_to_email": config_data.get("reply_to_email")
         }
@@ -251,8 +253,6 @@ async def send_otp_email(to_email: str, otp: str):
     Sends an OTP email for shared offer list access.
     """
     try:
-        # Simple inline HTML for now to avoid creating a new file if possible, or use a generic template
-        # Keeping it simple for this task
         html_content = f"""
         <html>
             <body style="font-family: Arial, sans-serif;">
@@ -275,4 +275,35 @@ async def send_otp_email(to_email: str, otp: str):
         )
     except Exception as e:
         print(f"Error preparing OTP email: {str(e)}")
+        return False
+
+
+async def send_cake_credentials_email(to_email: str, first_name: str, password: str):
+    """
+    Sends the auto-generated Cake Marketing password to the newly approved affiliate.
+    Called after a successful Cake account creation to replace the old hardcoded 'ChangeMe123!'.
+    """
+    try:
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                    <h2 style="color: #333;">Your Affiliate Account Has Been Approved!</h2>
+                    <p>Dear {first_name},</p>
+                    <p>Your affiliate application has been approved and your account has been created on our platform.</p>
+                    <p><strong>Your temporary password is:</strong></p>
+                    <h2 style="color: #0070f3; letter-spacing: 2px; font-family: monospace;">{password}</h2>
+                    <p>Please log in and change this password immediately.</p>
+                    <p>If you have any questions, please contact support.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return await send_email(
+            to_email=to_email,
+            subject="Your Affiliate Account is Approved - Vellko",
+            html_content=html_content
+        )
+    except Exception as e:
+        print(f"Error sending Cake credentials email: {str(e)}")
         return False
