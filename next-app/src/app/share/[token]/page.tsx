@@ -387,101 +387,102 @@ export default function SharePage() {
                                     </Select>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="border-t bg-white">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
+                        <div className="border-t bg-white">
+                            <Table>
+                                <TableHeader className="bg-gray-50">
+                                    <TableRow>
+                                        {isColumnVisible('id') && <TableHead className="w-[80px]">ID</TableHead>}
+                                        {isColumnVisible('name') && <TableHead>Name</TableHead>}
+                                        {isColumnVisible('vertical') && <TableHead>Vertical</TableHead>}
+                                        {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                                        {isColumnVisible('type') && <TableHead>Type</TableHead>}
+                                        {isColumnVisible('payout') && <TableHead>Payout</TableHead>}
+                                        {isColumnVisible('preview') && <TableHead>Preview</TableHead>}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {offers.length === 0 ? (
                                         <TableRow>
-                                            {isColumnVisible('id') && <TableHead className="w-[80px]">ID</TableHead>}
-                                            {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                                            {isColumnVisible('vertical') && <TableHead>Vertical</TableHead>}
-                                            {isColumnVisible('status') && <TableHead>Status</TableHead>}
-                                            {isColumnVisible('type') && <TableHead>Type</TableHead>}
-                                            {isColumnVisible('payout') && <TableHead>Payout</TableHead>}
-                                            {isColumnVisible('preview') && <TableHead>Preview</TableHead>}
+                                            <TableCell colSpan={7} className="h-24 text-center">
+                                                No offers found matching the shared criteria.
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {offers.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="h-24 text-center">
-                                                    No offers found matching the shared criteria.
-                                                </TableCell>
+                                    ) : (
+                                        offers.map((offer) => (
+                                            <TableRow key={offer.site_offer_id}>
+                                                {isColumnVisible('id') && <TableCell className="font-medium">{offer.site_offer_id}</TableCell>}
+                                                {isColumnVisible('name') && <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{offer.site_offer_name}</span>
+                                                    </div>
+                                                </TableCell>}
+                                                {isColumnVisible('vertical') && <TableCell>{offer.vertical_name}</TableCell>}
+                                                {isColumnVisible('status') && <TableCell>
+                                                    <Badge variant={
+                                                        offer.status === 'Active' || offer.status === 'Public' ? 'default' :
+                                                            offer.status === 'Apply To Run' ? 'secondary' : 'outline'
+                                                    }>
+                                                        {offer.status}
+                                                    </Badge>
+                                                </TableCell>}
+                                                {isColumnVisible('type') && <TableCell>
+                                                    <Badge variant="outline">{offer.type || 'N/A'}</Badge>
+                                                </TableCell>}
+                                                {isColumnVisible('payout') && <TableCell className="font-medium text-green-600">
+                                                    {offer.payout}
+                                                </TableCell>}
+                                                {isColumnVisible('preview') && <TableCell>
+                                                    {offer.preview_link ? (
+                                                        <a
+                                                            href={offer.preview_link}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-primary hover:underline"
+                                                        >
+                                                            Preview
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">N/A</span>
+                                                    )}
+                                                </TableCell>}
                                             </TableRow>
-                                        ) : (
-                                            offers.map((offer) => (
-                                                <TableRow key={offer.site_offer_id}>
-                                                    {isColumnVisible('id') && <TableCell className="font-medium">{offer.site_offer_id}</TableCell>}
-                                                    {isColumnVisible('name') && <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium">{offer.site_offer_name}</span>
-                                                        </div>
-                                                    </TableCell>}
-                                                    {isColumnVisible('vertical') && <TableCell>{offer.vertical_name}</TableCell>}
-                                                    {isColumnVisible('status') && <TableCell>
-                                                        <Badge variant={
-                                                            offer.status === 'Active' || offer.status === 'Public' ? 'default' :
-                                                                offer.status === 'Apply To Run' ? 'secondary' : 'outline'
-                                                        }>
-                                                            {offer.status}
-                                                        </Badge>
-                                                    </TableCell>}
-                                                    {isColumnVisible('type') && <TableCell>
-                                                        <Badge variant="outline">{offer.type || 'N/A'}</Badge>
-                                                    </TableCell>}
-                                                    {isColumnVisible('payout') && <TableCell className="font-medium text-green-600">
-                                                        {offer.payout}
-                                                    </TableCell>}
-                                                    {isColumnVisible('preview') && <TableCell>
-                                                        {offer.preview_link ? (
-                                                            <a
-                                                                href={offer.preview_link}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-primary hover:underline"
-                                                            >
-                                                                Preview
-                                                            </a>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">N/A</span>
-                                                        )}
-                                                    </TableCell>}
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
 
-                            {/* Pagination Footer */}
-                            <div className="flex items-center justify-between px-4 py-4 border-t">
-                                <div className="text-sm text-gray-500">
-                                    Max {totalRows} offers found
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page <= 1}
-                                    >
-                                        <ChevronLeft className="h-4 w-4" />
-                                        Previous
-                                    </Button>
-                                    <div className="text-sm font-medium">
-                                        Page {page} of {Math.max(1, totalPages)}
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={page >= totalPages}
-                                    >
-                                        Next
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                        {/* Pagination Footer */}
+                        <div className="flex items-center justify-between px-4 py-4 border-t">
+                            <div className="text-sm text-gray-500">
+                                Max {totalRows} offers found
                             </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page <= 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    Previous
+                                </Button>
+                                <div className="text-sm font-medium">
+                                    Page {page} of {Math.max(1, totalPages)}
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page >= totalPages}
+                                >
+                                    Next
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
