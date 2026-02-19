@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import uuid
 from datetime import datetime, timedelta, timezone
-from database import db, settings, get_active_cake_connection
+from database import db, settings, get_active_cake_connection, http_client
 import secrets
 from email_utils import send_otp_email
 from jose import jwt
@@ -17,6 +17,10 @@ router = APIRouter(
     prefix="/offers/share",
     tags=["shared_offers"]
 )
+
+# Cache for shared data
+_data_cache = {}
+DATA_CACHE_TTL = 120 # 2 minutes
 
 SHARING_EXPIRATION_HOURS = 24
 OTP_EXPIRATION_MINUTES = 10
@@ -248,8 +252,26 @@ async def get_shared_data(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=500, description="Items per page"),
     search: Optional[str] = Query(None, description="Search term"),
-    vertical_id: Optional[int] = Query(None, description="Filter by Vertical ID")
+    vertical_id: Optional[str] = Query(None, description="Filter by Vertical ID")
 ):
+    # Safe cast vertical_id
+    try:
+        active_vertical_id = int(vertical_id) if vertical_id and vertical_id.strip() else 0
+    except (ValueError, TypeError):
+        active_vertical_id = 0
+
+    # Cache Check
+    cache_key = f"{token}_{page}_{limit}_{search}_{active_vertical_id}"
+    now = datetime.now()
+    if cache_key in _data_cache:
+        cached = _data_cache[cache_key]
+        if now < cached["expiry"]:
+            # Increment view count even for cache hits? 
+            # View count is usually for unique access, but here it's on every data fetch.
+            # Let's keep it consistent.
+            await db.shared_offers.update_one({"token": token}, {"$inc": {"views": 1}})
+            return cached["data"]
+
     # Verify JWT
     try:
         payload = jwt.decode(access_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -272,9 +294,6 @@ async def get_shared_data(
     start_at_row = (page - 1) * limit
     
     # Map filters to Cake params
-    # If user provides search, use it. Otherwise use stored filter.
-    # Note: If stored filter exists and user searches something else, we technically lose the stored context 
-    # because API only supports one name field. For this use case, user search takes precedence.
     api_search = search if search is not None else filters.get("search", "")
     
     # Support both singular and plural vertical filters
@@ -282,9 +301,6 @@ async def get_shared_data(
     if not vertical_ids and filters.get("vertical_id"):
         vertical_ids = [filters.get("vertical_id")]
     
-    # If viewer provides vertical_id, use it. Otherwise use stored filter.
-    # Note: viewer's vertical_id must be one of the stored vertical_ids if they exist
-    active_vertical_id = vertical_id if vertical_id is not None else 0
     if active_vertical_id == 0 and len(vertical_ids) == 1:
         active_vertical_id = vertical_ids[0]
     
@@ -322,123 +338,130 @@ async def get_shared_data(
         "sort_descending": "FALSE"
     }
     
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, params=params, timeout=30.0)
-            
-            if response.status_code != 200:
-                print(f"DEBUG: API Error Status: {response.status_code}")
-            
-            response.raise_for_status()
-            
-            # Parse XML
-            data_dict = xmltodict.parse(response.text)
-            site_offers_response = data_dict.get('offer_export_response', {})
-            
-            if site_offers_response.get('success') == 'false':
-                 return {
-                     "success": False, 
-                     "offers": [], 
-                     "row_count": 0,
-                     "page": page,
-                     "limit": limit,
-                     "total_pages": 0
-                 }
-            
-            row_count = int(site_offers_response.get('row_count', 0))
-            site_offers_data = site_offers_response.get('site_offers', {})
-            
-            if not site_offers_data:
-                return {
-                    "success": True, 
-                    "offers": [], 
-                    "row_count": 0,
-                    "page": page,
-                    "limit": limit,
-                    "total_pages": 0
-                }
-                
-            raw_offers = site_offers_data.get('site_offer', [])
-            if isinstance(raw_offers, dict):
-                raw_offers = [raw_offers]
-            elif raw_offers is None:
-                raw_offers = []
-                
-            processed_offers = []
-            for offer in raw_offers:
-                 def get_text(item):
-                    if isinstance(item, dict):
-                        return item.get('#text', '')
-                    return item
-
-                 # Python-side filtering if multiple IDs were selected
-                 offer_media_type_id_raw = offer.get('media_type', {}).get('media_type_id', 0)
-                 offer_media_type_id = int(get_text(offer_media_type_id_raw)) if offer_media_type_id_raw else 0
-                 
-                 if len(media_type_ids) > 1 and offer_media_type_id not in media_type_ids:
-                     continue
-
-                 offer_status_info = offer.get('site_offer_status', {})
-                 offer_status_id_raw = offer_status_info.get('site_offer_status_id', 0)
-                 offer_status_id = int(get_text(offer_status_id_raw)) if offer_status_id_raw else 0
-                 
-                 if len(site_offer_status_ids) > 1 and offer_status_id not in site_offer_status_ids:
-                     continue
-
-                 full_offer = {
-                    "site_offer_id": get_text(offer.get('site_offer_id')),
-                    "site_offer_name": get_text(offer.get('site_offer_name')),
-                    "brand_advertiser_id": get_text(offer.get('brand_advertiser', {}).get('brand_advertiser_id', 0)) if offer.get('brand_advertiser') else 0,
-                    "brand_advertiser_name": offer.get('brand_advertiser', {}).get('brand_advertiser_name', {}).get('#text', '') if offer.get('brand_advertiser') else '',
-                    "vertical_name": get_text(offer.get('vertical', {}).get('vertical_name', {}).get('#text', '')) if offer.get('vertical') else '',
-                    "vertical_id": int(get_text(offer.get('vertical', {}).get('vertical_id', 0))) if offer.get('vertical') else 0,
-                    "status": get_text(offer.get('site_offer_status', {}).get('site_offer_status_name', {}).get('#text', '')) if offer.get('site_offer_status') else '',
-                    "hidden": offer.get('hidden') == 'true',
-                    "preview_link": get_text(offer.get('preview_link')),
-                    "payout": "N/A", 
-                    "type": "N/A"
-                 }
-                 
-                 # Python-side filtering for verticals if multiple were selected
-                 if len(vertical_ids) > 1 and full_offer["vertical_id"] not in vertical_ids:
-                     continue
-                 
-                 default_contract_id = offer.get('default_site_offer_contract_id')
-                 contracts = offer.get('site_offer_contracts', {}).get('site_offer_contract_info', [])
-                 if isinstance(contracts, dict):
-                     contracts = [contracts]
-                     
-                 selected_contract = None
-                 if contracts:
-                     for c in contracts:
-                         if c.get('site_offer_contract_id') == default_contract_id:
-                             selected_contract = c
-                             break
-                     if not selected_contract and len(contracts) > 0:
-                         selected_contract = contracts[0]
-                         
-                 if selected_contract:
-                     price_format = selected_contract.get('price_format', {}).get('price_format_name', {}).get('#text', '')
-                     full_offer['type'] = price_format
-                     payout_info = selected_contract.get('current_payout', {})
-                     full_offer['payout'] = payout_info.get('formatted_amount', 'N/A')
-                 
-                 processed_offers.append(full_offer)
-            
-            total_pages = math.ceil(row_count / limit) if limit > 0 else 0
-
+    try:
+        response = await http_client.get(url, params=params, timeout=30.0)
+        
+        if response.status_code != 200:
+            print(f"DEBUG: API Error Status: {response.status_code}")
+        
+        response.raise_for_status()
+        
+        # Parse XML
+        data_dict = xmltodict.parse(response.text)
+        site_offers_response = data_dict.get('offer_export_response', {})
+        
+        if site_offers_response.get('success') == 'false':
+             return {
+                 "success": False, 
+                 "offers": [], 
+                 "row_count": 0,
+                 "page": page,
+                 "limit": limit,
+                 "total_pages": 0
+             }
+        
+        row_count = int(site_offers_response.get('row_count', 0))
+        site_offers_data = site_offers_response.get('site_offers', {})
+        
+        if not site_offers_data:
             return {
-                "success": True,
-                "offers": processed_offers, 
-                "row_count": row_count,
-                "filters_applied": filters,
-                "visible_columns": visible_columns,
-                "link_name": doc.get("name"),
+                "success": True, 
+                "offers": [], 
+                "row_count": 0,
                 "page": page,
                 "limit": limit,
-                "total_pages": total_pages
+                "total_pages": 0
             }
             
-        except Exception as e:
-            print(f"Error fetching shared offers: {e}")
-            raise HTTPException(status_code=500, detail="Failed to fetch offers")
+        raw_offers = site_offers_data.get('site_offer', [])
+        if isinstance(raw_offers, dict):
+            raw_offers = [raw_offers]
+        elif raw_offers is None:
+            raw_offers = []
+            
+        processed_offers = []
+        for offer in raw_offers:
+             def get_text(item):
+                if isinstance(item, dict):
+                    return item.get('#text', '')
+                return item
+
+             # Python-side filtering if multiple IDs were selected
+             offer_media_type_id_raw = offer.get('media_type', {}).get('media_type_id', 0)
+             offer_media_type_id = int(get_text(offer_media_type_id_raw)) if offer_media_type_id_raw else 0
+             
+             if len(media_type_ids) > 1 and offer_media_type_id not in media_type_ids:
+                 continue
+
+             offer_status_info = offer.get('site_offer_status', {})
+             offer_status_id_raw = offer_status_info.get('site_offer_status_id', 0)
+             offer_status_id = int(get_text(offer_status_id_raw)) if offer_status_id_raw else 0
+             
+             if len(site_offer_status_ids) > 1 and offer_status_id not in site_offer_status_ids:
+                 continue
+
+             full_offer = {
+                "site_offer_id": get_text(offer.get('site_offer_id')),
+                "site_offer_name": get_text(offer.get('site_offer_name')),
+                "brand_advertiser_id": get_text(offer.get('brand_advertiser', {}).get('brand_advertiser_id', 0)) if offer.get('brand_advertiser') else 0,
+                "brand_advertiser_name": offer.get('brand_advertiser', {}).get('brand_advertiser_name', {}).get('#text', '') if offer.get('brand_advertiser') else '',
+                "vertical_name": get_text(offer.get('vertical', {}).get('vertical_name', {}).get('#text', '')) if offer.get('vertical') else '',
+                "vertical_id": int(get_text(offer.get('vertical', {}).get('vertical_id', 0))) if offer.get('vertical') else 0,
+                "status": get_text(offer.get('site_offer_status', {}).get('site_offer_status_name', {}).get('#text', '')) if offer.get('site_offer_status') else '',
+                "hidden": offer.get('hidden') == 'true',
+                "preview_link": get_text(offer.get('preview_link')),
+                "payout": "N/A", 
+                "type": "N/A"
+             }
+             
+             # Python-side filtering for verticals if multiple were selected
+             if len(vertical_ids) > 1 and full_offer["vertical_id"] not in vertical_ids:
+                 continue
+             
+             default_contract_id = offer.get('default_site_offer_contract_id')
+             contracts = offer.get('site_offer_contracts', {}).get('site_offer_contract_info', [])
+             if isinstance(contracts, dict):
+                 contracts = [contracts]
+                 
+             selected_contract = None
+             if contracts:
+                 for c in contracts:
+                     if c.get('site_offer_contract_id') == default_contract_id:
+                         selected_contract = c
+                         break
+                 if not selected_contract and len(contracts) > 0:
+                     selected_contract = contracts[0]
+                     
+             if selected_contract:
+                 price_format = selected_contract.get('price_format', {}).get('price_format_name', {}).get('#text', '')
+                 full_offer['type'] = price_format
+                 payout_info = selected_contract.get('current_payout', {})
+                 full_offer['payout'] = payout_info.get('formatted_amount', 'N/A')
+             
+             processed_offers.append(full_offer)
+        
+        total_pages = math.ceil(row_count / limit) if limit > 0 else 0
+
+        result = {
+            "success": True,
+            "offers": processed_offers, 
+            "row_count": row_count,
+            "filters_applied": filters,
+            "visible_columns": visible_columns,
+            "link_name": doc.get("name"),
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
+        
+        # Store in cache
+        _data_cache[cache_key] = {
+            "data": result,
+            "expiry": now + timedelta(seconds=DATA_CACHE_TTL)
+        }
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error fetching shared offers: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch offers")

@@ -36,10 +36,20 @@ class Settings(BaseSettings):
         env_file = ".env"
         # Determine extra handling if .env has extra/missing (default is ignore extras)
 
+import httpx
+from datetime import datetime, timedelta
+
 settings = Settings()
 
 client = AsyncIOMotorClient(settings.MONGODB_URL)
 db = client[settings.DATABASE_NAME]
+
+# Connection Pooling
+http_client = httpx.AsyncClient(timeout=30.0)
+
+# Local caching for connections to avoid DB lookups on every request
+_connection_cache = {}
+CACHE_TTL = 300 # 5 minutes
 
 async def get_database():
     return db
@@ -49,6 +59,12 @@ def decrypt_if_needed(val: str) -> str:
     return decrypt_field(val)
 
 async def get_active_cake_connection():
+    now = datetime.now()
+    if "cake" in _connection_cache:
+        expiry = _connection_cache["cake"]["expiry"]
+        if now < expiry:
+            return _connection_cache["cake"]["data"]
+
     connection = await db.api_connections.find_one({"type": "CAKE", "is_active": True})
     if connection:
         details = connection.get("cake_details", {})
@@ -62,8 +78,14 @@ async def get_active_cake_connection():
             
         if details.get("api_key"):
             details["api_key"] = decrypt_if_needed(details["api_key"])
+        
+        _connection_cache["cake"] = {
+            "data": details,
+            "expiry": now + timedelta(seconds=CACHE_TTL)
+        }
         return details
-    return {
+        
+    default_details = {
         "api_key": settings.CAKE_API_KEY,
         "api_url": settings.CAKE_API_URL,
         "api_v2_url": settings.CAKE_API_V2_URL,
@@ -71,6 +93,11 @@ async def get_active_cake_connection():
         "api_media_types_url": settings.CAKE_API_MEDIA_TYPES_URL,
         "api_verticals_url": settings.CAKE_API_VERTICALS_URL
     }
+    _connection_cache["cake"] = {
+        "data": default_details,
+        "expiry": now + timedelta(seconds=CACHE_TTL)
+    }
+    return default_details
 
 async def get_active_ringba_connection():
     connection = await db.api_connections.find_one({"type": "RINGBA", "is_active": True})

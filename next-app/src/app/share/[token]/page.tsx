@@ -56,6 +56,7 @@ export default function SharePage() {
     const [verticals, setVerticals] = useState<{ vertical_id: number, vertical_name: string }[]>([]);
     const [selectedVertical, setSelectedVertical] = useState<string>("0");
     const [verticalSearch, setVerticalSearch] = useState("");
+    const [isFetching, setIsFetching] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -157,6 +158,7 @@ export default function SharePage() {
     };
 
     const fetchOffers = async (tokenStr: string, p: number, l: number, s: string, v: string) => {
+        setIsFetching(true);
         try {
             // Build query params
             const query = new URLSearchParams({
@@ -164,7 +166,7 @@ export default function SharePage() {
                 page: p.toString(),
                 limit: l.toString(),
                 search: s,
-                vertical_id: v !== "0" ? v : "",
+                ...(v && v !== "0" ? { vertical_id: v } : {}),
             });
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/share/${token}/data?${query.toString()}`);
@@ -190,6 +192,8 @@ export default function SharePage() {
             }
         } catch (err) {
             console.error("Failed to load offers", err);
+        } finally {
+            setIsFetching(false);
         }
     };
 
@@ -403,7 +407,20 @@ export default function SharePage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {offers.length === 0 ? (
+                                    {isFetching ? (
+                                        // Skeleton rows
+                                        Array.from({ length: 5 }).map((_, i) => (
+                                            <TableRow key={`skeleton-${i}`}>
+                                                {isColumnVisible('id') && <TableCell><div className="h-4 w-12 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                                {isColumnVisible('name') && <TableCell><div className="h-4 w-48 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                                {isColumnVisible('vertical') && <TableCell><div className="h-4 w-24 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                                {isColumnVisible('status') && <TableCell><div className="h-6 w-16 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                                {isColumnVisible('type') && <TableCell><div className="h-6 w-16 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                                {isColumnVisible('payout') && <TableCell><div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                                {isColumnVisible('preview') && <TableCell><div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div></TableCell>}
+                                            </TableRow>
+                                        ))
+                                    ) : offers.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={7} className="h-24 text-center">
                                                 No offers found matching the shared criteria.
