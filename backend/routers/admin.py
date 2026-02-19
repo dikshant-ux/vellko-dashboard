@@ -517,7 +517,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         "affiliate_id": "0",  # 0 to create
         "affiliate_name": val(ci.get("companyName")),
         "third_party_name": "", 
-        "account_status_id": "3",  # Pending
+        "account_status_id": "1",  # Pending
         "inactive_reason_id": "0",
         "affiliate_tier_id": "0",
         "account_manager_id": "0",
