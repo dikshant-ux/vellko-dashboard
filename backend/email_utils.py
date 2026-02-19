@@ -120,11 +120,16 @@ async def send_invitation_email(to_email: str, username: str, password: str, nam
         
         login_link = f"{settings.FRONTEND_URL}/login"
         
+        # Clean up role formatting (e.g., "SUPER_ADMIN" -> "Super Admin")
+        formatted_role = str(role).replace("_", " ").title()
+        if "Userrole." in formatted_role: # Handle potential enum stringification
+            formatted_role = formatted_role.split(".")[-1].replace("_", " ").title()
+
         html_content = template.render(
             name=name,
             username=username,
             password=password,
-            role=role,
+            role=formatted_role,
             link=login_link
         )
         
@@ -250,23 +255,11 @@ async def send_approval_request_email(to_emails: list[str], signup_data: dict, s
 
 async def send_otp_email(to_email: str, otp: str):
     """
-    Sends an OTP email for shared offer list access.
+    Sends an OTP email for shared offer list access using a template.
     """
     try:
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-                    <h2 style="color: #333;">Access Verification</h2>
-                    <p>You have requested access to a shared offer list.</p>
-                    <p>Your One-Time Password (OTP) is:</p>
-                    <h1 style="color: #0070f3; letter-spacing: 5px;">{otp}</h1>
-                    <p>This code is valid for 10 minutes.</p>
-                    <p>If you did not request this, please ignore this email.</p>
-                </div>
-            </body>
-        </html>
-        """
+        template = env.get_template("otp_email.html")
+        html_content = template.render(otp=otp)
         
         return await send_email(
             to_email=to_email,
@@ -280,25 +273,15 @@ async def send_otp_email(to_email: str, otp: str):
 
 async def send_cake_credentials_email(to_email: str, first_name: str, password: str):
     """
-    Sends the auto-generated Cake Marketing password to the newly approved affiliate.
-    Called after a successful Cake account creation to replace the old hardcoded 'ChangeMe123!'.
+    Sends the auto-generated Cake Marketing password to the newly approved affiliate using a template.
     """
     try:
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-                    <h2 style="color: #333;">Your Affiliate Account Has Been Approved!</h2>
-                    <p>Dear {first_name},</p>
-                    <p>Your affiliate application has been approved and your account has been created on our platform.</p>
-                    <p><strong>Your temporary password is:</strong></p>
-                    <h2 style="color: #0070f3; letter-spacing: 2px; font-family: monospace;">{password}</h2>
-                    <p>Please log in and change this password immediately.</p>
-                    <p>If you have any questions, please contact support.</p>
-                </div>
-            </body>
-        </html>
-        """
+        template = env.get_template("approved_credentials.html")
+        html_content = template.render(
+            first_name=first_name,
+            password=password
+        )
+        
         return await send_email(
             to_email=to_email,
             subject="Your Affiliate Account is Approved - Vellko",

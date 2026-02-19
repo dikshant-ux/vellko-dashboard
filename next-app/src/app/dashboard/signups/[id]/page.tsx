@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin, Clock, User, Calendar, MessageSquare, Send, Eye, HelpCircle } from "lucide-react";
+import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin, Clock, User, Calendar, MessageSquare, Send, Eye, HelpCircle, ArrowLeft, Building2, Phone, Mail, Globe, ExternalLink, Shield, CreditCard } from "lucide-react";
 import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES, APPLICATION_TYPES } from "@/constants/mappings";
 import {
     Dialog,
@@ -760,74 +760,131 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const importIcons = { Pencil: "lucide-react" }; // Just a marker for imports logic if needed, but imports are at top
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Signup Details</h2>
-                    <div className="flex items-center gap-4">
-                        <p className="text-muted-foreground">Review application for {signup.companyInfo?.companyName}</p>
-                        {signup.is_updated && signup.updated_at && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
-                                <RotateCcw className="h-3 w-3" />
-                                Edited: {new Date(signup.updated_at).toLocaleString()}
-                            </p>
-                        )}
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-end gap-1">
-                        <StatusBadge status={signup.status} />
-                        {/* Granular Status Badges (Boolean) - Always show for Both type users */}
-                        {(signup.marketingInfo?.applicationType === 'Both' && session?.user?.can_approve_signups) && (
-                            <div className="flex gap-2 text-xs">
-                                <Badge variant="outline" className={
-                                    signup.cake_api_status === 'APPROVED' ? "border-green-500 text-green-600 bg-green-50" :
-                                        signup.cake_api_status === 'REJECTED' ? "border-red-500 text-red-600 bg-red-50" :
-                                            signup.cake_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
-                                                "border-yellow-500 text-yellow-600 bg-yellow-50"
-                                }>Cake: {signup.cake_api_status === 'APPROVED' ? 'Approved' : signup.cake_api_status === 'REJECTED' ? 'Rejected' : signup.cake_api_status === 'FAILED' ? 'Failed' : 'Pending'}</Badge>
+        <div className="space-y-6 p-0">
+            {/* ── Hero Header ───────────────────────────────────────────── */}
+            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                {/* Coloured top accent bar based on status */}
+                <div className={`h-1.5 w-full ${signup.status === 'APPROVED' ? 'bg-green-500' :
+                    signup.status === 'REJECTED' ? 'bg-red-500' :
+                        signup.status === 'REQUESTED_FOR_APPROVAL' ? 'bg-blue-500' :
+                            'bg-yellow-400'
+                    }`} />
 
-                                <Badge variant="outline" className={
-                                    signup.ringba_api_status === 'APPROVED' ? "border-green-500 text-green-600 bg-green-50" :
-                                        signup.ringba_api_status === 'REJECTED' ? "border-red-500 text-red-600 bg-red-50" :
-                                            signup.ringba_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
-                                                "border-yellow-500 text-yellow-600 bg-yellow-50"
-                                }>Ringba: {signup.ringba_api_status === 'APPROVED' ? 'Approved' : signup.ringba_api_status === 'REJECTED' ? 'Rejected' : signup.ringba_api_status === 'FAILED' ? 'Failed' : 'Pending'}</Badge>
+                <div className="p-4 sm:p-6">
+                    {/* Back link */}
+                    <button
+                        onClick={() => router.back()}
+                        className="mb-4 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                        Back to Signups
+                    </button>
+
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl">
+                            {(signup.companyInfo?.companyName || signup.accountInfo?.firstName || '?')[0].toUpperCase()}
+                        </div>
+
+                        {/* Title block */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate">
+                                    {signup.companyInfo?.companyName || `${signup.accountInfo?.firstName} ${signup.accountInfo?.lastName}`}
+                                </h2>
+                                <StatusBadge status={signup.status} />
+                                {signup.marketingInfo?.applicationType && (
+                                    <Badge variant="outline" className="text-xs font-normal">
+                                        {signup.marketingInfo.applicationType}
+                                    </Badge>
+                                )}
                             </div>
-                        )}
-                    </div>
-                    {/* Non-Admin Actions: Request Approval */}
-                    {!session?.user?.can_approve_signups && signup.status === 'PENDING' && (
-                        <Button
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() => initiateAction('request_approval')}
-                            disabled={!!actionLoading}
-                        >
-                            {actionLoading === 'request_approval' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                            Request Approval
-                        </Button>
-                    )}
-                    {session?.user?.can_approve_signups && (
-                        <>
-                            {isEditing ? (
-                                <>
-                                    <Button variant="outline" onClick={toggleEdit} disabled={isSaving}>
-                                        <X className="h-4 w-4 mr-2" />
-                                        Cancel
-                                    </Button>
-                                    <Button onClick={handleSave} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                                        Save Changes
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button variant="outline" onClick={toggleEdit}>
-                                    <Pencil className="h-4 w-4 mr-2" />
-                                    Edit Details
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                {signup.accountInfo?.email && (
+                                    <span className="flex items-center gap-1">
+                                        <Mail className="h-3.5 w-3.5" />
+                                        {signup.accountInfo.email}
+                                    </span>
+                                )}
+                                {signup.accountInfo?.phone && (
+                                    <span className="flex items-center gap-1">
+                                        <Phone className="h-3.5 w-3.5" />
+                                        {signup.accountInfo.phone}
+                                    </span>
+                                )}
+                                {signup.created_at && (
+                                    <span className="flex items-center gap-1">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        {new Date(signup.created_at).toLocaleDateString()}
+                                    </span>
+                                )}
+                                {signup.is_updated && signup.updated_at && (
+                                    <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
+                                        <RotateCcw className="h-3 w-3" />
+                                        Edited {new Date(signup.updated_at).toLocaleString()}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Granular API status badges (Both type) */}
+                            {signup.marketingInfo?.applicationType === 'Both' && session?.user?.can_approve_signups && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <Badge variant="outline" className={
+                                        signup.cake_api_status === 'APPROVED' ? "border-green-500 text-green-700 bg-green-50" :
+                                            signup.cake_api_status === 'REJECTED' ? "border-red-500 text-red-700 bg-red-50" :
+                                                signup.cake_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
+                                                    "border-yellow-500 text-yellow-700 bg-yellow-50"
+                                    }>
+                                        Cake: {signup.cake_api_status === 'APPROVED' ? 'Approved' : signup.cake_api_status === 'REJECTED' ? 'Rejected' : signup.cake_api_status === 'FAILED' ? 'Failed' : 'Pending'}
+                                    </Badge>
+                                    <Badge variant="outline" className={
+                                        signup.ringba_api_status === 'APPROVED' ? "border-green-500 text-green-700 bg-green-50" :
+                                            signup.ringba_api_status === 'REJECTED' ? "border-red-500 text-red-700 bg-red-50" :
+                                                signup.ringba_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
+                                                    "border-yellow-500 text-yellow-700 bg-yellow-50"
+                                    }>
+                                        Ringba: {signup.ringba_api_status === 'APPROVED' ? 'Approved' : signup.ringba_api_status === 'REJECTED' ? 'Rejected' : signup.ringba_api_status === 'FAILED' ? 'Failed' : 'Pending'}
+                                    </Badge>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action buttons — collapse to row on sm, wrap naturally */}
+                        <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:items-start">
+                            {!session?.user?.can_approve_signups && signup.status === 'PENDING' && (
+                                <Button
+                                    className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
+                                    onClick={() => initiateAction('request_approval')}
+                                    disabled={!!actionLoading}
+                                >
+                                    {actionLoading === 'request_approval' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                                    Request Approval
                                 </Button>
                             )}
-                        </>
-                    )}
+                            {session?.user?.can_approve_signups && (
+                                <>
+                                    {isEditing ? (
+                                        <>
+                                            <Button variant="outline" onClick={toggleEdit} disabled={isSaving} className="flex-1 sm:flex-none">
+                                                <X className="h-4 w-4 mr-2" />
+                                                Cancel
+                                            </Button>
+                                            <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-none">
+                                                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                                Save Changes
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button variant="outline" onClick={toggleEdit} className="flex-1 sm:flex-none">
+                                            <Pencil className="h-4 w-4 mr-2" />
+                                            Edit Details
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1280,14 +1337,17 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </DialogContent>
             </Dialog>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
                 {/* Company Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Company Info</CardTitle>
+                <Card className="shadow-sm">
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700"><Building2 className="h-4 w-4" /></div>
+                            Company Info
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                    <CardContent className="text-sm px-4 sm:px-6 pb-4">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Name:</span>
                             {isEditing ? (
                                 <Input
@@ -1299,7 +1359,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{signup.companyInfo?.companyName}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Website:</span>
                             {isEditing ? (
                                 <Input
@@ -1383,7 +1443,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Referral:</span>
                             <div className="col-span-2 flex items-center gap-2">
                                 {isEditingReferral ? (
@@ -1424,12 +1484,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* Account Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Account Info</CardTitle>
+                <Card className="shadow-sm">
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700"><User className="h-4 w-4" /></div>
+                            Account Info
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                    <CardContent className="text-sm px-4 sm:px-6 pb-4">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Contact:</span>
                             {isEditing ? (
                                 <div className="col-span-2 grid grid-cols-2 gap-2">
@@ -1450,7 +1513,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2 font-medium">{signup.accountInfo?.firstName} {signup.accountInfo?.lastName}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Title:</span>
                             {isEditing ? (
                                 <Input
@@ -1462,7 +1525,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{signup.accountInfo?.title || '-'}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Email:</span>
                             {isEditing ? (
                                 <Input
@@ -1474,7 +1537,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{signup.accountInfo?.email}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Phone:</span>
                             {isEditing ? (
                                 <div className="col-span-2 space-y-2">
@@ -1495,7 +1558,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{signup.accountInfo?.workPhone}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">IM:</span>
                             {isEditing ? (
                                 <div className="col-span-2 space-y-2">
@@ -1547,7 +1610,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Timezone:</span>
                             {isEditing ? (
                                 <select
@@ -1567,12 +1630,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* Marketing Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Marketing Info</CardTitle>
+                <Card className="shadow-sm">
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <div className="p-1.5 rounded-lg bg-orange-100 text-orange-700"><Globe className="h-4 w-4" /></div>
+                            Marketing Info
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                    <CardContent className="text-sm px-4 sm:px-6 pb-4">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Application Type:</span>
                             {isEditing ? (
                                 <select
@@ -1588,7 +1654,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{APPLICATION_TYPES[signup.marketingInfo?.applicationType] || signup.marketingInfo?.applicationType || '-'}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Payment Model:</span>
                             {isEditing ? (
                                 <select
@@ -1605,7 +1671,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             )}
                         </div>
 
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Primary:</span>
                             {isEditing ? (
                                 <select
@@ -1621,7 +1687,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{CATEGORIES[signup.marketingInfo?.primaryCategory] || signup.marketingInfo?.primaryCategory}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Secondary:</span>
                             {isEditing ? (
                                 <select
@@ -1654,12 +1720,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* Payment Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Payment Info</CardTitle>
+                <Card className="shadow-sm">
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <div className="p-1.5 rounded-lg bg-green-100 text-green-700"><CreditCard className="h-4 w-4" /></div>
+                            Payment Info
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                    <CardContent className="text-sm px-4 sm:px-6 pb-4">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Pay To:</span>
                             {isEditing ? (
                                 <select
@@ -1675,7 +1744,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{PAYMENT_TO[signup.paymentInfo?.payTo] || signup.paymentInfo?.payTo}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Currency:</span>
                             {isEditing ? (
                                 <select
@@ -1691,7 +1760,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{CURRENCIES[signup.paymentInfo?.currency] || signup.paymentInfo?.currency}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Tax Class:</span>
                             {isEditing ? (
                                 <select
@@ -1707,7 +1776,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <span className="col-span-2">{TAX_CLASSES[signup.paymentInfo?.taxClass] || signup.paymentInfo?.taxClass}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">SSN/Tax ID:</span>
                             {isEditing ? (
                                 <Input
@@ -1723,12 +1792,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* System Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>System Info</CardTitle>
+                <Card className="shadow-sm md:col-span-2">
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <div className="p-1.5 rounded-lg bg-gray-100 text-gray-700"><Shield className="h-4 w-4" /></div>
+                            System Info
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                    <CardContent className="text-sm px-4 sm:px-6 pb-4">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">IP Address:</span>
                             <div className="col-span-2 flex items-center gap-2">
                                 <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">{signup.ipAddress || 'Not Recorded'}</span>
@@ -1755,7 +1827,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 )}
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-center">
+                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Submission Date:</span>
                             <span className="col-span-2">{signup.created_at ? new Date(signup.created_at).toLocaleString() : 'Unknown'}</span>
                         </div>
@@ -1772,21 +1844,21 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             {signup.documents && signup.documents.length > 0 ? (
                                 <div className="grid gap-2">
                                     {signup.documents.map((doc: any, idx: number) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 border rounded-md bg-muted/20">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-blue-100 rounded-lg">
+                                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="p-2 bg-blue-100 rounded-lg shrink-0">
                                                     <FileText className="h-4 w-4 text-blue-600" />
                                                 </div>
-                                                <div>
-                                                    <p className="font-medium text-sm text-foreground">
+                                                <div className="min-w-0">
+                                                    <p className="font-medium text-sm text-foreground truncate">
                                                         {doc.filename}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Uploaded by {doc.uploaded_by} on {new Date(doc.uploaded_at).toLocaleDateString()}
+                                                        {doc.uploaded_by} · {new Date(doc.uploaded_at).toLocaleDateString()}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 shrink-0">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
@@ -1823,15 +1895,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <p className="text-sm text-muted-foreground italic">No documents attached.</p>
                             )}
 
-                            <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-4 pt-4 border-t">
                                 <Input
                                     id="file-upload"
                                     type="file"
                                     accept=".pdf,.doc,.docx,.zip,image/*"
                                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                                    className="max-w-xs cursor-pointer"
+                                    className="flex-1 cursor-pointer"
                                 />
-                                <Button onClick={handleUpload} disabled={!uploadFile || isUploading}>
+                                <Button onClick={handleUpload} disabled={!uploadFile || isUploading} className="w-full sm:w-auto">
                                     {isUploading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
                                     Upload
                                 </Button>
@@ -1861,11 +1933,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                 </div>
                                             </div>
                                             {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN' || session?.user?.name === note.author) && (
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex gap-1">
                                                     <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 w-7 p-0 border-gray-200 hover:border-primary hover:text-primary"
                                                         onClick={() => {
                                                             setEditingNoteId(note.id);
                                                             setEditNoteContent(note.content);
@@ -1874,9 +1946,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                         <Pencil className="h-3 w-3" />
                                                     </Button>
                                                     <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6 text-destructive hover:text-destructive"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 w-7 p-0 border-red-200 text-red-500 hover:bg-red-50 hover:border-red-400"
                                                         onClick={() => handleDeleteNote(note.id)}
                                                     >
                                                         <Trash className="h-3 w-3" />
@@ -1909,15 +1981,20 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                             )}
                         </div>
-                        <div className="flex gap-2 items-start bg-muted/30 p-2 rounded-lg">
+                        <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-xl border border-border/60">
                             <textarea
-                                className="flex-1 min-h-[40px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y bg-background"
+                                className="flex-1 min-h-[60px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                                 placeholder="Type a new note..."
                                 value={noteContent}
                                 onChange={(e) => setNoteContent(e.target.value)}
                             />
-                            <Button onClick={handleAddNote} disabled={isAddingNote || !noteContent.trim()} size="icon" className="h-10 w-10 shrink-0">
-                                {isAddingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            <Button
+                                onClick={handleAddNote}
+                                disabled={isAddingNote || !noteContent.trim()}
+                                className="shrink-0 rounded-lg px-4 h-10 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-sm"
+                            >
+                                {isAddingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                Post
                             </Button>
                         </div>
                     </CardContent>
@@ -2051,8 +2128,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     <CardTitle className="text-sm font-semibold">CAKE API Raw Response</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="bg-gray-950 rounded-md p-4 overflow-auto max-h-[300px]">
-                                        <pre className="text-xs text-gray-300 font-mono">
+                                    <div className="bg-gray-950 rounded-md p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
+                                        <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap break-all">
                                             {signup.cake_response}
                                         </pre>
                                     </div>
@@ -2066,8 +2143,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     <CardTitle className="text-sm font-semibold">Ringba API Raw Response</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="bg-gray-950 rounded-md p-4 overflow-auto max-h-[300px]">
-                                        <pre className="text-xs text-gray-300 font-mono">
+                                    <div className="bg-gray-950 rounded-md p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
+                                        <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap break-all">
                                             {signup.ringba_response}
                                         </pre>
                                     </div>

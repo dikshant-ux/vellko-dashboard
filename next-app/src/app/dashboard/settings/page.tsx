@@ -117,8 +117,9 @@ export default function SettingsPage() {
         })
             .then(async res => {
                 if (res && res.ok) {
+                    // Refresh the NextAuth session so sidebar + avatar update immediately
+                    await update({ name: profile.full_name });
                     alert("Profile updated successfully");
-                    // Ideally refresh session here
                 } else {
                     alert("Failed to update profile");
                 }

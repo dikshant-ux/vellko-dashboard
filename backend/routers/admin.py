@@ -1034,19 +1034,19 @@ async def update_signup(id: str, update_data: SignupUpdate, user: User = Depends
     
     # Flatten nested updates for MongoDB $set using dot notation
     if update_data.companyInfo:
-        for k, v in update_data.companyInfo.model_dump(exclude_unset=True).items():
+        for k, v in update_data.companyInfo.model_dump(exclude_none=True).items():
             update_doc[f"companyInfo.{k}"] = v
             
     if update_data.marketingInfo:
-        for k, v in update_data.marketingInfo.model_dump(exclude_unset=True).items():
+        for k, v in update_data.marketingInfo.model_dump(exclude_none=True).items():
             update_doc[f"marketingInfo.{k}"] = v
             
     if update_data.accountInfo:
-        for k, v in update_data.accountInfo.model_dump(exclude_unset=True).items():
+        for k, v in update_data.accountInfo.model_dump(exclude_none=True).items():
             update_doc[f"accountInfo.{k}"] = v
             
     if update_data.paymentInfo:
-        for k, v in update_data.paymentInfo.model_dump(exclude_unset=True).items():
+        for k, v in update_data.paymentInfo.model_dump(exclude_none=True).items():
             update_doc[f"paymentInfo.{k}"] = v
 
     if not update_doc:

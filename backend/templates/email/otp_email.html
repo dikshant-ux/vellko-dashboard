@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Your Access Code - Vellko{% endblock %}
+
+{% block content %}
+<h1>Access Verification 🛡️</h1>
+<p>You've requested access to a shared offer list. Use the code below to verify your identity:</p>
+
+<div class="info-box" style="text-align: center;">
+    <span class="info-label">Verification Code</span>
+    <span class="info-value"
+        style="font-size: 36px; letter-spacing: 8px; font-family: monospace; display: block; margin: 12px 0;">{{ otp
+        }}</span>
+    <span class="info-label" style="margin-top: 8px;">Valid for 10 minutes</span>
+</div>
+
+<p>If you didn't request this code, you can safely ignore this email.</p>
+{% endblock %}

@@ -242,8 +242,8 @@ class AccountInfoUpdate(BaseModel):
     fax: Optional[str] = None
     email: Optional[EmailStr] = None
     timezone: Optional[str] = None
-    imService: Optional[str] = ""
-    imHandle: Optional[str] = ""
+    imService: Optional[str] = None
+    imHandle: Optional[str] = None
     additionalImChannels: Optional[Dict[str, str]] = None
 
 class PaymentInfoUpdate(BaseModel):

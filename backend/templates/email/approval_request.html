@@ -1,74 +1,30 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            color: #333;
-            line-height: 1.6;
-        }
+{% block title %}Approval Request - Vellko{% endblock %}
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
+{% block content %}
+<h1>Review Required: Approval Request 🛡️</h1>
+<p><strong>{{ requester_name }}</strong> matches a new signup that requires your manual approval. Please review the
+    details below:</p>
 
-        .header {
-            background-color: #f8f9fa;
-            padding: 10px;
-            text-align: center;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .content {
-            padding: 20px;
-        }
-
-        .button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-
-        .footer {
-            margin-top: 20px;
-            font-size: 12px;
-            color: #777;
-            text-align: center;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="header">
-            <h2>Approval Request</h2>
-        </div>
-        <div class="content">
-            <p>Hello Admin,</p>
-            <p><strong>{{ requester_name }}</strong> has requested approval for a new signup application.</p>
-
-            <p><strong>Company:</strong> {{ company_name }}</p>
-            <p><strong>Application Type:</strong> {{ application_type }}</p>
-            <p><strong>Requested API(s):</strong> {{ requested_apis }}</p>
-
-            <p>Please review the application and take action.</p>
-
-            <p style="text-align: center;">
-                <a href="{{ link }}" class="button">Review Signup</a>
-            </p>
-        </div>
-        <div class="footer">
-            <p>&copy; 2026 Vellko. All rights reserved.</p>
-        </div>
+<div class="info-box">
+    <div class="info-item">
+        <span class="info-label">Company</span>
+        <span class="info-value">{{ company_name }}</span>
     </div>
-</body>
+    <div class="info-item">
+        <span class="info-label">Application Type</span>
+        <span class="info-value">{{ application_type }}</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Requested APIs</span>
+        <span class="info-value">{{ requested_apis }}</span>
+    </div>
+</div>
 
-</html>
+<p>You can approve or reject this application directly from the signup details page.</p>
+
+<div class="btn-container">
+    <a href="{{ link }}" class="btn">View & Take Action</a>
+</div>
+{% endblock %}

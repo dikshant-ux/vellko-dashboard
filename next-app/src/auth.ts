@@ -106,12 +106,16 @@ export const {
         signIn: '/login',
     },
     callbacks: {
-        async jwt({ token, user }: any) {
+        async jwt({ token, user, trigger, session }: any) {
             if (user) {
                 token.accessToken = user.accessToken;
                 token.role = user.role;
                 token.application_permission = user.application_permission;
                 token.can_approve_signups = user.can_approve_signups;
+            }
+            // When update() is called client-side, merge the updated fields into the token
+            if (trigger === 'update' && session) {
+                if (session.name) token.name = session.name;
             }
             return token;
         },

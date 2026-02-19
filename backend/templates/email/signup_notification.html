@@ -1,162 +1,33 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Affiliate Signup</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
-        }
+{% block title %}New Signup Notification - Vellko{% endblock %}
 
-        .container {
-            max-width: 600px;
-            margin: 40px auto;
-            background-color: #ffffff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        }
+{% block content %}
+<h1>New Partner Signup 📈</h1>
+<p>A new affiliate has just completed the signup process. Here are the details:</p>
 
-        .header {
-            background-color: #0a0a0a;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .brand {
-            color: #ffffff;
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            margin: 0;
-        }
-
-        .brand span {
-            color: #dc2626;
-        }
-
-        .content {
-            padding: 40px;
-        }
-
-        h1 {
-            margin-top: 0;
-            color: #111;
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-
-        p {
-            margin-bottom: 20px;
-            color: #555;
-            font-size: 16px;
-        }
-
-        .details-box {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 25px 0;
-        }
-
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #edf2f7;
-        }
-
-        .detail-row:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-
-        .label {
-            font-weight: 600;
-            color: #64748b;
-            font-size: 14px;
-        }
-
-        .value {
-            font-weight: 500;
-            color: #1e293b;
-            text-align: right;
-        }
-
-        .button {
-            display: block;
-            background-color: #dc2626;
-            color: #ffffff;
-            text-decoration: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 16px;
-            text-align: center;
-            transition: background-color 0.2s;
-            margin-top: 20px;
-        }
-
-        .button:hover {
-            background-color: #b91c1c;
-        }
-
-        .footer {
-            padding: 25px;
-            text-align: center;
-            background-color: #f8f9fa;
-            border-top: 1px solid #eee;
-            font-size: 13px;
-            color: #888;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 class="brand">Vellko<span>.</span></h1>
-        </div>
-        <div class="content">
-            <h1>New Affiliate Application 📝</h1>
-            <p>A new affiliate application has been submitted and is pending review.</p>
-
-            <div class="details-box">
-                <div class="detail-row">
-                    <span class="label">Company</span>
-                    <span class="value">{{ company_name }}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Contact</span>
-                    <span class="value">{{ contact_name }}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Email</span>
-                    <span class="value">{{ contact_email }}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Referral</span>
-                    <span class="value">{{ referral }}</span>
-                </div>
-            </div>
-
-            <a href="{{ link }}" class="button">Review Application</a>
-        </div>
-        <div class="footer">
-            <p>This is an automated notification from Vellko Affiliate Platform.</p>
-        </div>
+<div class="info-box">
+    <div class="info-item">
+        <span class="info-label">Company Name</span>
+        <span class="info-value">{{ company_name }}</span>
     </div>
-</body>
+    <div class="info-item">
+        <span class="info-label">Contact Person</span>
+        <span class="info-value">{{ contact_name }}</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Email Address</span>
+        <span class="info-value">{{ contact_email }}</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Referral</span>
+        <span class="info-value">{{ referral }}</span>
+    </div>
+</div>
 
-</html>
+<p>Please review the application and take action in the admin dashboard.</p>
+
+<div class="btn-container">
+    <a href="{{ link }}" class="btn">Review Application</a>
+</div>
+{% endblock %}
