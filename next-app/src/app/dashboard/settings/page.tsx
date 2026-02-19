@@ -53,7 +53,7 @@ export default function SettingsPage() {
             api_v2_url: 'https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate',
             api_offers_url: 'https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers',
             api_media_types_url: 'https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes',
-            api_verticals_url: 'https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals'
+            api_verticals_url: 'https://demo-new.cakemarketing.com/api/2/get.asmx/Verticals'
         },
         ringba_details: {
             api_token: '',
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                     api_v2_url: 'https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate',
                     api_offers_url: 'https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers',
                     api_media_types_url: 'https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes',
-                    api_verticals_url: 'https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals'
+                    api_verticals_url: 'https://demo-new.cakemarketing.com/api/2/get.asmx/Verticals'
                 },
                 ringba_details: config.ringba_details || {
                     api_token: '',
@@ -358,7 +358,7 @@ export default function SettingsPage() {
                     api_v2_url: 'https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate',
                     api_offers_url: 'https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers',
                     api_media_types_url: 'https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes',
-                    api_verticals_url: 'https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals'
+                    api_verticals_url: 'https://demo-new.cakemarketing.com/api/2/get.asmx/Verticals'
                 },
                 ringba_details: {
                     api_token: '',
@@ -610,8 +610,8 @@ export default function SettingsPage() {
                                                                     className="font-mono tracking-[0.5em] text-center text-xl h-12"
                                                                     maxLength={6}
                                                                 />
-                                                                <Button 
-                                                                    onClick={confirm2FASetup} 
+                                                                <Button
+                                                                    onClick={confirm2FASetup}
                                                                     disabled={isVerifying || otpCode.length < 6}
                                                                     className="w-full bg-red-600 hover:bg-red-700 text-white h-11"
                                                                 >
@@ -1070,6 +1070,19 @@ export default function SettingsPage() {
                                                         onChange={e => setApiForm({
                                                             ...apiForm,
                                                             cake_details: { ...apiForm.cake_details, api_media_types_url: e.target.value }
+                                                        })}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="cake-verticals">Verticals API URL (V2)</Label>
+                                                    <Input
+                                                        id="cake-verticals"
+                                                        value={apiForm.cake_details.api_verticals_url}
+                                                        onChange={e => setApiForm({
+                                                            ...apiForm,
+                                                            cake_details: { ...apiForm.cake_details, api_verticals_url: e.target.value }
                                                         })}
                                                     />
                                                 </div>

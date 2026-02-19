@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     CAKE_API_V2_URL: str = "https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate"
     CAKE_API_OFFERS_URL: str = "https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers"
     CAKE_API_MEDIA_TYPES_URL: str = "https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes"
-    CAKE_API_VERTICALS_URL: str = "https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals"
+    CAKE_API_VERTICALS_URL: str = "https://demo-new.cakemarketing.com/api/2/get.asmx/Verticals"
     
     # SMTP Settings
     SMTP_HOST: str = ""
@@ -52,6 +52,14 @@ async def get_active_cake_connection():
     connection = await db.api_connections.find_one({"type": "CAKE", "is_active": True})
     if connection:
         details = connection.get("cake_details", {})
+        # Ensure new keys are present even for old connections
+        if "api_verticals_url" not in details:
+            details["api_verticals_url"] = settings.CAKE_API_VERTICALS_URL
+        if "api_offers_url" not in details:
+            details["api_offers_url"] = settings.CAKE_API_OFFERS_URL
+        if "api_media_types_url" not in details:
+            details["api_media_types_url"] = settings.CAKE_API_MEDIA_TYPES_URL
+            
         if details.get("api_key"):
             details["api_key"] = decrypt_if_needed(details["api_key"])
         return details

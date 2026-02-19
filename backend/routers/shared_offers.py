@@ -247,7 +247,8 @@ async def get_shared_data(
     access_token: str,
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=500, description="Items per page"),
-    search: Optional[str] = Query(None, description="Search term")
+    search: Optional[str] = Query(None, description="Search term"),
+    vertical_id: Optional[int] = Query(None, description="Filter by Vertical ID")
 ):
     # Verify JWT
     try:
@@ -276,7 +277,17 @@ async def get_shared_data(
     # because API only supports one name field. For this use case, user search takes precedence.
     api_search = search if search is not None else filters.get("search", "")
     
-    vertical_id = filters.get("vertical_id", 0)
+    # Support both singular and plural vertical filters
+    vertical_ids = filters.get("vertical_ids", [])
+    if not vertical_ids and filters.get("vertical_id"):
+        vertical_ids = [filters.get("vertical_id")]
+    
+    # If viewer provides vertical_id, use it. Otherwise use stored filter.
+    # Note: viewer's vertical_id must be one of the stored vertical_ids if they exist
+    active_vertical_id = vertical_id if vertical_id is not None else 0
+    if active_vertical_id == 0 and len(vertical_ids) == 1:
+        active_vertical_id = vertical_ids[0]
+    
     # Support both singular and plural media type filters
     media_type_ids = filters.get("media_type_ids", [])
     if not media_type_ids and filters.get("media_type_id"):
@@ -300,7 +311,7 @@ async def get_shared_data(
         "site_offer_id": 0,
         "site_offer_name": api_search,
         "brand_advertiser_id": 0,
-        "vertical_id": vertical_id,
+        "vertical_id": active_vertical_id,
         "site_offer_type_id": 0,
         "media_type_id": cake_media_type_id,
         "tag_id": 0,
@@ -380,12 +391,17 @@ async def get_shared_data(
                     "brand_advertiser_id": get_text(offer.get('brand_advertiser', {}).get('brand_advertiser_id', 0)) if offer.get('brand_advertiser') else 0,
                     "brand_advertiser_name": offer.get('brand_advertiser', {}).get('brand_advertiser_name', {}).get('#text', '') if offer.get('brand_advertiser') else '',
                     "vertical_name": get_text(offer.get('vertical', {}).get('vertical_name', {}).get('#text', '')) if offer.get('vertical') else '',
+                    "vertical_id": int(get_text(offer.get('vertical', {}).get('vertical_id', 0))) if offer.get('vertical') else 0,
                     "status": get_text(offer.get('site_offer_status', {}).get('site_offer_status_name', {}).get('#text', '')) if offer.get('site_offer_status') else '',
                     "hidden": offer.get('hidden') == 'true',
                     "preview_link": get_text(offer.get('preview_link')),
                     "payout": "N/A", 
                     "type": "N/A"
                  }
+                 
+                 # Python-side filtering for verticals if multiple were selected
+                 if len(vertical_ids) > 1 and full_offer["vertical_id"] not in vertical_ids:
+                     continue
                  
                  default_contract_id = offer.get('default_site_offer_contract_id')
                  contracts = offer.get('site_offer_contracts', {}).get('site_offer_contract_info', [])

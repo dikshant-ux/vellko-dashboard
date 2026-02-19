@@ -59,6 +59,9 @@ export default function OffersPage() {
     const [statuses, setStatuses] = useState<{ status_id: number, status_name: string }[]>([]);
     const [selectedMediaType, setSelectedMediaType] = useState<string>("0");
     const [selectedStatus, setSelectedStatus] = useState<string>("0");
+    const [verticals, setVerticals] = useState<{ vertical_id: number, vertical_name: string }[]>([]);
+    const [selectedVertical, setSelectedVertical] = useState<string>("0");
+    const [verticalSearch, setVerticalSearch] = useState("");
 
     // Column Visibility State
     const [columnVisibility, setColumnVisibility] = useState({
@@ -113,13 +116,15 @@ export default function OffersPage() {
     useEffect(() => {
         const fetchFilters = async () => {
             try {
-                const [mediaRes, statusRes] = await Promise.all([
+                const [mediaRes, statusRes, verticalRes] = await Promise.all([
                     authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`),
-                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/statuses`)
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/statuses`),
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/verticals`)
                 ]);
 
                 if (mediaRes?.ok) setMediaTypes(await mediaRes.json());
                 if (statusRes?.ok) setStatuses(await statusRes.json());
+                if (verticalRes?.ok) setVerticals(await verticalRes.json());
             } catch (error) {
                 console.error("Failed to fetch filters", error);
             }
@@ -137,6 +142,7 @@ export default function OffersPage() {
                 sort_descending: sortDesc.toString(),
                 media_type_id: selectedMediaType,
                 site_offer_status_id: selectedStatus,
+                vertical_id: selectedVertical,
                 ...(debouncedSearch && { search: debouncedSearch })
             });
 
@@ -158,7 +164,7 @@ export default function OffersPage() {
 
     useEffect(() => {
         fetchOffers();
-    }, [page, limit, sortField, sortDesc, debouncedSearch, selectedMediaType, selectedStatus]);
+    }, [page, limit, sortField, sortDesc, debouncedSearch, selectedMediaType, selectedStatus, selectedVertical]);
 
     // Prepare available columns for the modal
 
@@ -195,7 +201,7 @@ export default function OffersPage() {
                         currentFilters={{
                             search: search || "",
                             media_type_id: Number(selectedMediaType || 0),
-                            vertical_id: 0,
+                            vertical_id: Number(selectedVertical || 0),
                             site_offer_status_id: Number(selectedStatus || 0)
                         }}
                         availableColumns={availableColumns}
@@ -316,6 +322,63 @@ export default function OffersPage() {
                             ))}
                         </SelectContent>
                     </Select>
+
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full sm:w-[200px] justify-between font-normal bg-background shadow-sm">
+                                <span className="truncate">
+                                    {selectedVertical === "0"
+                                        ? "All Verticals"
+                                        : verticals.find(v => v.vertical_id.toString() === selectedVertical)?.vertical_name || "Vertical"}
+                                </span>
+                                <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                            <div className="p-2 border-b">
+                                <Input
+                                    placeholder="Search verticals..."
+                                    value={verticalSearch}
+                                    onChange={(e) => setVerticalSearch(e.target.value)}
+                                    className="h-8"
+                                />
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto p-1">
+                                <div
+                                    className={`flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer text-sm ${selectedVertical === "0" ? "bg-muted font-medium" : ""}`}
+                                    onClick={() => {
+                                        setSelectedVertical("0");
+                                        setPage(1);
+                                    }}
+                                >
+                                    All Verticals
+                                </div>
+                                {verticals
+                                    .filter(v =>
+                                        v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())
+                                    )
+                                    .slice(0, 100) // Performance hack: only show first 100 matches
+                                    .map((v) => (
+                                        <div
+                                            key={v.vertical_id}
+                                            className={`flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer text-sm ${selectedVertical === v.vertical_id.toString() ? "bg-muted font-medium" : ""}`}
+                                            onClick={() => {
+                                                setSelectedVertical(v.vertical_id.toString());
+                                                setPage(1);
+                                            }}
+                                        >
+                                            {v.vertical_name}
+                                        </div>
+                                    ))
+                                }
+                                {verticals.filter(v => v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())).length > 100 && (
+                                    <div className="p-2 text-xs text-muted-foreground text-center border-t mt-1">
+                                        Showing first 100 matches. Please search to refine.
+                                    </div>
+                                )}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
 

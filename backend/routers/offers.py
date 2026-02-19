@@ -43,7 +43,8 @@ async def get_offers(
     sort_descending: bool = Query(False, description="Sort descending"),
     search: Optional[str] = Query(None, description="Search term for offer name"),
     media_type_id: int = Query(0, description="Filter by Media Type ID"),
-    site_offer_status_id: int = Query(0, description="Filter by Status ID")
+    site_offer_status_id: int = Query(0, description="Filter by Status ID"),
+    vertical_id: int = Query(0, description="Filter by Vertical ID")
 ):
     """
     Proxy endpoint to fetch offers from Cake Marketing API (XML) and return as JSON.
@@ -89,7 +90,7 @@ async def get_offers(
         "site_offer_id": 0,
         "site_offer_name": search if search else "",
         "brand_advertiser_id": 0,
-        "vertical_id": 0,
+        "vertical_id": vertical_id,
         "site_offer_type_id": 0,
         "media_type_id": media_type_id,
         "tag_id": 0,
@@ -256,22 +257,25 @@ async def get_verticals():
     cake_conn = await get_active_cake_connection()
     api_key = cake_conn["api_key"]
     base_url = cake_conn["api_verticals_url"]
-    params = {"api_key": api_key}
+    params = {
+        "api_key": api_key,
+        "vertical_category_id": 0
+    }
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(base_url, params=params, timeout=30.0)
             if response.status_code != 200:
-                raise HTTPException(status_code=response.status_code, detail="Failed to fetch verticals from upstream API")
+                raise HTTPException(status_code=response.status_code, detail=f"Failed to fetch verticals from upstream API: {response.status_code}")
             
             try:
                 data_dict = xmltodict.parse(response.content)
             except Exception as e:
                  raise HTTPException(status_code=500, detail=f"Failed to parse XML response: {str(e)}")
 
-            # The API returns ArrayOfVertical directly or vertical_export_response
+            # The API returns ArrayOfVertical directly, vertical_export_response, or vertical_response (v2)
             # Checking for common patterns
-            root = data_dict.get('vertical_export_response') or data_dict.get('ArrayOfVertical') or {}
+            root = data_dict.get('vertical_response') or data_dict.get('vertical_export_response') or data_dict.get('ArrayOfVertical') or {}
             if not root:
                 return []
 
@@ -290,10 +294,13 @@ async def get_verticals():
 
             result = []
             for item in verticals_data:
-                name = item.get('vertical_name') or ''
+                # Support both lowercase and TitleCase for fields
+                name = item.get('vertical_name') or item.get('VerticalName') or item.get('Vertical_Name') or ''
+                vid = item.get('vertical_id') or item.get('VerticalID') or item.get('Vertical_ID') or 0
+                
                 if isinstance(name, str) and name.strip():
                     result.append({
-                        "vertical_id": int(item.get('vertical_id', 0)),
+                        "vertical_id": int(vid),
                         "vertical_name": name.strip()
                     })
             

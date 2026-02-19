@@ -13,10 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Search, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface Offer {
     site_offer_id: string;
@@ -52,6 +53,9 @@ export default function SharePage() {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRows, setTotalRows] = useState(0);
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [verticals, setVerticals] = useState<{ vertical_id: number, vertical_name: string }[]>([]);
+    const [selectedVertical, setSelectedVertical] = useState<string>("0");
+    const [verticalSearch, setVerticalSearch] = useState("");
 
     // Debounce search
     useEffect(() => {
@@ -73,14 +77,25 @@ export default function SharePage() {
             // We can let the existing "Fetch on params change" effect handle the actual fetch 
             // because it depends on `accessToken` and `step`.
         }
+
+        // Fetch verticals list
+        const fetchVerticals = async () => {
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/verticals`);
+                if (res.ok) setVerticals(await res.json());
+            } catch (error) {
+                console.error("Failed to fetch verticals", error);
+            }
+        };
+        fetchVerticals();
     }, [token]);
 
     // Fetch on params change
     useEffect(() => {
         if (accessToken && step === 'view') {
-            fetchOffers(accessToken, page, limit, debouncedSearch);
+            fetchOffers(accessToken, page, limit, debouncedSearch, selectedVertical);
         }
-    }, [page, limit, debouncedSearch, accessToken, step]);
+    }, [page, limit, debouncedSearch, selectedVertical, accessToken, step]);
 
     const handleRequestOtp = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -127,7 +142,7 @@ export default function SharePage() {
                 localStorage.setItem(`share_token_${token}`, data.access_token);
                 setAccessToken(data.access_token);
                 // Initial Fetch with defaults
-                await fetchOffers(data.access_token, 1, 10, '');
+                await fetchOffers(data.access_token, 1, 10, '', '0');
             } else {
                 const data = await res.json();
                 setError(data.detail || "Invalid OTP");
@@ -141,7 +156,7 @@ export default function SharePage() {
         }
     };
 
-    const fetchOffers = async (tokenStr: string, p: number, l: number, s: string) => {
+    const fetchOffers = async (tokenStr: string, p: number, l: number, s: string, v: string) => {
         try {
             // Build query params
             const query = new URLSearchParams({
@@ -149,6 +164,7 @@ export default function SharePage() {
                 page: p.toString(),
                 limit: l.toString(),
                 search: s,
+                vertical_id: v !== "0" ? v : "",
             });
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/share/${token}/data?${query.toString()}`);
@@ -290,122 +306,182 @@ export default function SharePage() {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground whitespace-nowrap">Rows per page</span>
-                                <Select
-                                    value={limit.toString()}
-                                    onValueChange={(val) => {
-                                        setLimit(Number(val));
-                                        setPage(1); // Reset to page 1
-                                    }}
-                                >
-                                    <SelectTrigger className="w-[70px]">
-                                        <SelectValue placeholder="Limit" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="10">10</SelectItem>
-                                        <SelectItem value="20">20</SelectItem>
-                                        <SelectItem value="50">50</SelectItem>
-                                        <SelectItem value="100">100</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="border-t bg-white">
-                            <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow>
-                                        {isColumnVisible('id') && <TableHead className="w-[80px]">ID</TableHead>}
-                                        {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                                        {isColumnVisible('vertical') && <TableHead>Vertical</TableHead>}
-                                        {isColumnVisible('status') && <TableHead>Status</TableHead>}
-                                        {isColumnVisible('type') && <TableHead>Type</TableHead>}
-                                        {isColumnVisible('payout') && <TableHead>Payout</TableHead>}
-                                        {isColumnVisible('preview') && <TableHead>Preview</TableHead>}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {offers.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
-                                                No offers found matching the shared criteria.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        offers.map((offer) => (
-                                            <TableRow key={offer.site_offer_id}>
-                                                {isColumnVisible('id') && <TableCell className="font-medium">{offer.site_offer_id}</TableCell>}
-                                                {isColumnVisible('name') && <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{offer.site_offer_name}</span>
-                                                    </div>
-                                                </TableCell>}
-                                                {isColumnVisible('vertical') && <TableCell>{offer.vertical_name}</TableCell>}
-                                                {isColumnVisible('status') && <TableCell>
-                                                    <Badge variant={
-                                                        offer.status === 'Active' || offer.status === 'Public' ? 'default' :
-                                                            offer.status === 'Apply To Run' ? 'secondary' : 'outline'
-                                                    }>
-                                                        {offer.status}
-                                                    </Badge>
-                                                </TableCell>}
-                                                {isColumnVisible('type') && <TableCell>
-                                                    <Badge variant="outline">{offer.type || 'N/A'}</Badge>
-                                                </TableCell>}
-                                                {isColumnVisible('payout') && <TableCell className="font-medium text-green-600">
-                                                    {offer.payout}
-                                                </TableCell>}
-                                                {isColumnVisible('preview') && <TableCell>
-                                                    {offer.preview_link ? (
-                                                        <a
-                                                            href={offer.preview_link}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-primary hover:underline"
+                            <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground whitespace-nowrap">Vertical</span>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-full md:w-[200px] justify-between font-normal bg-background shadow-sm">
+                                                <span className="truncate">
+                                                    {selectedVertical === "0"
+                                                        ? "All Verticals"
+                                                        : verticals.find(v => v.vertical_id.toString() === selectedVertical)?.vertical_name || "Vertical"}
+                                                </span>
+                                                <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0" align="start">
+                                            <div className="p-2 border-b">
+                                                <Input
+                                                    placeholder="Search verticals..."
+                                                    value={verticalSearch}
+                                                    onChange={(e) => setVerticalSearch(e.target.value)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="max-h-[300px] overflow-y-auto p-1">
+                                                <div
+                                                    className={`flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer text-sm ${selectedVertical === "0" ? "bg-muted font-medium" : ""}`}
+                                                    onClick={() => {
+                                                        setSelectedVertical("0");
+                                                        setPage(1);
+                                                    }}
+                                                >
+                                                    All Verticals
+                                                </div>
+                                                {verticals
+                                                    .filter(v =>
+                                                        v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())
+                                                    )
+                                                    .slice(0, 100)
+                                                    .map((v) => (
+                                                        <div
+                                                            key={v.vertical_id}
+                                                            className={`flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer text-sm ${selectedVertical === v.vertical_id.toString() ? "bg-muted font-medium" : ""}`}
+                                                            onClick={() => {
+                                                                setSelectedVertical(v.vertical_id.toString());
+                                                                setPage(1);
+                                                            }}
                                                         >
-                                                            Preview
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-muted-foreground">N/A</span>
-                                                    )}
-                                                </TableCell>}
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {/* Pagination Footer */}
-                        <div className="flex items-center justify-between px-4 py-4 border-t">
-                            <div className="text-sm text-gray-500">
-                                Max {totalRows} offers found
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page <= 1}
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                    Previous
-                                </Button>
-                                <div className="text-sm font-medium">
-                                    Page {page} of {Math.max(1, totalPages)}
+                                                            {v.vertical_name}
+                                                        </div>
+                                                    ))
+                                                }
+                                                {verticals.filter(v => v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())).length > 100 && (
+                                                    <div className="p-2 text-xs text-muted-foreground text-center border-t mt-1">
+                                                        Showing first 100 matches. Please search to refine.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={page >= totalPages}
-                                >
-                                    Next
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground whitespace-nowrap">Rows</span>
+                                    <Select
+                                        value={limit.toString()}
+                                        onValueChange={(val) => {
+                                            setLimit(Number(val));
+                                            setPage(1); // Reset to page 1
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-[70px]">
+                                            <SelectValue placeholder="Limit" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="20">20</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                            <SelectItem value="100">100</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-                        </div>
+
+                            <div className="border-t bg-white">
+                                <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow>
+                                            {isColumnVisible('id') && <TableHead className="w-[80px]">ID</TableHead>}
+                                            {isColumnVisible('name') && <TableHead>Name</TableHead>}
+                                            {isColumnVisible('vertical') && <TableHead>Vertical</TableHead>}
+                                            {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                                            {isColumnVisible('type') && <TableHead>Type</TableHead>}
+                                            {isColumnVisible('payout') && <TableHead>Payout</TableHead>}
+                                            {isColumnVisible('preview') && <TableHead>Preview</TableHead>}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {offers.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="h-24 text-center">
+                                                    No offers found matching the shared criteria.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            offers.map((offer) => (
+                                                <TableRow key={offer.site_offer_id}>
+                                                    {isColumnVisible('id') && <TableCell className="font-medium">{offer.site_offer_id}</TableCell>}
+                                                    {isColumnVisible('name') && <TableCell>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium">{offer.site_offer_name}</span>
+                                                        </div>
+                                                    </TableCell>}
+                                                    {isColumnVisible('vertical') && <TableCell>{offer.vertical_name}</TableCell>}
+                                                    {isColumnVisible('status') && <TableCell>
+                                                        <Badge variant={
+                                                            offer.status === 'Active' || offer.status === 'Public' ? 'default' :
+                                                                offer.status === 'Apply To Run' ? 'secondary' : 'outline'
+                                                        }>
+                                                            {offer.status}
+                                                        </Badge>
+                                                    </TableCell>}
+                                                    {isColumnVisible('type') && <TableCell>
+                                                        <Badge variant="outline">{offer.type || 'N/A'}</Badge>
+                                                    </TableCell>}
+                                                    {isColumnVisible('payout') && <TableCell className="font-medium text-green-600">
+                                                        {offer.payout}
+                                                    </TableCell>}
+                                                    {isColumnVisible('preview') && <TableCell>
+                                                        {offer.preview_link ? (
+                                                            <a
+                                                                href={offer.preview_link}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-primary hover:underline"
+                                                            >
+                                                                Preview
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">N/A</span>
+                                                        )}
+                                                    </TableCell>}
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Pagination Footer */}
+                            <div className="flex items-center justify-between px-4 py-4 border-t">
+                                <div className="text-sm text-gray-500">
+                                    Max {totalRows} offers found
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page <= 1}
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                        Previous
+                                    </Button>
+                                    <div className="text-sm font-medium">
+                                        Page {page} of {Math.max(1, totalPages)}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page >= totalPages}
+                                    >
+                                        Next
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
                     </CardContent>
                 </Card>
             </div>

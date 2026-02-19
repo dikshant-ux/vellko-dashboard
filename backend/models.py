@@ -270,7 +270,7 @@ class CakeDetails(BaseModel):
     api_v2_url: str = "https://demo-new.cakemarketing.com/api/2/addedit.asmx/Affiliate"
     api_offers_url: str = "https://demo-new.cakemarketing.com/api/7/export.asmx/SiteOffers"
     api_media_types_url: str = "https://demo-new.cakemarketing.com/api/1/signup.asmx/GetMediaTypes"
-    api_verticals_url: str = "https://demo-new.cakemarketing.com/api/1/get.asmx/Verticals"
+    api_verticals_url: str = "https://demo-new.cakemarketing.com/api/2/get.asmx/Verticals"
 
 class RingbaDetails(BaseModel):
     api_token: str

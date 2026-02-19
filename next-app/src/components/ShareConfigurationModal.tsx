@@ -71,25 +71,32 @@ export function ShareConfigurationModal({
     );
     const [mediaTypes, setMediaTypes] = useState<{ media_type_id: number, media_type_name: string }[]>([]);
     const [statuses, setStatuses] = useState<{ status_id: number, status_name: string }[]>([]);
+    const [verticals, setVerticals] = useState<{ vertical_id: number, vertical_name: string }[]>([]);
     const [selectedMediaTypes, setSelectedMediaTypes] = useState<number[]>(
         currentFilters.media_type_id ? [currentFilters.media_type_id] : []
     );
     const [selectedStatusIds, setSelectedStatusIds] = useState<number[]>(
         currentFilters.site_offer_status_id ? [currentFilters.site_offer_status_id] : []
     );
+    const [selectedVerticalIds, setSelectedVerticalIds] = useState<number[]>(
+        currentFilters.vertical_id ? [currentFilters.vertical_id] : []
+    );
     const [editFilters, setEditFilters] = useState<any>(null);
+    const [verticalSearch, setVerticalSearch] = useState("");
 
     const isEdit = !!editToken;
 
     useEffect(() => {
         const fetchFilters = async () => {
             try {
-                const [mediaRes, statusRes] = await Promise.all([
+                const [mediaRes, statusRes, verticalRes] = await Promise.all([
                     authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`),
-                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/statuses`)
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/statuses`),
+                    authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/verticals`)
                 ]);
                 if (mediaRes?.ok) setMediaTypes(await mediaRes.json());
                 if (statusRes?.ok) setStatuses(await statusRes.json());
+                if (verticalRes?.ok) setVerticals(await verticalRes.json());
             } catch (error) {
                 console.error("Failed to fetch filters", error);
             }
@@ -121,6 +128,12 @@ export function ShareConfigurationModal({
                         } else if (data.filters && data.filters.site_offer_status_id) {
                             setSelectedStatusIds([data.filters.site_offer_status_id]);
                         }
+
+                        if (data.filters && data.filters.vertical_ids) {
+                            setSelectedVerticalIds(data.filters.vertical_ids);
+                        } else if (data.filters && data.filters.vertical_id) {
+                            setSelectedVerticalIds([data.filters.vertical_id]);
+                        }
                     } else {
                         toast.error("Failed to load link configuration");
                     }
@@ -149,8 +162,8 @@ export function ShareConfigurationModal({
             const method = isEdit ? 'PATCH' : 'POST';
 
             const filtersToSave = isEdit && editFilters
-                ? { ...editFilters, media_type_ids: selectedMediaTypes, site_offer_status_ids: selectedStatusIds }
-                : { ...currentFilters, media_type_ids: selectedMediaTypes, site_offer_status_ids: selectedStatusIds };
+                ? { ...editFilters, media_type_ids: selectedMediaTypes, site_offer_status_ids: selectedStatusIds, vertical_ids: selectedVerticalIds }
+                : { ...currentFilters, media_type_ids: selectedMediaTypes, site_offer_status_ids: selectedStatusIds, vertical_ids: selectedVerticalIds };
 
             // Remove old singular fields if they exist
             if ('media_type_id' in filtersToSave) {
@@ -158,6 +171,9 @@ export function ShareConfigurationModal({
             }
             if ('site_offer_status_id' in filtersToSave) {
                 delete (filtersToSave as any).site_offer_status_id;
+            }
+            if ('vertical_id' in filtersToSave) {
+                delete (filtersToSave as any).vertical_id;
             }
 
             const res = await authFetch(url, {
@@ -207,6 +223,7 @@ export function ShareConfigurationModal({
         setSelectedColumns(Object.keys(currentVisibleColumns).filter(k => currentVisibleColumns[k]));
         setSelectedMediaTypes(currentFilters.media_type_id ? [currentFilters.media_type_id] : []);
         setSelectedStatusIds(currentFilters.site_offer_status_id ? [currentFilters.site_offer_status_id] : []);
+        setSelectedVerticalIds(currentFilters.vertical_id ? [currentFilters.vertical_id] : []);
         setEditFilters(null);
     };
 
@@ -370,6 +387,80 @@ export function ShareConfigurationModal({
                                                         </Label>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>Verticals</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between font-normal text-xs md:text-sm">
+                                            {selectedVerticalIds.length === 0 ? "All Verticals" :
+                                                selectedVerticalIds.length === 1 ? verticals.find(v => v.vertical_id === selectedVerticalIds[0])?.vertical_name :
+                                                    `${selectedVerticalIds.length} Selected`}
+                                            <Plus className="ml-2 h-4 w-4 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0" align="start">
+                                        <div className="p-2 border-b">
+                                            <Input
+                                                placeholder="Search verticals..."
+                                                value={verticalSearch}
+                                                onChange={(e) => setVerticalSearch(e.target.value)}
+                                                className="h-8"
+                                            />
+                                        </div>
+                                        <div
+                                            className="h-[300px] overflow-y-auto"
+                                            onWheel={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="p-2 space-y-2">
+                                                <div className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
+                                                    onClick={() => setSelectedVerticalIds([])}>
+                                                    <Checkbox
+                                                        id="v-all"
+                                                        checked={selectedVerticalIds.length === 0}
+                                                        onCheckedChange={() => setSelectedVerticalIds([])}
+                                                    />
+                                                    <Label htmlFor="v-all" className="text-sm cursor-pointer flex-1">All Verticals</Label>
+                                                </div>
+                                                {verticals
+                                                    .filter(v => v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase()))
+                                                    .slice(0, 100)
+                                                    .map((v) => (
+                                                        <div key={v.vertical_id}
+                                                            className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
+                                                            onClick={() => {
+                                                                if (selectedVerticalIds.includes(v.vertical_id)) {
+                                                                    setSelectedVerticalIds(selectedVerticalIds.filter(id => id !== v.vertical_id));
+                                                                } else {
+                                                                    setSelectedVerticalIds([...selectedVerticalIds, v.vertical_id]);
+                                                                }
+                                                            }}>
+                                                            <Checkbox
+                                                                id={`v-${v.vertical_id}`}
+                                                                checked={selectedVerticalIds.includes(v.vertical_id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setSelectedVerticalIds([...selectedVerticalIds, v.vertical_id]);
+                                                                    } else {
+                                                                        setSelectedVerticalIds(selectedVerticalIds.filter(id => id !== v.vertical_id));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <Label htmlFor={`v-${v.vertical_id}`} className="text-sm cursor-pointer flex-1">
+                                                                {v.vertical_name}
+                                                            </Label>
+                                                        </div>
+                                                    ))}
+                                                {verticals.filter(v => v.vertical_name.toLowerCase().includes(verticalSearch.toLowerCase())).length > 100 && (
+                                                    <div className="p-2 text-xs text-muted-foreground text-center border-t mt-1">
+                                                        Showing first 100 matches. Please search to refine.
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </PopoverContent>
