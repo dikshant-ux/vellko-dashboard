@@ -12,10 +12,13 @@ import re as _re
 router = APIRouter(prefix="/admin/reports", tags=["reports"])
 
 
-async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+async def get_report_user(current_user: User = Depends(get_current_user)) -> User:
+    """Allow admins OR users with Web Traffic / Both permission."""
+    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        return current_user
+    if getattr(current_user, "application_permission", None) in ["Web Traffic", "Both"]:
+        return current_user
+    raise HTTPException(status_code=403, detail="Access denied")
 
 
 def _scalar(d):
@@ -93,7 +96,7 @@ async def get_campaign_summary(
     brand_advertiser_manager_id: int = Query(0),
     event_id: int = Query(0),
     event_type: str = Query("macro_event_conversions", description="all | macro_event_conversions | micro_events"),
-    user: User = Depends(get_current_admin),
+    user: User = Depends(get_report_user),
 ):
     """
     Proxy the Cake CampaignSummary API v5 and return normalised JSON rows.
@@ -198,7 +201,12 @@ async def get_campaign_summary(
                 "total_paid":              _float(r.get("total_paid")),
             })
 
-        return {"success": True, "row_count": len(rows), "rows": rows}
+        return {
+            "success": True,
+            "row_count": len(rows),
+            "rows": rows,
+            "_debug_first_raw": raw_list[0] if raw_list else None,
+        }
 
     except HTTPException:
         raise

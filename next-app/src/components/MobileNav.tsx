@@ -14,7 +14,8 @@ import {
     Zap,
     Link2,
     ChevronRight,
-    HelpCircle
+    HelpCircle,
+    BarChart2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,10 @@ export default function MobileNav() {
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
+        ] : []),
+        ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ||
+            ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '') ? [
+            { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ];

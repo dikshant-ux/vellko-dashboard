@@ -214,8 +214,10 @@ export default function CampaignReportPage() {
             !q ||
             (r.campaign_name || '').toLowerCase().includes(q) ||
             (r.affiliate_name || '').toLowerCase().includes(q) ||
+            (r.affiliate_manager || '').toLowerCase().includes(q) ||
             (r.offer_name || '').toLowerCase().includes(q) ||
-            (r.advertiser_name || '').toLowerCase().includes(q)
+            (r.advertiser_name || '').toLowerCase().includes(q) ||
+            (r.advertiser_manager || '').toLowerCase().includes(q)
         );
     }, [rows, search]);
 
