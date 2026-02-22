@@ -469,8 +469,10 @@ export default function CampaignReportPage() {
                                     <TableRow>
                                         <SortableHead col="campaign_name">Campaign</SortableHead>
                                         <SortableHead col="affiliate_name">Affiliate</SortableHead>
+                                        <SortableHead col="affiliate_manager">Aff. Manager</SortableHead>
                                         <SortableHead col="offer_name">Offer</SortableHead>
                                         <SortableHead col="advertiser_name">Advertiser</SortableHead>
+                                        <SortableHead col="advertiser_manager">Adv. Manager</SortableHead>
                                         <TableHead className="font-semibold text-gray-600 whitespace-nowrap">Price / Media</TableHead>
                                         <SortableHead col="views">Views</SortableHead>
                                         <SortableHead col="clicks">Clicks</SortableHead>
@@ -512,13 +514,18 @@ export default function CampaignReportPage() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="text-sm font-medium text-gray-700">{r.affiliate_name || '—'}</div>
-                                                    {r.affiliate_manager && <div className="text-[10px] text-gray-400">{r.affiliate_manager}</div>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm text-gray-600">{r.affiliate_manager || '—'}</div>
                                                 </TableCell>
                                                 <TableCell className="max-w-[160px]">
                                                     <div className="text-sm text-gray-700 truncate" title={r.offer_name}>{r.offer_name || '—'}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="text-sm text-gray-700">{r.advertiser_name || '—'}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm text-gray-600">{r.advertiser_manager || '—'}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col gap-1">
@@ -606,8 +613,8 @@ export default function CampaignReportPage() {
                                                         variant={safePage === p ? 'default' : 'outline'}
                                                         size="icon"
                                                         className={`h-8 w-8 text-xs ${safePage === p
-                                                                ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white'
-                                                                : 'border-gray-200'
+                                                            ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white'
+                                                            : 'border-gray-200'
                                                             }`}
                                                         onClick={() => setPage(p as number)}
                                                     >
