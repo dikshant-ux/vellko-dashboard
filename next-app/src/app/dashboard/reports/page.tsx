@@ -30,6 +30,8 @@ import {
     ChevronUp,
     ChevronDown,
     ChevronsUpDown,
+    ChevronLeft,
+    ChevronRight,
     AlertCircle,
     Loader2,
     TrendingUp,
@@ -152,6 +154,10 @@ export default function CampaignReportPage() {
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<SortState>({ key: null, dir: null });
 
+    // ── Pagination state ──────────────────────────────────────────────────────
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
+
     // Convert MM/DD/YYYY input to a valid HTML date input value (YYYY-MM-DD) for the date picker
     function toInputDate(mmddyyyy: string) {
         const [m, d, y] = mmddyyyy.split('/');
@@ -226,6 +232,7 @@ export default function CampaignReportPage() {
     }, [filtered, sort]);
 
     function toggleSort(key: keyof CampaignRow) {
+        setPage(1);
         setSort(prev =>
             prev.key === key
                 ? { key, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' }
@@ -257,6 +264,17 @@ export default function CampaignReportPage() {
         }),
         { clicks: 0, conversions: 0, revenue: 0, profit: 0, cost: 0 }
     ), [sorted]);
+
+    // ── Pagination derived ────────────────────────────────────────────────────
+    const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const paginated = useMemo(
+        () => sorted.slice((safePage - 1) * pageSize, safePage * pageSize),
+        [sorted, safePage, pageSize]
+    );
+
+    // Reset to page 1 whenever the result set changes
+    useEffect(() => { setPage(1); }, [sorted.length, search, sort.key, sort.dir]);
 
     // ── CSV Export ────────────────────────────────────────────────────────────
 
@@ -409,6 +427,20 @@ export default function CampaignReportPage() {
                                 </CardTitle>
                             </div>
                             <div className="flex items-center gap-3">
+                                {/* Rows per page */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs text-gray-400 whitespace-nowrap">Rows per page</span>
+                                    <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
+                                        <SelectTrigger className="h-8 w-16 text-xs bg-gray-50 border-gray-200">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {[10, 25, 50, 100].map(n => (
+                                                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 <div className="relative w-full sm:w-64">
                                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input
@@ -472,7 +504,7 @@ export default function CampaignReportPage() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        sorted.map((r, i) => (
+                                        paginated.map((r, i) => (
                                             <TableRow key={i} className="hover:bg-gray-50/50 transition-colors">
                                                 <TableCell>
                                                     <div className="font-semibold text-gray-900 text-sm">{r.campaign_name || '—'}</div>
@@ -519,16 +551,94 @@ export default function CampaignReportPage() {
                             </Table>
                         </div>
 
-                        {/* Footer totals */}
+                        {/* Footer totals + pagination */}
                         {sorted.length > 0 && !isLoading && (
-                            <div className="border-t border-gray-100 bg-gray-50/70 px-6 py-3 flex flex-wrap gap-6 text-sm">
-                                <span className="text-gray-500">Totals —</span>
-                                <span><span className="font-semibold text-gray-800">{totals.clicks.toLocaleString()}</span> <span className="text-gray-400 text-xs">clicks</span></span>
-                                <span><span className="font-semibold text-gray-800">{fmt(totals.conversions, 0)}</span> <span className="text-gray-400 text-xs">conv.</span></span>
-                                <span><span className="font-semibold text-emerald-700">{fmtCurrency(totals.revenue)}</span> <span className="text-gray-400 text-xs">revenue</span></span>
-                                <span><span className="font-semibold text-gray-700">{fmtCurrency(totals.cost)}</span> <span className="text-gray-400 text-xs">cost</span></span>
-                                <span><span className={`font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtCurrency(totals.profit)}</span> <span className="text-gray-400 text-xs">profit</span></span>
-                            </div>
+                            <>
+                                <div className="border-t border-gray-100 bg-gray-50/70 px-6 py-3 flex flex-wrap gap-6 text-sm">
+                                    <span className="text-gray-500">Totals —</span>
+                                    <span><span className="font-semibold text-gray-800">{totals.clicks.toLocaleString()}</span> <span className="text-gray-400 text-xs">clicks</span></span>
+                                    <span><span className="font-semibold text-gray-800">{fmt(totals.conversions, 0)}</span> <span className="text-gray-400 text-xs">conv.</span></span>
+                                    <span><span className="font-semibold text-emerald-700">{fmtCurrency(totals.revenue)}</span> <span className="text-gray-400 text-xs">revenue</span></span>
+                                    <span><span className="font-semibold text-gray-700">{fmtCurrency(totals.cost)}</span> <span className="text-gray-400 text-xs">cost</span></span>
+                                    <span><span className={`font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtCurrency(totals.profit)}</span> <span className="text-gray-400 text-xs">profit</span></span>
+                                </div>
+
+                                {/* Pagination bar */}
+                                <div className="border-t border-gray-100 px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <p className="text-xs text-gray-400">
+                                        Showing {((safePage - 1) * pageSize) + 1}–{Math.min(safePage * pageSize, sorted.length)} of {sorted.length} rows
+                                    </p>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 border-gray-200"
+                                            onClick={() => setPage(1)}
+                                            disabled={safePage === 1}
+                                        >
+                                            <ChevronLeft className="h-3.5 w-3.5" />
+                                            <ChevronLeft className="h-3.5 w-3.5 -ml-2.5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 border-gray-200"
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={safePage === 1}
+                                        >
+                                            <ChevronLeft className="h-3.5 w-3.5" />
+                                        </Button>
+
+                                        {/* Page numbers */}
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                            .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+                                            .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                                                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                                                acc.push(p);
+                                                return acc;
+                                            }, [])
+                                            .map((p, i) =>
+                                                p === '...' ? (
+                                                    <span key={`ellipsis-${i}`} className="px-1 text-gray-400 text-xs">…</span>
+                                                ) : (
+                                                    <Button
+                                                        key={p}
+                                                        variant={safePage === p ? 'default' : 'outline'}
+                                                        size="icon"
+                                                        className={`h-8 w-8 text-xs ${safePage === p
+                                                                ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white'
+                                                                : 'border-gray-200'
+                                                            }`}
+                                                        onClick={() => setPage(p as number)}
+                                                    >
+                                                        {p}
+                                                    </Button>
+                                                )
+                                            )
+                                        }
+
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 border-gray-200"
+                                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={safePage === totalPages}
+                                        >
+                                            <ChevronRight className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 border-gray-200"
+                                            onClick={() => setPage(totalPages)}
+                                            disabled={safePage === totalPages}
+                                        >
+                                            <ChevronRight className="h-3.5 w-3.5" />
+                                            <ChevronRight className="h-3.5 w-3.5 -ml-2.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>
