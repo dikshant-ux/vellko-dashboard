@@ -101,7 +101,8 @@ function fmtPct(n: number) {
 function getDefaultDates() {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - 29);   // last 30 days
+    start.setDate(start.getDate() - 30);
+    end.setDate(end.getDate() + 1);
     const pad = (n: number) => String(n).padStart(2, '0');
     const fmt = (d: Date) => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`;
     return { startDate: fmt(start), endDate: fmt(end) };
@@ -144,7 +145,42 @@ export default function CampaignReportPage() {
     const defaults = getDefaultDates();
     const [startDate, setStartDate] = useState(defaults.startDate);
     const [endDate, setEndDate] = useState(defaults.endDate);
+    const [dateRangePreset, setDateRangePreset] = useState('last_30_days');
     const [eventType, setEventType] = useState('macro_event_conversions');
+
+    const handlePresetChange = (preset: string) => {
+        setDateRangePreset(preset);
+        if (preset === 'custom') return;
+
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const fmtDate = (d: Date) => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`;
+
+        if (preset === 'today') {
+            end.setDate(end.getDate() + 1);
+        } else if (preset === 'yesterday') {
+            start.setDate(start.getDate() - 1);
+            // end remains today's start
+        } else if (preset === 'last_7_days') {
+            start.setDate(start.getDate() - 7);
+            end.setDate(end.getDate() + 1);
+        } else if (preset === 'last_30_days') {
+            start.setDate(start.getDate() - 30);
+            end.setDate(end.getDate() + 1);
+        } else if (preset === 'this_month') {
+            start.setDate(1);
+            end.setDate(end.getDate() + 1);
+        } else if (preset === 'last_month') {
+            start.setMonth(start.getMonth() - 1);
+            start.setDate(1);
+            end.setDate(1); // First day of this month
+        }
+
+        setStartDate(fmtDate(start));
+        setEndDate(fmtDate(end));
+    };
 
     const [rows, setRows] = useState<CampaignRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -152,7 +188,35 @@ export default function CampaignReportPage() {
     const [hasFetched, setHasFetched] = useState(false);
 
     const [search, setSearch] = useState('');
+    const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
+    const [affiliateManagerFilter, setAffiliateManagerFilter] = useState('all');
+    const [advertiserManagerFilter, setAdvertiserManagerFilter] = useState('all');
     const [sort, setSort] = useState<SortState>({ key: null, dir: null });
+
+    // Extract unique values from current rows
+    const mediaTypes = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach(r => {
+            if (r.media_type) set.add(r.media_type);
+        });
+        return Array.from(set).sort();
+    }, [rows]);
+
+    const affiliateManagers = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach(r => {
+            if (r.affiliate_manager) set.add(r.affiliate_manager);
+        });
+        return Array.from(set).sort();
+    }, [rows]);
+
+    const advertiserManagers = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach(r => {
+            if (r.advertiser_manager) set.add(r.advertiser_manager);
+        });
+        return Array.from(set).sort();
+    }, [rows]);
 
     // ── Pagination state ──────────────────────────────────────────────────────
     const [page, setPage] = useState(1);
@@ -210,16 +274,24 @@ export default function CampaignReportPage() {
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        return rows.filter(r =>
-            !q ||
-            (r.campaign_name || '').toLowerCase().includes(q) ||
-            (r.affiliate_name || '').toLowerCase().includes(q) ||
-            (r.affiliate_manager || '').toLowerCase().includes(q) ||
-            (r.offer_name || '').toLowerCase().includes(q) ||
-            (r.advertiser_name || '').toLowerCase().includes(q) ||
-            (r.advertiser_manager || '').toLowerCase().includes(q)
-        );
-    }, [rows, search]);
+        return rows.filter(r => {
+            // Search filter
+            const matchesSearch = !q ||
+                (r.campaign_name || '').toLowerCase().includes(q) ||
+                (r.affiliate_manager || '').toLowerCase().includes(q) ||
+                (r.offer_name || '').toLowerCase().includes(q) ||
+                (r.advertiser_manager || '').toLowerCase().includes(q);
+
+            // Media type filter
+            const matchesMediaType = mediaTypeFilter === 'all' || r.media_type === mediaTypeFilter;
+
+            // Manager filters
+            const matchesAffManager = affiliateManagerFilter === 'all' || r.affiliate_manager === affiliateManagerFilter;
+            const matchesAdvManager = advertiserManagerFilter === 'all' || r.advertiser_manager === advertiserManagerFilter;
+
+            return matchesSearch && matchesMediaType && matchesAffManager && matchesAdvManager;
+        });
+    }, [rows, search, mediaTypeFilter, affiliateManagerFilter, advertiserManagerFilter]);
 
     const sorted = useMemo(() => {
         if (!sort.key || !sort.dir) return filtered;
@@ -282,7 +354,7 @@ export default function CampaignReportPage() {
 
     function exportCSV() {
         const headers = [
-            'Campaign', 'Affiliate', 'Offer', 'Advertiser',
+            'Campaign', 'Offer',
             'Price Format', 'Media Type',
             'Views', 'Clicks', 'CTR%',
             'Conversions', 'CVR%', 'Paid', 'Pending', 'Rejected', 'Approved',
@@ -292,7 +364,7 @@ export default function CampaignReportPage() {
         const csvRows = [
             headers.join(','),
             ...sorted.map(r => [
-                r.campaign_name, r.affiliate_name, r.offer_name, r.advertiser_name,
+                r.campaign_name, r.offer_name,
                 r.price_format, r.media_type,
                 r.views, r.clicks, fmt(r.click_thru_pct),
                 fmt(r.conversions), fmt(r.conversion_pct), fmt(r.paid), fmt(r.pending), fmt(r.rejected), fmt(r.approved),
@@ -343,14 +415,36 @@ export default function CampaignReportPage() {
                 </CardHeader>
                 <CardContent className="px-5 py-4">
                     <div className="flex flex-wrap gap-3 items-end">
+                        {/* Date Range Preset */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date Range</label>
+                            <Select value={dateRangePreset} onValueChange={handlePresetChange}>
+                                <SelectTrigger className="h-10 w-44 bg-gray-50 border-gray-200 text-sm">
+                                    <SelectValue placeholder="Select range" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="today">Today</SelectItem>
+                                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                                    <SelectItem value="last_7_days">Last 7 Days</SelectItem>
+                                    <SelectItem value="last_30_days">Last 30 Days</SelectItem>
+                                    <SelectItem value="this_month">This Month</SelectItem>
+                                    <SelectItem value="last_month">Last Month</SelectItem>
+                                    <SelectItem value="custom">Custom</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         {/* Start date */}
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Start Date</label>
                             <input
                                 type="date"
-                                className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+                                className={`h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/30 ${dateRangePreset !== 'custom' ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 value={toInputDate(startDate)}
-                                onChange={e => setStartDate(fromInputDate(e.target.value))}
+                                onChange={e => {
+                                    setStartDate(fromInputDate(e.target.value));
+                                }}
+                                disabled={dateRangePreset !== 'custom'}
                             />
                         </div>
 
@@ -359,9 +453,12 @@ export default function CampaignReportPage() {
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">End Date</label>
                             <input
                                 type="date"
-                                className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+                                className={`h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/30 ${dateRangePreset !== 'custom' ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 value={toInputDate(endDate)}
-                                onChange={e => setEndDate(fromInputDate(e.target.value))}
+                                onChange={e => {
+                                    setEndDate(fromInputDate(e.target.value));
+                                }}
+                                disabled={dateRangePreset !== 'custom'}
                             />
                         </div>
 
@@ -392,6 +489,56 @@ export default function CampaignReportPage() {
                                 <><RefreshCw className="h-4 w-4 mr-2" /> Run Report</>
                             )}
                         </Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 items-end pt-4 mt-4 border-t border-gray-100">
+                        {/* Media Type Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Media Type</label>
+                            <Select value={mediaTypeFilter} onValueChange={setMediaTypeFilter}>
+                                <SelectTrigger className="h-10 w-44 bg-gray-50 border-gray-200 text-sm">
+                                    <SelectValue placeholder="All types" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Media</SelectItem>
+                                    {mediaTypes.map(mt => (
+                                        <SelectItem key={mt} value={mt}>{mt}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Aff Manager Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Aff. Manager</label>
+                            <Select value={affiliateManagerFilter} onValueChange={setAffiliateManagerFilter}>
+                                <SelectTrigger className="h-10 w-44 bg-gray-50 border-gray-200 text-sm">
+                                    <SelectValue placeholder="All managers" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Managers</SelectItem>
+                                    {affiliateManagers.map(am => (
+                                        <SelectItem key={am} value={am}>{am}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Adv Manager Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Adv. Manager</label>
+                            <Select value={advertiserManagerFilter} onValueChange={setAdvertiserManagerFilter}>
+                                <SelectTrigger className="h-10 w-44 bg-gray-50 border-gray-200 text-sm">
+                                    <SelectValue placeholder="All managers" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Managers</SelectItem>
+                                    {advertiserManagers.map(am => (
+                                        <SelectItem key={am} value={am}>{am}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -428,7 +575,7 @@ export default function CampaignReportPage() {
                                     {!isLoading && <span className="ml-2 text-xs font-normal text-gray-400">({sorted.length} rows)</span>}
                                 </CardTitle>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-3">
                                 {/* Rows per page */}
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-xs text-gray-400 whitespace-nowrap">Rows per page</span>
@@ -446,7 +593,7 @@ export default function CampaignReportPage() {
                                 <div className="relative w-full sm:w-64">
                                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search campaign, affiliate, offer…"
+                                        placeholder="Search campaign, offer…"
                                         className="pl-10 h-10 bg-muted/30 border-transparent focus:bg-white focus:border-primary/50 transition-all rounded-lg text-sm"
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
@@ -470,10 +617,8 @@ export default function CampaignReportPage() {
                                 <TableHeader className="bg-gray-50/50">
                                     <TableRow>
                                         <SortableHead col="campaign_name">Campaign</SortableHead>
-                                        <SortableHead col="affiliate_name">Affiliate</SortableHead>
                                         <SortableHead col="affiliate_manager">Aff. Manager</SortableHead>
                                         <SortableHead col="offer_name">Offer</SortableHead>
-                                        <SortableHead col="advertiser_name">Advertiser</SortableHead>
                                         <SortableHead col="advertiser_manager">Adv. Manager</SortableHead>
                                         <TableHead className="font-semibold text-gray-600 whitespace-nowrap">Price / Media</TableHead>
                                         <SortableHead col="views">Views</SortableHead>
@@ -515,16 +660,10 @@ export default function CampaignReportPage() {
                                                     {r.campaign_id && <div className="text-[10px] text-gray-400">ID: {r.campaign_id}</div>}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="text-sm font-medium text-gray-700">{r.affiliate_name || '—'}</div>
-                                                </TableCell>
-                                                <TableCell>
                                                     <div className="text-sm text-gray-600">{r.affiliate_manager || '—'}</div>
                                                 </TableCell>
                                                 <TableCell className="max-w-[160px]">
                                                     <div className="text-sm text-gray-700 truncate" title={r.offer_name}>{r.offer_name || '—'}</div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="text-sm text-gray-700">{r.advertiser_name || '—'}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="text-sm text-gray-600">{r.advertiser_manager || '—'}</div>
@@ -651,7 +790,8 @@ export default function CampaignReportPage() {
                         )}
                     </CardContent>
                 </Card>
-            )}
+            )
+            }
         </div>
     );
 }
