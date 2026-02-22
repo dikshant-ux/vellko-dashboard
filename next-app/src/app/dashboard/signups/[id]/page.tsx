@@ -1347,28 +1347,28 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm px-4 sm:px-6 pb-4">
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Name:</span>
                             {isEditing ? (
                                 <Input
-                                    className="col-span-2 h-8"
+                                    className="h-8"
                                     value={editForm.companyInfo?.companyName}
                                     onChange={(e) => handleEditChange('companyInfo', 'companyName', e.target.value)}
                                 />
                             ) : (
-                                <span className="col-span-2">{signup.companyInfo?.companyName}</span>
+                                <span className="">{signup.companyInfo?.companyName}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Website:</span>
                             {isEditing ? (
                                 <Input
-                                    className="col-span-2 h-8"
+                                    className="h-8"
                                     value={editForm.companyInfo?.corporateWebsite}
                                     onChange={(e) => handleEditChange('companyInfo', 'corporateWebsite', e.target.value)}
                                 />
                             ) : (
-                                <span className="col-span-2 text-blue-600 underline">
+                                <span className="text-blue-600 underline">
                                     {signup.companyInfo?.corporateWebsite ? (() => {
                                         // SECURITY FIX: Only render real http/https URLs as clickable links.
                                         // Prevents Stored XSS from javascript: or data: URLs in pre-existing DB records.
@@ -1381,10 +1381,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-start">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground pt-2">Address:</span>
                             {isEditing ? (
-                                <div className="col-span-2 space-y-2">
+                                <div className="space-y-2">
                                     <Input
                                         placeholder="Address 1"
                                         className="h-8"
@@ -1433,7 +1433,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     </div>
                                 </div>
                             ) : (
-                                <span className="col-span-2">
+                                <span className="">
                                     {signup.companyInfo?.address}
                                     {signup.companyInfo?.address2 && <>, {signup.companyInfo.address2}</>}
                                     <br />
@@ -1443,9 +1443,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Referral:</span>
-                            <div className="col-span-2 flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                 {isEditingReferral ? (
                                     <div className="flex items-center gap-2 w-full">
                                         <select
@@ -1492,10 +1492,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm px-4 sm:px-6 pb-4">
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Contact:</span>
                             {isEditing ? (
-                                <div className="col-span-2 grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-2">
                                     <Input
                                         placeholder="First Name"
                                         className="h-8"
@@ -1510,37 +1510,37 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     />
                                 </div>
                             ) : (
-                                <span className="col-span-2 font-medium">{signup.accountInfo?.firstName} {signup.accountInfo?.lastName}</span>
+                                <span className="font-medium">{signup.accountInfo?.firstName} {signup.accountInfo?.lastName}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Title:</span>
                             {isEditing ? (
                                 <Input
-                                    className="col-span-2 h-8"
+                                    className="h-8"
                                     value={editForm.accountInfo?.title}
                                     onChange={(e) => handleEditChange('accountInfo', 'title', e.target.value)}
                                 />
                             ) : (
-                                <span className="col-span-2">{signup.accountInfo?.title || '-'}</span>
+                                <span className="">{signup.accountInfo?.title || '-'}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Email:</span>
                             {isEditing ? (
                                 <Input
-                                    className="col-span-2 h-8"
+                                    className="h-8"
                                     value={editForm.accountInfo?.email}
                                     onChange={(e) => handleEditChange('accountInfo', 'email', e.target.value)}
                                 />
                             ) : (
-                                <span className="col-span-2">{signup.accountInfo?.email}</span>
+                                <span className="">{signup.accountInfo?.email}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Phone:</span>
                             {isEditing ? (
-                                <div className="col-span-2 space-y-2">
+                                <div className="space-y-2">
                                     <Input
                                         placeholder="Work Phone"
                                         className="h-8"
@@ -1555,13 +1555,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     />
                                 </div>
                             ) : (
-                                <span className="col-span-2">{signup.accountInfo?.workPhone}</span>
+                                <span className="">{signup.accountInfo?.workPhone}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">IM:</span>
                             {isEditing ? (
-                                <div className="col-span-2 space-y-2">
+                                <div className="space-y-2">
                                     <div className="text-xs text-muted-foreground mb-1">Editing multiple IMs not yet supported in admin. Modifying primary only.</div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <select
@@ -1583,7 +1583,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     </div>
                                 </div>
                             ) : (
-                                <div className="col-span-2">
+                                <div className="">
                                     {signup.accountInfo?.additionalImChannels && Object.keys(signup.accountInfo.additionalImChannels).length > 0 ? (
                                         <div className="space-y-1">
                                             {Object.entries(signup.accountInfo.additionalImChannels).map(([service, handle]: any) => (
@@ -1610,11 +1610,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Timezone:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.accountInfo?.timezone}
                                     onChange={(e) => handleEditChange('accountInfo', 'timezone', e.target.value)}
                                 >
@@ -1623,7 +1623,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{TIMEZONES[signup.accountInfo?.timezone] || signup.accountInfo?.timezone}</span>
+                                <span className="">{TIMEZONES[signup.accountInfo?.timezone] || signup.accountInfo?.timezone}</span>
                             )}
                         </div>
                     </CardContent>
@@ -1638,11 +1638,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm px-4 sm:px-6 pb-4">
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Application Type:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.marketingInfo?.applicationType}
                                     onChange={(e) => handleEditChange('marketingInfo', 'applicationType', e.target.value)}
                                 >
@@ -1651,14 +1651,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{APPLICATION_TYPES[signup.marketingInfo?.applicationType] || signup.marketingInfo?.applicationType || '-'}</span>
+                                <span className="">{APPLICATION_TYPES[signup.marketingInfo?.applicationType] || signup.marketingInfo?.applicationType || '-'}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Payment Model:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.marketingInfo?.paymentModel}
                                     onChange={(e) => handleEditChange('marketingInfo', 'paymentModel', e.target.value)}
                                 >
@@ -1667,15 +1667,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{PAYMENT_MODELS[signup.marketingInfo?.paymentModel] || signup.marketingInfo?.paymentModel}</span>
+                                <span className="">{PAYMENT_MODELS[signup.marketingInfo?.paymentModel] || signup.marketingInfo?.paymentModel}</span>
                             )}
                         </div>
 
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Primary:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.marketingInfo?.primaryCategory}
                                     onChange={(e) => handleEditChange('marketingInfo', 'primaryCategory', e.target.value)}
                                 >
@@ -1684,14 +1684,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{CATEGORIES[signup.marketingInfo?.primaryCategory] || signup.marketingInfo?.primaryCategory}</span>
+                                <span className="">{CATEGORIES[signup.marketingInfo?.primaryCategory] || signup.marketingInfo?.primaryCategory}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Secondary:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.marketingInfo?.secondaryCategory}
                                     onChange={(e) => handleEditChange('marketingInfo', 'secondaryCategory', e.target.value)}
                                 >
@@ -1701,19 +1701,19 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{CATEGORIES[signup.marketingInfo?.secondaryCategory] || signup.marketingInfo?.secondaryCategory || 'None'}</span>
+                                <span className="">{CATEGORIES[signup.marketingInfo?.secondaryCategory] || signup.marketingInfo?.secondaryCategory || 'None'}</span>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-1 items-start">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground pt-1">Comments:</span>
                             {isEditing ? (
                                 <textarea
-                                    className="col-span-2 flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                     value={editForm.marketingInfo?.comments}
                                     onChange={(e) => handleEditChange('marketingInfo', 'comments', e.target.value)}
                                 />
                             ) : (
-                                <span className="col-span-2 italic text-muted-foreground">"{signup.marketingInfo?.comments || 'No comments'}"</span>
+                                <span className="italic text-muted-foreground">"{signup.marketingInfo?.comments || 'No comments'}"</span>
                             )}
                         </div>
                     </CardContent>
@@ -1728,11 +1728,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm px-4 sm:px-6 pb-4">
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Pay To:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.paymentInfo?.payTo}
                                     onChange={(e) => handleEditChange('paymentInfo', 'payTo', e.target.value)}
                                 >
@@ -1741,14 +1741,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{PAYMENT_TO[signup.paymentInfo?.payTo] || signup.paymentInfo?.payTo}</span>
+                                <span className="">{PAYMENT_TO[signup.paymentInfo?.payTo] || signup.paymentInfo?.payTo}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Currency:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.paymentInfo?.currency}
                                     onChange={(e) => handleEditChange('paymentInfo', 'currency', e.target.value)}
                                 >
@@ -1757,14 +1757,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{CURRENCIES[signup.paymentInfo?.currency] || signup.paymentInfo?.currency}</span>
+                                <span className="">{CURRENCIES[signup.paymentInfo?.currency] || signup.paymentInfo?.currency}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Tax Class:</span>
                             {isEditing ? (
                                 <select
-                                    className="col-span-2 flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                     value={editForm.paymentInfo?.taxClass}
                                     onChange={(e) => handleEditChange('paymentInfo', 'taxClass', e.target.value)}
                                 >
@@ -1773,19 +1773,19 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     ))}
                                 </select>
                             ) : (
-                                <span className="col-span-2">{TAX_CLASSES[signup.paymentInfo?.taxClass] || signup.paymentInfo?.taxClass}</span>
+                                <span className="">{TAX_CLASSES[signup.paymentInfo?.taxClass] || signup.paymentInfo?.taxClass}</span>
                             )}
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">SSN/Tax ID:</span>
                             {isEditing ? (
                                 <Input
-                                    className="col-span-2 h-8"
+                                    className="h-8"
                                     value={editForm.paymentInfo?.ssnTaxId}
                                     onChange={(e) => handleEditChange('paymentInfo', 'ssnTaxId', e.target.value)}
                                 />
                             ) : (
-                                <span className="col-span-2">{signup.paymentInfo?.ssnTaxId}</span>
+                                <span className="">{signup.paymentInfo?.ssnTaxId}</span>
                             )}
                         </div>
                     </CardContent>
@@ -1800,9 +1800,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm px-4 sm:px-6 pb-4">
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">IP Address:</span>
-                            <div className="col-span-2 flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                 <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">{signup.ipAddress || 'Not Recorded'}</span>
                                 {signup.ipAddress && signup.ipAddress !== "0.0.0.0" && (
                                     <>
@@ -1827,15 +1827,15 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Submission Date:</span>
-                            <span className="col-span-2">{signup.created_at ? new Date(signup.created_at).toLocaleString() : 'Unknown'}</span>
+                            <span className="">{signup.created_at ? new Date(signup.created_at).toLocaleString() : 'Unknown'}</span>
                         </div>
-                    </CardContent >
-                </Card >
+                    </CardContent>
+                </Card>
 
                 {/* Documents */}
-                < Card className="md:col-span-2" >
+                <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Documents</CardTitle>
                     </CardHeader>
@@ -1910,10 +1910,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             </div>
                         </div>
                     </CardContent>
-                </Card >
+                </Card>
 
                 {/* Notes Section */}
-                < Card className="md:col-span-2" >
+                <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Internal Notes</CardTitle>
                     </CardHeader>
@@ -1998,8 +1998,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             </Button>
                         </div>
                     </CardContent>
-                </Card >
-            </div >
+                </Card>
+            </div>
 
             {
                 signup.processed_by && (
@@ -2081,14 +2081,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     <CardTitle className="text-sm font-semibold">CAKE Integration</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-1 text-sm">
+                                    <div className="grid grid-cols-[120px_1fr] gap-1 text-sm">
                                         <span className="font-medium text-blue-900">Affiliate ID:</span>
-                                        <span className="col-span-2 font-mono text-blue-800">{signup.cake_affiliate_id}</span>
+                                        <span className="font-mono text-blue-800">{signup.cake_affiliate_id}</span>
                                     </div>
                                     {signup.cake_message && (
-                                        <div className="grid grid-cols-3 gap-1 text-sm">
+                                        <div className="grid grid-cols-[120px_1fr] gap-1 text-sm">
                                             <span className="font-medium text-blue-900">Message:</span>
-                                            <span className="col-span-2 text-blue-800">{signup.cake_message}</span>
+                                            <span className="text-blue-800">{signup.cake_message}</span>
                                         </div>
                                     )}
                                 </CardContent>
@@ -2101,14 +2101,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     <CardTitle className="text-sm font-semibold">Ringba Integration</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-1 text-sm">
+                                    <div className="grid grid-cols-[120px_1fr] gap-1 text-sm">
                                         <span className="font-medium text-purple-900">Affiliate ID:</span>
-                                        <span className="col-span-2 font-mono text-purple-800">{signup.ringba_affiliate_id}</span>
+                                        <span className="font-mono text-purple-800">{signup.ringba_affiliate_id}</span>
                                     </div>
                                     {signup.ringba_message && (
-                                        <div className="grid grid-cols-3 gap-1 text-sm">
+                                        <div className="grid grid-cols-[120px_1fr] gap-1 text-sm">
                                             <span className="font-medium text-purple-900">Message:</span>
-                                            <span className="col-span-2 text-purple-800">{signup.ringba_message}</span>
+                                            <span className="text-purple-800">{signup.ringba_message}</span>
                                         </div>
                                     )}
                                 </CardContent>
@@ -2154,6 +2154,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 }

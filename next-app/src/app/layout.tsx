@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://192.119.169.211"
+    process.env.NEXT_PUBLIC_APP_URL || ""
   ),
 
   title: {

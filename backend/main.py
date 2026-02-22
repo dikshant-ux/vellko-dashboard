@@ -37,6 +37,9 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 from routers import qa_forms
 app.include_router(qa_forms.router)
 
+from routers import reports as reports_router
+app.include_router(reports_router.router)
+
 @app.get("/")
 async def root():
     return {"message": "Vellko Affiliate API is running (UPDATED)"}

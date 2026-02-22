@@ -299,10 +299,12 @@ async def get_signups(
                 query["status"] = {"$ne": SignupStatus.REJECTED}
             elif status == SignupStatus.APPROVED:
                 query["cake_api_status"] = "APPROVED"
+                query["status"] = {"$ne": SignupStatus.REJECTED}
             elif status == SignupStatus.REJECTED:
                 query["$or"] = [{"cake_api_status": "REJECTED"}, {"status": SignupStatus.REJECTED}]
             elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
                 query["requested_cake_approval"] = True
+                query["status"] = {"$ne": SignupStatus.REJECTED}
             else:
                 query["status"] = status
         elif application_type == "Call Traffic":
@@ -311,10 +313,12 @@ async def get_signups(
                 query["status"] = {"$ne": SignupStatus.REJECTED}
             elif status == SignupStatus.APPROVED:
                 query["ringba_api_status"] = "APPROVED"
+                query["status"] = {"$ne": SignupStatus.REJECTED}
             elif status == SignupStatus.REJECTED:
                 query["$or"] = [{"ringba_api_status": "REJECTED"}, {"status": SignupStatus.REJECTED}]
             elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
                 query["requested_ringba_approval"] = True
+                query["status"] = {"$ne": SignupStatus.REJECTED}
             else:
                 query["status"] = status
         else:
@@ -793,19 +797,40 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     # --- Robust Global Status Derivation ---
     c_status = update_fields.get("cake_api_status", signup_data.get("cake_api_status"))
     r_status = update_fields.get("ringba_api_status", signup_data.get("ringba_api_status"))
-    
+
     app_type = signup_data.get("marketingInfo", {}).get("applicationType")
-    
-    new_status = SignupStatus.PENDING
-    if c_status == "APPROVED" or r_status == "APPROVED":
-        new_status = SignupStatus.APPROVED
-    elif app_type == "Both":
+
+    if app_type == "Both":
+        # Both rejected → fully rejected
         if c_status == "REJECTED" and r_status == "REJECTED":
             new_status = SignupStatus.REJECTED
-    elif app_type == "Web Traffic" and c_status == "REJECTED":
-        new_status = SignupStatus.REJECTED
-    elif app_type == "Call Traffic" and r_status == "REJECTED":
-        new_status = SignupStatus.REJECTED
+        # Both approved → fully approved
+        elif c_status == "APPROVED" and r_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        # One approved, other anything else → partially approved (use APPROVED to unblock)
+        elif c_status == "APPROVED" or r_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        # Both failed / pending
+        elif c_status == "FAILED" and r_status == "FAILED":
+            new_status = SignupStatus.PENDING
+        else:
+            new_status = SignupStatus.PENDING
+    elif app_type == "Web Traffic":
+        if c_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        elif c_status == "REJECTED":
+            new_status = SignupStatus.REJECTED
+        else:
+            new_status = SignupStatus.PENDING
+    elif app_type == "Call Traffic":
+        if r_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        elif r_status == "REJECTED":
+            new_status = SignupStatus.REJECTED
+        else:
+            new_status = SignupStatus.PENDING
+    else:
+        new_status = SignupStatus.PENDING
 
     # Determine overall process success for the HTTP response
     overall_success = True
@@ -948,18 +973,36 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
     # --- Robust Global Status Derivation ---
     c_status = update_fields.get("cake_api_status", cake_status)
     r_status = update_fields.get("ringba_api_status", ringba_status)
-    
-    new_status = SignupStatus.PENDING
-    if c_status == "APPROVED" or r_status == "APPROVED":
-        new_status = SignupStatus.APPROVED
-    elif app_type == "Both":
+
+    if app_type == "Both":
+        # Both rejected → fully rejected
         if c_status == "REJECTED" and r_status == "REJECTED":
             new_status = SignupStatus.REJECTED
-    elif app_type == "Web Traffic" and c_status == "REJECTED":
-        new_status = SignupStatus.REJECTED
-    elif app_type == "Call Traffic" and r_status == "REJECTED":
-        new_status = SignupStatus.REJECTED
-        
+        # Both approved → fully approved
+        elif c_status == "APPROVED" and r_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        # One approved, other rejected → keep APPROVED (partial approval already done)
+        elif c_status == "APPROVED" or r_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        else:
+            new_status = SignupStatus.PENDING
+    elif app_type == "Web Traffic":
+        if c_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        elif c_status == "REJECTED":
+            new_status = SignupStatus.REJECTED
+        else:
+            new_status = SignupStatus.PENDING
+    elif app_type == "Call Traffic":
+        if r_status == "APPROVED":
+            new_status = SignupStatus.APPROVED
+        elif r_status == "REJECTED":
+            new_status = SignupStatus.REJECTED
+        else:
+            new_status = SignupStatus.PENDING
+    else:
+        new_status = SignupStatus.PENDING
+
     update_fields["status"] = new_status
 
     await db.signups.update_one(

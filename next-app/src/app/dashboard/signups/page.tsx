@@ -133,20 +133,20 @@ function SignupsContent() {
 
             // If a specific traffic filter is active, show status for that integration
             if (filterAppType === 'Web Traffic') {
+                if (s.status === 'REJECTED') return 'REJECTED';
                 if (s.cake_api_status === 'APPROVED') return 'APPROVED';
                 if (s.cake_api_status === 'REJECTED') return 'REJECTED';
                 if (s.cake_api_status === 'FAILED') return 'FAILED (PENDING)';
                 if (s.requested_cake_approval === true) return 'REQUESTED_FOR_APPROVAL';
-                if (s.status === 'REJECTED') return 'REJECTED';
                 return 'PENDING';
             }
 
             if (filterAppType === 'Call Traffic') {
+                if (s.status === 'REJECTED') return 'REJECTED';
                 if (s.ringba_api_status === 'APPROVED') return 'APPROVED';
                 if (s.ringba_api_status === 'REJECTED') return 'REJECTED';
                 if (s.ringba_api_status === 'FAILED') return 'FAILED (PENDING)';
                 if (s.requested_ringba_approval === true) return 'REQUESTED_FOR_APPROVAL';
-                if (s.status === 'REJECTED') return 'REJECTED';
                 return 'PENDING';
             }
 
@@ -186,6 +186,7 @@ function SignupsContent() {
 
 
             if (userPermission === 'Web Traffic') {
+                if (s.status === 'REJECTED') return 'REJECTED';
                 if (s.cake_api_status === 'APPROVED') return 'APPROVED';
                 if (s.cake_api_status === 'REJECTED') return 'REJECTED';
                 if (s.cake_api_status === 'FAILED') return 'FAILED (PENDING)';
@@ -194,6 +195,7 @@ function SignupsContent() {
             }
 
             if (userPermission === 'Call Traffic') {
+                if (s.status === 'REJECTED') return 'REJECTED';
                 if (s.ringba_api_status === 'APPROVED') return 'APPROVED';
                 if (s.ringba_api_status === 'REJECTED') return 'REJECTED';
                 if (s.ringba_api_status === 'FAILED') return 'FAILED (PENDING)';
