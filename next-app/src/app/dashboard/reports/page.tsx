@@ -160,14 +160,6 @@ export default function CampaignReportPage() {
         }
     }, [session, status, router]);
 
-    // Don't render anything if unauthorized or still loading session
-    if (status === 'loading' || (status === 'authenticated' && session?.user?.application_permission === 'Call Traffic')) {
-        return (
-            <div className="flex h-[400px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-red-600" />
-            </div>
-        );
-    }
 
     const defaults = getDefaultDates();
     const [startDate, setStartDate] = useState(defaults.startDate);
@@ -241,6 +233,12 @@ export default function CampaignReportPage() {
         profit: 90,
         margin: 90,
         epc: 80,
+        paid: 80,
+        pending: 80,
+        rejected: 80,
+        approved: 80,
+        average_cost: 100,
+        revenue_per_transaction: 100,
     });
 
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
@@ -261,6 +259,12 @@ export default function CampaignReportPage() {
         profit: true,
         margin: true,
         epc: true,
+        paid: false,
+        pending: false,
+        rejected: false,
+        approved: false,
+        average_cost: false,
+        revenue_per_transaction: false,
     });
 
     const [tempVisibleColumns, setTempVisibleColumns] = useState(visibleColumns);
@@ -527,36 +531,66 @@ export default function CampaignReportPage() {
     useEffect(() => { setPage(1); }, [sorted.length, search, sort.key, sort.dir]);
 
     // ── CSV Export ────────────────────────────────────────────────────────────
-
     function exportCSV() {
-        const headers = [
-            'Campaign', 'Offer',
-            'Price Format', 'Media Type',
-            'Views', 'Clicks', 'CTR%',
-            'Conversions', 'CVR%', 'Paid', 'Pending', 'Rejected', 'Approved',
-            'Cost', 'Avg Cost', 'EPC', 'Revenue', 'Rev/Txn', 'Margin', 'Profit',
+        // Configuration for all possible columns
+        const allCsvColumns = [
+            { id: 'campaign_name', label: 'Campaign', getValue: (r: CampaignRow) => r.campaign_name },
+            { id: 'affiliate_id', label: 'Aff. ID', getValue: (r: CampaignRow) => r.affiliate_id },
+            { id: 'affiliate_manager', label: 'Aff. Manager', getValue: (r: CampaignRow) => r.affiliate_manager },
+            { id: 'offer_name', label: 'Offer', getValue: (r: CampaignRow) => r.offer_name },
+            { id: 'advertiser_id', label: 'Adv. ID', getValue: (r: CampaignRow) => r.advertiser_id },
+            { id: 'advertiser_manager', label: 'Adv. Manager', getValue: (r: CampaignRow) => r.advertiser_manager },
+            { id: 'price_media', label: 'Price Format', getValue: (r: CampaignRow) => r.price_format },
+            { id: 'media_type', label: 'Media Type', getValue: (r: CampaignRow) => r.media_type },
+            { id: 'views', label: 'Views', getValue: (r: CampaignRow) => r.views },
+            { id: 'clicks', label: 'Clicks', getValue: (r: CampaignRow) => r.clicks },
+            { id: 'click_thru_pct', label: 'CTR%', getValue: (r: CampaignRow) => fmtPct(r.click_thru_pct) },
+            { id: 'conversions', label: 'Conversions', getValue: (r: CampaignRow) => r.conversions },
+            { id: 'conversion_pct', label: 'CVR%', getValue: (r: CampaignRow) => fmtPct(r.conversion_pct) },
+            { id: 'paid', label: 'Paid', getValue: (r: CampaignRow) => r.paid },
+            { id: 'pending', label: 'Pending', getValue: (r: CampaignRow) => r.pending },
+            { id: 'rejected', label: 'Rejected', getValue: (r: CampaignRow) => r.rejected },
+            { id: 'approved', label: 'Approved', getValue: (r: CampaignRow) => r.approved },
+            { id: 'cost', label: 'Cost', getValue: (r: CampaignRow) => fmtCurrency(r.cost) },
+            { id: 'average_cost', label: 'Avg Cost', getValue: (r: CampaignRow) => fmtCurrency(r.average_cost) },
+            { id: 'epc', label: 'EPC', getValue: (r: CampaignRow) => fmtCurrency(r.epc) },
+            { id: 'revenue', label: 'Revenue', getValue: (r: CampaignRow) => fmtCurrency(r.revenue) },
+            { id: 'revenue_per_transaction', label: 'Rev/Txn', getValue: (r: CampaignRow) => fmtCurrency(r.revenue_per_transaction) },
+            { id: 'margin', label: 'Margin', getValue: (r: CampaignRow) => fmtCurrency(r.margin) },
+            { id: 'profit', label: 'Profit', getValue: (r: CampaignRow) => fmtCurrency(r.profit) },
         ];
+
+        // Filter based on currently visible columns in UI
+        const activeColumns = allCsvColumns.filter(col => visibleColumns[col.id]);
+
+        const headers = activeColumns.map(col => col.label);
         const escapeCSV = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
         const csvRows = [
             headers.join(','),
-            ...sorted.map(r => [
-                r.campaign_name, r.offer_name,
-                r.price_format, r.media_type,
-                r.views, r.clicks, fmt(r.click_thru_pct),
-                fmt(r.conversions), fmt(r.conversion_pct), fmt(r.paid), fmt(r.pending), fmt(r.rejected), fmt(r.approved),
-                fmt(r.cost), fmt(r.average_cost), fmt(r.epc), fmt(r.revenue), fmt(r.revenue_per_transaction), fmt(r.margin), fmt(r.profit),
-            ].map(escapeCSV).join(','))
+            ...sorted.map(r =>
+                activeColumns.map(col => col.getValue(r)).map(escapeCSV).join(',')
+            )
         ].join('\n');
+
         const blob = new Blob([csvRows], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `campaign-report-${startDate.replace(/\//g, '-')}-to-${endDate.replace(/\//g, '-')}.csv`;
         a.click();
-        URL.revokeObjectURL(url);
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
+
+    // Don't render anything if unauthorized or still loading session
+    if (status === 'loading' || (status === 'authenticated' && session?.user?.application_permission === 'Call Traffic')) {
+        return (
+            <div className="flex h-[400px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -835,6 +869,12 @@ export default function CampaignReportPage() {
                                                     { id: 'profit', label: 'Profit' },
                                                     { id: 'margin', label: 'Margin' },
                                                     { id: 'epc', label: 'EPC' },
+                                                    { id: 'paid', label: 'Paid' },
+                                                    { id: 'pending', label: 'Pending' },
+                                                    { id: 'rejected', label: 'Rejected' },
+                                                    { id: 'approved', label: 'Approved' },
+                                                    { id: 'average_cost', label: 'Avg Cost' },
+                                                    { id: 'revenue_per_transaction', label: 'Rev/Txn' },
                                                 ].map((col) => (
                                                     <div
                                                         key={col.id}
@@ -910,12 +950,18 @@ export default function CampaignReportPage() {
                                         <SortableHead col="profit">Profit</SortableHead>
                                         <SortableHead col="margin">Margin</SortableHead>
                                         <SortableHead col="epc">EPC</SortableHead>
+                                        <SortableHead col="paid">Paid</SortableHead>
+                                        <SortableHead col="pending">Pending</SortableHead>
+                                        <SortableHead col="rejected">Rejected</SortableHead>
+                                        <SortableHead col="approved">Approved</SortableHead>
+                                        <SortableHead col="average_cost">Avg Cost</SortableHead>
+                                        <SortableHead col="revenue_per_transaction">Rev/Txn</SortableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={15} className="h-64 text-center">
+                                            <TableCell colSpan={23} className="h-64 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
                                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                                     <p className="font-medium">Fetching from Cake…</p>
@@ -924,7 +970,7 @@ export default function CampaignReportPage() {
                                         </TableRow>
                                     ) : sorted.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={15} className="h-48 text-center">
+                                            <TableCell colSpan={23} className="py-20 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                                                     <BarChart2 className="h-10 w-10 text-gray-200" />
                                                     <p className="font-medium text-sm">No data for the selected period & filters.</p>
@@ -1010,6 +1056,24 @@ export default function CampaignReportPage() {
                                                 )}
                                                 {visibleColumns.epc && (
                                                     <TableCell style={{ width: columnWidths.epc, minWidth: columnWidths.epc }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.epc)}</TableCell>
+                                                )}
+                                                {visibleColumns.paid && (
+                                                    <TableCell style={{ width: columnWidths.paid, minWidth: columnWidths.paid }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmt(r.paid)}</TableCell>
+                                                )}
+                                                {visibleColumns.pending && (
+                                                    <TableCell style={{ width: columnWidths.pending, minWidth: columnWidths.pending }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmt(r.pending)}</TableCell>
+                                                )}
+                                                {visibleColumns.rejected && (
+                                                    <TableCell style={{ width: columnWidths.rejected, minWidth: columnWidths.rejected }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmt(r.rejected)}</TableCell>
+                                                )}
+                                                {visibleColumns.approved && (
+                                                    <TableCell style={{ width: columnWidths.approved, minWidth: columnWidths.approved }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmt(r.approved)}</TableCell>
+                                                )}
+                                                {visibleColumns.average_cost && (
+                                                    <TableCell style={{ width: columnWidths.average_cost, minWidth: columnWidths.average_cost }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtCurrency(r.average_cost)}</TableCell>
+                                                )}
+                                                {visibleColumns.revenue_per_transaction && (
+                                                    <TableCell style={{ width: columnWidths.revenue_per_transaction, minWidth: columnWidths.revenue_per_transaction }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtCurrency(r.revenue_per_transaction)}</TableCell>
                                                 )}
                                             </TableRow>
                                         ))

@@ -21,7 +21,8 @@ async def get_referrers(application_type: str = None):
         # If application_type is specified, show users with matching permission or "Both"
         if application_type in ["Web Traffic", "Call Traffic"]:
             query["application_permission"] = {"$in": [application_type, "Both"]}
-        # If application_type is "Both", show all users
+        elif application_type == "Both":
+            query["application_permission"] = "Both"
     
     cursor = db.users.find(query, {"full_name": 1, "_id": 1, "username": 1})
     users = await cursor.to_list(length=1000)
