@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -193,6 +193,62 @@ export default function CampaignReportPage() {
     const [advertiserManagerFilter, setAdvertiserManagerFilter] = useState('all');
     const [sort, setSort] = useState<SortState>({ key: null, dir: null });
 
+    // ── Resizable Columns ─────────────────────────────────────────────────────
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+        campaign_name: 200,
+        affiliate_manager: 140,
+        offer_name: 180,
+        advertiser_manager: 140,
+        price_media: 130,
+        views: 80,
+        clicks: 80,
+        click_thru_pct: 80,
+        conversions: 80,
+        conversion_pct: 80,
+        cost: 90,
+        revenue: 90,
+        profit: 90,
+        margin: 90,
+        epc: 80,
+    });
+
+    const resizingColumn = useRef<string | null>(null);
+    const startX = useRef<number>(0);
+    const startWidth = useRef<number>(0);
+
+    const onMouseDownResize = useCallback((e: React.MouseEvent, col: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        resizingColumn.current = col;
+        startX.current = e.pageX;
+        startWidth.current = columnWidths[col] || 100;
+        document.body.style.cursor = 'col-resize';
+    }, [columnWidths]);
+
+    useEffect(() => {
+        const onMouseMove = (e: MouseEvent) => {
+            if (!resizingColumn.current) return;
+            const diff = e.pageX - startX.current;
+            const newWidth = Math.max(60, startWidth.current + diff);
+            setColumnWidths(prev => ({
+                ...prev,
+                [resizingColumn.current!]: newWidth
+            }));
+        };
+
+        const onMouseUp = () => {
+            resizingColumn.current = null;
+            document.body.style.cursor = 'default';
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+    }, []);
+
     // Extract unique values from current rows
     const mediaTypes = useMemo(() => {
         const set = new Set<string>();
@@ -314,14 +370,23 @@ export default function CampaignReportPage() {
         );
     }
 
-    function SortableHead({ col, children }: { col: keyof CampaignRow; children: React.ReactNode }) {
+    function SortableHead({ col, children, customCol }: { col?: keyof CampaignRow; children: React.ReactNode, customCol?: string }) {
+        const colKey = (customCol || col) as string;
         return (
             <TableHead
-                className="font-semibold text-gray-600 cursor-pointer select-none hover:text-gray-900 whitespace-nowrap"
-                onClick={() => toggleSort(col)}
+                style={{ width: columnWidths[colKey], minWidth: columnWidths[colKey] }}
+                className="relative font-semibold text-gray-600 cursor-pointer select-none hover:text-gray-900 whitespace-nowrap group"
+                onClick={() => col && toggleSort(col)}
             >
-                {children}
-                <SortIcon col={col} sort={sort} />
+                <div className="flex items-center overflow-hidden">
+                    <span className="truncate">{children}</span>
+                    {col && <SortIcon col={col} sort={sort} />}
+                </div>
+                {/* Resize Handle */}
+                <div
+                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-red-400 group-hover:opacity-100 opacity-0 transition-opacity bg-transparent z-10"
+                    onMouseDown={(e) => onMouseDownResize(e, colKey)}
+                />
             </TableHead>
         );
     }
@@ -620,7 +685,7 @@ export default function CampaignReportPage() {
                                         <SortableHead col="affiliate_manager">Aff. Manager</SortableHead>
                                         <SortableHead col="offer_name">Offer</SortableHead>
                                         <SortableHead col="advertiser_manager">Adv. Manager</SortableHead>
-                                        <TableHead className="font-semibold text-gray-600 whitespace-nowrap">Price / Media</TableHead>
+                                        <SortableHead customCol="price_media">Price / Media</SortableHead>
                                         <SortableHead col="views">Views</SortableHead>
                                         <SortableHead col="clicks">Clicks</SortableHead>
                                         <SortableHead col="click_thru_pct">CTR%</SortableHead>
@@ -655,43 +720,43 @@ export default function CampaignReportPage() {
                                     ) : (
                                         paginated.map((r, i) => (
                                             <TableRow key={i} className="hover:bg-gray-50/50 transition-colors">
-                                                <TableCell>
-                                                    <div className="font-semibold text-gray-900 text-sm">{r.campaign_name || '—'}</div>
+                                                <TableCell style={{ width: columnWidths.campaign_name, minWidth: columnWidths.campaign_name }} className="overflow-hidden">
+                                                    <div className="font-semibold text-gray-900 text-sm truncate">{r.campaign_name || '—'}</div>
                                                     {r.campaign_id && <div className="text-[10px] text-gray-400">ID: {r.campaign_id}</div>}
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="text-sm text-gray-600">{r.affiliate_manager || '—'}</div>
+                                                <TableCell style={{ width: columnWidths.affiliate_manager, minWidth: columnWidths.affiliate_manager }} className="overflow-hidden">
+                                                    <div className="text-sm text-gray-600 truncate">{r.affiliate_manager || '—'}</div>
                                                 </TableCell>
-                                                <TableCell className="max-w-[160px]">
+                                                <TableCell style={{ width: columnWidths.offer_name, minWidth: columnWidths.offer_name }} className="overflow-hidden">
                                                     <div className="text-sm text-gray-700 truncate" title={r.offer_name}>{r.offer_name || '—'}</div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="text-sm text-gray-600">{r.advertiser_manager || '—'}</div>
+                                                <TableCell style={{ width: columnWidths.advertiser_manager, minWidth: columnWidths.advertiser_manager }} className="overflow-hidden">
+                                                    <div className="text-sm text-gray-600 truncate">{r.advertiser_manager || '—'}</div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-1">
+                                                <TableCell style={{ width: columnWidths.price_media, minWidth: columnWidths.price_media }} className="overflow-hidden">
+                                                    <div className="flex flex-col gap-1 truncate text-ellipsis">
                                                         {r.price_format && <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 text-blue-700 border-blue-200 w-fit">{r.price_format}</Badge>}
                                                         {r.media_type && <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-gray-50 text-gray-600 border-gray-200 w-fit">{r.media_type}</Badge>}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm text-gray-700">{r.views.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm font-semibold text-gray-800">{r.clicks.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm text-gray-600">{fmtPct(r.click_thru_pct)}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm font-semibold text-gray-800">{fmt(r.conversions, 2)}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm">
+                                                <TableCell style={{ width: columnWidths.views, minWidth: columnWidths.views }} className="text-right tabular-nums text-sm text-gray-700 truncate">{r.views.toLocaleString()}</TableCell>
+                                                <TableCell style={{ width: columnWidths.clicks, minWidth: columnWidths.clicks }} className="text-right tabular-nums text-sm font-semibold text-gray-800 truncate">{r.clicks.toLocaleString()}</TableCell>
+                                                <TableCell style={{ width: columnWidths.click_thru_pct, minWidth: columnWidths.click_thru_pct }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtPct(r.click_thru_pct)}</TableCell>
+                                                <TableCell style={{ width: columnWidths.conversions, minWidth: columnWidths.conversions }} className="text-right tabular-nums text-sm font-semibold text-gray-800 truncate">{fmt(r.conversions, 2)}</TableCell>
+                                                <TableCell style={{ width: columnWidths.conversion_pct, minWidth: columnWidths.conversion_pct }} className="text-right tabular-nums text-sm truncate">
                                                     <span className={r.conversion_pct > 0 ? 'text-green-600 font-semibold' : 'text-gray-500'}>
                                                         {fmtPct(r.conversion_pct)}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm text-gray-700">{fmtCurrency(r.cost)}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm font-semibold text-emerald-700">{fmtCurrency(r.revenue)}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm font-bold">
+                                                <TableCell style={{ width: columnWidths.cost, minWidth: columnWidths.cost }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.cost)}</TableCell>
+                                                <TableCell style={{ width: columnWidths.revenue, minWidth: columnWidths.revenue }} className="text-right tabular-nums text-sm font-semibold text-emerald-700 truncate">{fmtCurrency(r.revenue)}</TableCell>
+                                                <TableCell style={{ width: columnWidths.profit, minWidth: columnWidths.profit }} className="text-right tabular-nums text-sm font-bold truncate">
                                                     <span className={r.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
                                                         {fmtCurrency(r.profit)}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm text-gray-600">{fmtCurrency(r.margin)}</TableCell>
-                                                <TableCell className="text-right tabular-nums text-sm text-gray-700">{fmtCurrency(r.epc)}</TableCell>
+                                                <TableCell style={{ width: columnWidths.margin, minWidth: columnWidths.margin }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtCurrency(r.margin)}</TableCell>
+                                                <TableCell style={{ width: columnWidths.epc, minWidth: columnWidths.epc }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.epc)}</TableCell>
                                             </TableRow>
                                         ))
                                     )}

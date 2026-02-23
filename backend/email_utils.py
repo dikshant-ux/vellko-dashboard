@@ -7,6 +7,7 @@ import asyncio
 from database import settings, db
 from models import SMTPConfig
 from encryption_utils import decrypt_smtp_password
+from email.utils import formataddr
 
 # Setup Jinja2 environment for loading templates
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "email")
@@ -40,6 +41,7 @@ async def get_active_smtp_config():
             "username": config_data["username"],
             # SECURITY FIX: Decrypt password from DB before use (handles pre-migration plaintext gracefully).
             "password": decrypt_smtp_password(config_data["password"]),
+            "from_name": config_data.get("from_name"),
             "from_email": config_data["from_email"],
             "reply_to_email": config_data.get("reply_to_email")
         }
@@ -70,7 +72,13 @@ async def send_email(to_email: str, subject: str, html_content: str):
         # Create message container
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = config["from_email"]
+        
+        # Use from_name if available
+        if config.get("from_name"):
+            msg["From"] = formataddr((config["from_name"], config["from_email"]))
+        else:
+            msg["From"] = config["from_email"]
+            
         msg["To"] = to_email
         if config["reply_to_email"]:
             msg["Reply-To"] = config["reply_to_email"]

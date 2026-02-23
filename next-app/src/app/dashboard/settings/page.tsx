@@ -35,7 +35,7 @@ export default function SettingsPage() {
     const [isSmtpDialogOpen, setIsSmtpDialogOpen] = useState(false);
     const [currentSmtp, setCurrentSmtp] = useState<any | null>(null);
     const [smtpForm, setSmtpForm] = useState({
-        name: '', host: '', port: 587, username: '', password: '', from_email: '', reply_to_email: '', is_active: false
+        name: '', host: '', port: 587, username: '', password: '', from_name: '', from_email: '', reply_to_email: '', is_active: false
     });
     const [isTestingSmtp, setIsTestingSmtp] = useState(false);
 
@@ -231,6 +231,7 @@ export default function SettingsPage() {
                 port: config.port,
                 username: config.username,
                 password: config.password,
+                from_name: config.from_name || '',
                 from_email: config.from_email,
                 reply_to_email: config.reply_to_email || '',
                 is_active: config.is_active
@@ -238,7 +239,7 @@ export default function SettingsPage() {
         } else {
             setCurrentSmtp(null);
             setSmtpForm({
-                name: '', host: '', port: 587, username: '', password: '', from_email: '', reply_to_email: '', is_active: false
+                name: '', host: '', port: 587, username: '', password: '', from_name: '', from_email: '', reply_to_email: '', is_active: false
             });
         }
         setIsSmtpDialogOpen(true);
@@ -806,9 +807,15 @@ export default function SettingsPage() {
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="from_email">From Email</Label>
-                                        <Input id="from_email" value={smtpForm.from_email} onChange={e => setSmtpForm({ ...smtpForm, from_email: e.target.value })} placeholder="noreply@example.com" />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="from_name">From Name</Label>
+                                            <Input id="from_name" value={smtpForm.from_name} onChange={e => setSmtpForm({ ...smtpForm, from_name: e.target.value })} placeholder="e.g. Vellko Marketing" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="from_email">From Email</Label>
+                                            <Input id="from_email" value={smtpForm.from_email} onChange={e => setSmtpForm({ ...smtpForm, from_email: e.target.value })} placeholder="noreply@example.com" />
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="reply_to_email">Reply-To Email (Optional)</Label>

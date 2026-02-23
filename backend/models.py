@@ -203,6 +203,7 @@ class SMTPConfig(BaseModel):
     port: int
     username: str
     password: str # In production, this should be encrypted
+    from_name: Optional[str] = None
     from_email: str
     reply_to_email: Optional[str] = None
     is_active: bool = False
@@ -219,6 +220,7 @@ class SMTPConfigCreate(BaseModel):
     port: int
     username: str
     password: str
+    from_name: Optional[str] = None
     from_email: str
     reply_to_email: Optional[str] = None
     is_active: Optional[bool] = False
@@ -229,6 +231,7 @@ class SMTPConfigUpdate(BaseModel):
     port: Optional[int] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    from_name: Optional[str] = None
     from_email: Optional[str] = None
     reply_to_email: Optional[str] = None
     is_active: Optional[bool] = None
