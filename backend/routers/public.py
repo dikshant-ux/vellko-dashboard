@@ -33,24 +33,14 @@ async def create_signup(signup: SignupCreate):
     signup_dict = signup.dict()
     
     # SECURITY FIX: Reject if email already exists to prevent unauthenticated data overwrite.
-    # 1. Check if user already exists in users collection
-    existing_user = await db.users.find_one({"email": signup.accountInfo.email})
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email already exists."
-        )
-
-    # 2. Check if a non-rejected application already exists
-    existing_signup = await db.signups.find_one({
-        "accountInfo.email": signup.accountInfo.email,
-        "status": {"$ne": SignupStatus.REJECTED}
-    })
+    # A malicious actor could overwrite a pending application's payment info by submitting
+    # with the target's email. Now we reject (409 Conflict) and direct them to login.
+    existing = await db.signups.find_one({"accountInfo.email": signup.accountInfo.email})
     
-    if existing_signup:
+    if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="An application with this email is already in progress or approved. Please contact support for assistance."
+            detail="An application with this email already exists. Please contact support to check your application status."
         )
 
     # Create new record

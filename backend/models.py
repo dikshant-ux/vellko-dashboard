@@ -16,8 +16,8 @@ class APIConnectionType(str, Enum):
 
 class CompanyInfo(BaseModel):
     companyName: str
-    address: str = Field(..., max_length=60)
-    address2: Optional[str] = Field(default="", max_length=60)
+    address: str
+    address2: Optional[str] = ""
     city: str
     state: str
     zip: str
@@ -51,7 +51,7 @@ class PaymentInfo(BaseModel):
     payTo: str
     currency: str
     taxClass: str
-    ssnTaxId: str = Field(..., max_length=20)
+    ssnTaxId: str
 
 class SignupCreate(BaseModel):
     companyInfo: CompanyInfo
