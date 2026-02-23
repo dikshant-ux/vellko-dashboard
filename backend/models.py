@@ -51,7 +51,7 @@ class PaymentInfo(BaseModel):
     payTo: str
     currency: str
     taxClass: str
-    ssnTaxId: str
+    ssnTaxId: str = Field(..., max_length=20)
 
 class SignupCreate(BaseModel):
     companyInfo: CompanyInfo

@@ -284,7 +284,11 @@ export default function AffiliateSignup() {
         if (!form.paymentInfo.payTo) newErrors['paymentInfo.payTo'] = "Payment To is required";
         if (!form.paymentInfo.currency) newErrors['paymentInfo.currency'] = "Currency is required";
         if (!form.paymentInfo.taxClass) newErrors['paymentInfo.taxClass'] = "Tax Class is required";
-        if (!form.paymentInfo.ssnTaxId.trim()) newErrors['paymentInfo.ssnTaxId'] = "SSN or Tax ID is required";
+        if (!form.paymentInfo.ssnTaxId.trim()) {
+            newErrors['paymentInfo.ssnTaxId'] = "SSN or Tax ID is required";
+        } else if (form.paymentInfo.ssnTaxId.length > 20) {
+            newErrors['paymentInfo.ssnTaxId'] = "SSN/Tax ID cannot exceed 20 characters";
+        }
 
         // Other Validation
         if (!form.agreed) newErrors['agreed'] = "You must agree to the Terms and Conditions";
@@ -829,7 +833,7 @@ export default function AffiliateSignup() {
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">SSN / Tax ID <span className="text-danger">*</span></label>
                                         <input type="text" className={`form-control ${errors['paymentInfo.ssnTaxId'] ? 'is-invalid' : ''}`} required placeholder="Enter SSN or Tax ID"
-                                            value={form.paymentInfo.ssnTaxId} onChange={e => handleChange('paymentInfo', 'ssnTaxId', e.target.value)} />
+                                            value={form.paymentInfo.ssnTaxId} onChange={e => handleChange('paymentInfo', 'ssnTaxId', e.target.value)} maxLength={20} />
                                         <div className="invalid-feedback">{errors['paymentInfo.ssnTaxId']}</div>
                                     </div>
 
