@@ -21,6 +21,7 @@ export default function SettingsPage() {
     const [profile, setProfile] = useState({ full_name: '', email: '' });
     const [password, setPassword] = useState({ current: '', new: '', confirm: '' });
     const [loading, setLoading] = useState(false);
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -113,7 +114,7 @@ export default function SettingsPage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ full_name: profile.full_name, email: profile.email })
+            body: JSON.stringify({ full_name: profile.full_name })
         })
             .then(async res => {
                 if (res && res.ok) {
@@ -141,14 +142,18 @@ export default function SettingsPage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ password: password.new })
+            body: JSON.stringify({
+                password: password.new,
+                current_password: password.current
+            })
         })
             .then(async res => {
                 if (res && res.ok) {
                     alert("Password updated successfully");
                     setPassword({ current: '', new: '', confirm: '' });
                 } else {
-                    alert("Failed to update password");
+                    const err = res ? await res.json() : { detail: "Failed to update password" };
+                    alert(err.detail || "Failed to update password");
                 }
             })
             .catch(() => alert("Error updating password"))
@@ -474,7 +479,8 @@ export default function SettingsPage() {
                                     <Label>Email</Label>
                                     <Input
                                         value={profile.email}
-                                        onChange={e => setProfile({ ...profile, email: e.target.value })}
+                                        disabled
+                                        className="bg-muted"
                                     />
                                 </div>
                                 <div className="pt-2">
@@ -495,6 +501,26 @@ export default function SettingsPage() {
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-[500px]">
+                                <div className="space-y-2">
+                                    <Label>Current Password</Label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            type={showCurrentPassword ? "text" : "password"}
+                                            className="pl-9 pr-10"
+                                            value={password.current}
+                                            onChange={e => setPassword({ ...password, current: e.target.value })}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                        >
+                                            {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="space-y-2">
                                     <Label>New Password</Label>
                                     <div className="relative">
@@ -1165,6 +1191,6 @@ export default function SettingsPage() {
                 )}
 
             </Tabs>
-        </div>
+        </div >
     );
 }

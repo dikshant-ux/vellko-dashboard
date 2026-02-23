@@ -161,6 +161,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    current_password: Optional[str] = None
     application_permission: Optional[ApplicationPermission] = None
     can_approve_signups: Optional[bool] = None
     can_view_reports: Optional[bool] = None
