@@ -1520,6 +1520,8 @@ async def update_user(username: str, user_update: UserUpdate, user: User = Depen
         update_data["application_permission"] = user_update.application_permission
     if user_update.can_approve_signups is not None:
         update_data["can_approve_signups"] = user_update.can_approve_signups
+    if user_update.can_view_reports is not None:
+        update_data["can_view_reports"] = user_update.can_view_reports
     if user_update.password is not None:
         update_data["hashed_password"] = get_password_hash(user_update.password)
     if user_update.cake_account_manager_id is not None:

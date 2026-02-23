@@ -19,12 +19,12 @@ export default function UsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, cake_account_manager_id: '' });
+    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, can_view_reports: true, cake_account_manager_id: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
-    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_signups: false, cake_account_manager_id: '' });
+    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_signups: false, can_view_reports: true, cake_account_manager_id: '' });
     const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
@@ -61,7 +61,7 @@ export default function UsersPage() {
             .then(async res => {
                 if (res && res.ok) {
                     setOpen(false);
-                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, cake_account_manager_id: '' });
+                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, can_view_reports: true, cake_account_manager_id: '' });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
@@ -151,6 +151,7 @@ export default function UsersPage() {
             email: user.email || '',
             application_permission: user.application_permission || 'Both',
             can_approve_signups: user.can_approve_signups ?? false,
+            can_view_reports: user.can_view_reports ?? true,
             password: '', // Leave empty
             cake_account_manager_id: user.cake_account_manager_id || ''
         });
@@ -167,6 +168,7 @@ export default function UsersPage() {
         if (editForm.email !== editingUser.email) updateData.email = editForm.email;
         if (editForm.application_permission !== editingUser.application_permission) updateData.application_permission = editForm.application_permission;
         if (editForm.can_approve_signups !== editingUser.can_approve_signups) updateData.can_approve_signups = editForm.can_approve_signups;
+        if (editForm.can_view_reports !== editingUser.can_view_reports) updateData.can_view_reports = editForm.can_view_reports;
         if (editForm.cake_account_manager_id !== editingUser.cake_account_manager_id) updateData.cake_account_manager_id = editForm.cake_account_manager_id;
         if (editForm.password) updateData.password = editForm.password; // Only send if changed
 
@@ -302,6 +304,18 @@ export default function UsersPage() {
                                     />
                                     <Label htmlFor="new_can_approve" className="text-sm font-normal">
                                         {newUser.can_approve_signups ? "Can Approve" : "Request Only"}
+                                    </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        id="new_can_report"
+                                        type="checkbox"
+                                        className="h-4 w-4"
+                                        checked={newUser.can_view_reports}
+                                        onChange={(e) => setNewUser({ ...newUser, can_view_reports: e.target.checked })}
+                                    />
+                                    <Label htmlFor="new_can_report" className="text-sm font-normal">
+                                        Reports Access
                                     </Label>
                                 </div>
                             </div>
@@ -630,6 +644,26 @@ export default function UsersPage() {
                                 />
                                 <Label htmlFor="edit_can_approve" className="text-sm font-normal">
                                     {(editForm.can_approve_signups ?? true) ? "Can Approve" : "Request Only"}
+                                </Label>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Reports Access</Label>
+                                <div className="text-xs text-muted-foreground">
+                                    Allow user to view reports
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="edit_can_report"
+                                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
+                                    checked={editForm.can_view_reports ?? true}
+                                    onChange={(e) => setEditForm({ ...editForm, can_view_reports: e.target.checked })}
+                                />
+                                <Label htmlFor="edit_can_report" className="text-sm font-normal">
+                                    {(editForm.can_view_reports ?? true) ? "Enabled" : "Disabled"}
                                 </Label>
                             </div>
                         </div>

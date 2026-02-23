@@ -259,9 +259,11 @@ export default function CampaignReportPage() {
     const router = useRouter();
     const authFetch = useAuthFetch();
 
-    // Access control: hide for "Call Traffic" admins
+    // Access control: hide for users without report permission (Super Admin bypasses)
     useEffect(() => {
-        if (status === 'authenticated' && session?.user?.application_permission === 'Call Traffic') {
+        if (status === 'authenticated' &&
+            session?.user?.role !== 'SUPER_ADMIN' &&
+            session?.user?.can_view_reports === false) {
             router.replace('/dashboard/overview');
         }
     }, [session, status, router]);

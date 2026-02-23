@@ -48,9 +48,7 @@ export default function Sidebar() {
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
         ] : []),
-        ...((['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ||
-            ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) &&
-            session?.user?.application_permission !== 'Call Traffic' ? [
+        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },

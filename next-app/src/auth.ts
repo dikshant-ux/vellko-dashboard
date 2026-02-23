@@ -69,6 +69,7 @@ export const {
                                     role: me.role,
                                     application_permission: me.application_permission,
                                     can_approve_signups: me.can_approve_signups,
+                                    can_view_reports: me.can_view_reports,
                                     accessToken: user.access_token,
                                 } as any;
                             }
@@ -112,6 +113,7 @@ export const {
                 token.role = user.role;
                 token.application_permission = user.application_permission;
                 token.can_approve_signups = user.can_approve_signups;
+                token.can_view_reports = user.can_view_reports;
             }
             // When update() is called client-side, merge the updated fields into the token
             if (trigger === 'update' && session) {
@@ -124,6 +126,7 @@ export const {
             session.user.role = token.role;
             session.user.application_permission = token.application_permission;
             session.user.can_approve_signups = token.can_approve_signups;
+            session.user.can_view_reports = token.can_view_reports;
             return session;
         }
     }
