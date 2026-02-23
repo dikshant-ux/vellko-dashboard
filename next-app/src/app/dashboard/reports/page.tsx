@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -148,8 +149,25 @@ function SortIcon({ col, sort }: { col: keyof CampaignRow; sort: SortState }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CampaignReportPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const router = useRouter();
     const authFetch = useAuthFetch();
+
+    // Access control: hide for "Call Traffic" admins
+    useEffect(() => {
+        if (status === 'authenticated' && session?.user?.application_permission === 'Call Traffic') {
+            router.replace('/dashboard/overview');
+        }
+    }, [session, status, router]);
+
+    // Don't render anything if unauthorized or still loading session
+    if (status === 'loading' || (status === 'authenticated' && session?.user?.application_permission === 'Call Traffic')) {
+        return (
+            <div className="flex h-[400px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+            </div>
+        );
+    }
 
     const defaults = getDefaultDates();
     const [startDate, setStartDate] = useState(defaults.startDate);
@@ -200,13 +218,17 @@ export default function CampaignReportPage() {
     const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
     const [affiliateManagerFilter, setAffiliateManagerFilter] = useState('all');
     const [advertiserManagerFilter, setAdvertiserManagerFilter] = useState('all');
+    const [affiliateIdFilter, setAffiliateIdFilter] = useState('all');
+    const [advertiserIdFilter, setAdvertiserIdFilter] = useState('all');
     const [sort, setSort] = useState<SortState>({ key: null, dir: null });
 
     // ── Resizable Columns ─────────────────────────────────────────────────────
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
         campaign_name: 200,
+        affiliate_id: 100,
         affiliate_manager: 140,
         offer_name: 180,
+        advertiser_id: 100,
         advertiser_manager: 140,
         price_media: 130,
         views: 80,
@@ -223,8 +245,10 @@ export default function CampaignReportPage() {
 
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
         campaign_name: true,
+        affiliate_id: true,
         affiliate_manager: true,
         offer_name: true,
+        advertiser_id: true,
         advertiser_manager: true,
         price_media: true,
         views: true,
@@ -340,6 +364,22 @@ export default function CampaignReportPage() {
         return Array.from(set).sort();
     }, [rows]);
 
+    const uniqueAffiliateIds = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach(r => {
+            if (r.affiliate_id) set.add(r.affiliate_id);
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }, [rows]);
+
+    const uniqueAdvertiserIds = useMemo(() => {
+        const set = new Set<string>();
+        rows.forEach(r => {
+            if (r.advertiser_id) set.add(r.advertiser_id);
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }, [rows]);
+
     // ── Pagination state ──────────────────────────────────────────────────────
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
@@ -411,9 +451,13 @@ export default function CampaignReportPage() {
             const matchesAffManager = affiliateManagerFilter === 'all' || r.affiliate_manager === affiliateManagerFilter;
             const matchesAdvManager = advertiserManagerFilter === 'all' || r.advertiser_manager === advertiserManagerFilter;
 
-            return matchesSearch && matchesMediaType && matchesAffManager && matchesAdvManager;
+            // ID filters
+            const matchesAffId = affiliateIdFilter === 'all' || r.affiliate_id === affiliateIdFilter;
+            const matchesAdvId = advertiserIdFilter === 'all' || r.advertiser_id === advertiserIdFilter;
+
+            return matchesSearch && matchesMediaType && matchesAffManager && matchesAdvManager && matchesAffId && matchesAdvId;
         });
-    }, [rows, search, mediaTypeFilter, affiliateManagerFilter, advertiserManagerFilter]);
+    }, [rows, search, mediaTypeFilter, affiliateManagerFilter, advertiserManagerFilter, affiliateIdFilter, advertiserIdFilter]);
 
     const sorted = useMemo(() => {
         if (!sort.key || !sort.dir) return filtered;
@@ -671,6 +715,38 @@ export default function CampaignReportPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Affiliate ID Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Affiliate ID</label>
+                            <Select value={affiliateIdFilter} onValueChange={setAffiliateIdFilter}>
+                                <SelectTrigger className="h-10 w-32 bg-gray-50 border-gray-200 text-sm">
+                                    <SelectValue placeholder="All IDs" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All IDs</SelectItem>
+                                    {uniqueAffiliateIds.map(id => (
+                                        <SelectItem key={id} value={id}>{id}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Advertiser ID Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Advertiser ID</label>
+                            <Select value={advertiserIdFilter} onValueChange={setAdvertiserIdFilter}>
+                                <SelectTrigger className="h-10 w-32 bg-gray-50 border-gray-200 text-sm">
+                                    <SelectValue placeholder="All IDs" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All IDs</SelectItem>
+                                    {uniqueAdvertiserIds.map(id => (
+                                        <SelectItem key={id} value={id}>{id}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -743,8 +819,10 @@ export default function CampaignReportPage() {
                                             <div className="space-y-1 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
                                                 {[
                                                     { id: 'campaign_name', label: 'Campaign' },
+                                                    { id: 'affiliate_id', label: 'Aff. ID' },
                                                     { id: 'affiliate_manager', label: 'Aff. Manager' },
                                                     { id: 'offer_name', label: 'Offer' },
+                                                    { id: 'advertiser_id', label: 'Adv. ID' },
                                                     { id: 'advertiser_manager', label: 'Adv. Manager' },
                                                     { id: 'price_media', label: 'Price / Media' },
                                                     { id: 'views', label: 'Views' },
@@ -816,8 +894,10 @@ export default function CampaignReportPage() {
                                 <TableHeader className="bg-gray-50/50">
                                     <TableRow>
                                         <SortableHead col="campaign_name">Campaign</SortableHead>
+                                        <SortableHead col="affiliate_id">Aff. ID</SortableHead>
                                         <SortableHead col="affiliate_manager">Aff. Manager</SortableHead>
                                         <SortableHead col="offer_name">Offer</SortableHead>
+                                        <SortableHead col="advertiser_id">Adv. ID</SortableHead>
                                         <SortableHead col="advertiser_manager">Adv. Manager</SortableHead>
                                         <SortableHead customCol="price_media">Price / Media</SortableHead>
                                         <SortableHead col="views">Views</SortableHead>
@@ -860,6 +940,11 @@ export default function CampaignReportPage() {
                                                         {r.campaign_id && <div className="text-[10px] text-gray-400">ID: {r.campaign_id}</div>}
                                                     </TableCell>
                                                 )}
+                                                {visibleColumns.affiliate_id && (
+                                                    <TableCell style={{ width: columnWidths.affiliate_id, minWidth: columnWidths.affiliate_id }} className="overflow-hidden">
+                                                        <div className="text-sm text-gray-600 truncate">{r.affiliate_id || '—'}</div>
+                                                    </TableCell>
+                                                )}
                                                 {visibleColumns.affiliate_manager && (
                                                     <TableCell style={{ width: columnWidths.affiliate_manager, minWidth: columnWidths.affiliate_manager }} className="overflow-hidden">
                                                         <div className="text-sm text-gray-600 truncate">{r.affiliate_manager || '—'}</div>
@@ -868,6 +953,11 @@ export default function CampaignReportPage() {
                                                 {visibleColumns.offer_name && (
                                                     <TableCell style={{ width: columnWidths.offer_name, minWidth: columnWidths.offer_name }} className="overflow-hidden">
                                                         <div className="text-sm text-gray-700 truncate" title={r.offer_name}>{r.offer_name || '—'}</div>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.advertiser_id && (
+                                                    <TableCell style={{ width: columnWidths.advertiser_id, minWidth: columnWidths.advertiser_id }} className="overflow-hidden">
+                                                        <div className="text-sm text-gray-600 truncate">{r.advertiser_id || '—'}</div>
                                                     </TableCell>
                                                 )}
                                                 {visibleColumns.advertiser_manager && (
