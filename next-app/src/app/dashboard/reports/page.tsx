@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,11 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
     BarChart2,
     Download,
     RefreshCw,
@@ -48,6 +54,7 @@ import {
     DollarSign,
     Target,
     Settings2,
+    Check,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -135,6 +142,105 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: s
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+// ── Searchable Filter ────────────────────────────────────────────────────────
+
+function SearchableFilter({
+    label,
+    options,
+    value,
+    onValueChange,
+    placeholder = "Search...",
+    width = "w-44"
+}: {
+    label: string,
+    options: string[],
+    value: string,
+    onValueChange: (v: string) => void,
+    placeholder?: string,
+    width?: string
+}) {
+    const [open, setOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredOptions = useMemo(() => {
+        if (!searchQuery) return options;
+        return options.filter(opt =>
+            opt.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [options, searchQuery]);
+
+    const selectedLabel = value === 'all' ? `All ${label}s` : value;
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</label>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className={cn("h-10 justify-between bg-gray-50 border-gray-200 text-sm font-normal", width)}
+                    >
+                        <span className="truncate">{selectedLabel}</span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 shadow-xl border-gray-100 min-w-[200px]" align="start">
+                    <div className="p-2 border-b border-gray-50">
+                        <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                            <Input
+                                placeholder={placeholder}
+                                className="h-8 pl-8 text-xs bg-gray-50/50 border-none focus-visible:ring-1 focus-visible:ring-red-100"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                        <button
+                            className={cn(
+                                "flex w-full items-center px-2 py-2 text-sm rounded-sm transition-colors hover:bg-gray-100 text-left",
+                                value === 'all' ? "bg-red-50 text-red-700 font-semibold" : "text-gray-600"
+                            )}
+                            onClick={() => {
+                                onValueChange('all');
+                                setOpen(false);
+                                setSearchQuery("");
+                            }}
+                        >
+                            <Check className={cn("mr-2 h-4 w-4 shrink-0", value === 'all' ? "opacity-100" : "opacity-0")} />
+                            <span className="break-words">All {label}s</span>
+                        </button>
+                        {filteredOptions.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-gray-400">No {label.toLowerCase()} found.</div>
+                        ) : (
+                            filteredOptions.map((opt) => (
+                                <button
+                                    key={opt}
+                                    className={cn(
+                                        "flex w-full items-center px-2 py-2 text-sm rounded-sm transition-colors hover:bg-gray-100 text-left",
+                                        value === opt ? "bg-red-50 text-red-700 font-semibold" : "text-gray-600"
+                                    )}
+                                    onClick={() => {
+                                        onValueChange(opt);
+                                        setOpen(false);
+                                        setSearchQuery("");
+                                    }}
+                                >
+                                    <Check className={cn("mr-2 h-4 w-4 shrink-0", value === opt ? "opacity-100" : "opacity-0")} />
+                                    <span className="truncate">{opt}</span>
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
     );
 }
 
@@ -719,68 +825,42 @@ export default function CampaignReportPage() {
                         </div>
 
                         {/* Aff Manager Filter */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Aff. Manager</label>
-                            <Select value={affiliateManagerFilter} onValueChange={setAffiliateManagerFilter}>
-                                <SelectTrigger className="h-10 w-44 bg-gray-50 border-gray-200 text-sm">
-                                    <SelectValue placeholder="All managers" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Managers</SelectItem>
-                                    {affiliateManagers.map(am => (
-                                        <SelectItem key={am} value={am}>{am}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <SearchableFilter
+                            label="Aff. Manager"
+                            options={affiliateManagers}
+                            value={affiliateManagerFilter}
+                            onValueChange={setAffiliateManagerFilter}
+                            placeholder="Search managers..."
+                        />
 
                         {/* Adv Manager Filter */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Adv. Manager</label>
-                            <Select value={advertiserManagerFilter} onValueChange={setAdvertiserManagerFilter}>
-                                <SelectTrigger className="h-10 w-44 bg-gray-50 border-gray-200 text-sm">
-                                    <SelectValue placeholder="All managers" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Managers</SelectItem>
-                                    {advertiserManagers.map(am => (
-                                        <SelectItem key={am} value={am}>{am}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <SearchableFilter
+                            label="Adv. Manager"
+                            options={advertiserManagers}
+                            value={advertiserManagerFilter}
+                            onValueChange={setAdvertiserManagerFilter}
+                            placeholder="Search managers..."
+                        />
 
                         {/* Affiliate ID Filter */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Affiliate ID</label>
-                            <Select value={affiliateIdFilter} onValueChange={setAffiliateIdFilter}>
-                                <SelectTrigger className="h-10 w-32 bg-gray-50 border-gray-200 text-sm">
-                                    <SelectValue placeholder="All IDs" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All IDs</SelectItem>
-                                    {uniqueAffiliateIds.map(id => (
-                                        <SelectItem key={id} value={id}>{id}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <SearchableFilter
+                            label="Affiliate ID"
+                            options={uniqueAffiliateIds}
+                            value={affiliateIdFilter}
+                            onValueChange={setAffiliateIdFilter}
+                            placeholder="Search IDs..."
+                            width="w-40"
+                        />
 
                         {/* Advertiser ID Filter */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Advertiser ID</label>
-                            <Select value={advertiserIdFilter} onValueChange={setAdvertiserIdFilter}>
-                                <SelectTrigger className="h-10 w-32 bg-gray-50 border-gray-200 text-sm">
-                                    <SelectValue placeholder="All IDs" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All IDs</SelectItem>
-                                    {uniqueAdvertiserIds.map(id => (
-                                        <SelectItem key={id} value={id}>{id}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <SearchableFilter
+                            label="Advertiser ID"
+                            options={uniqueAdvertiserIds}
+                            value={advertiserIdFilter}
+                            onValueChange={setAdvertiserIdFilter}
+                            placeholder="Search IDs..."
+                            width="w-40"
+                        />
                     </div>
                 </CardContent>
             </Card>

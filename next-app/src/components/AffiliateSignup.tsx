@@ -213,7 +213,16 @@ export default function AffiliateSignup() {
             newErrors['companyInfo.companyName'] = "Company Name is too long (max 50 chars)";
         }
 
-        if (!form.companyInfo.address.trim()) newErrors['companyInfo.address'] = "Address is required";
+        if (!form.companyInfo.address.trim()) {
+            newErrors['companyInfo.address'] = "Address Line 1 is required";
+        } else if (form.companyInfo.address.length > 60) {
+            newErrors['companyInfo.address'] = "Address Line 1 cannot exceed 60 characters";
+        }
+
+        if (form.companyInfo.address2.trim() && form.companyInfo.address2.length > 60) {
+            newErrors['companyInfo.address2'] = "Address Line 2 cannot exceed 60 characters";
+        }
+
         if (!form.companyInfo.city.trim()) newErrors['companyInfo.city'] = "City is required";
 
         if (!form.companyInfo.state.trim() && availableStates.length > 0) {
@@ -284,7 +293,11 @@ export default function AffiliateSignup() {
         if (!form.paymentInfo.payTo) newErrors['paymentInfo.payTo'] = "Payment To is required";
         if (!form.paymentInfo.currency) newErrors['paymentInfo.currency'] = "Currency is required";
         if (!form.paymentInfo.taxClass) newErrors['paymentInfo.taxClass'] = "Tax Class is required";
-        if (!form.paymentInfo.ssnTaxId.trim()) newErrors['paymentInfo.ssnTaxId'] = "SSN or Tax ID is required";
+        if (!form.paymentInfo.ssnTaxId.trim()) {
+            newErrors['paymentInfo.ssnTaxId'] = "SSN or Tax ID is required";
+        } else if (form.paymentInfo.ssnTaxId.length > 20) {
+            newErrors['paymentInfo.ssnTaxId'] = "SSN/Tax ID cannot exceed 20 characters";
+        }
 
         // Other Validation
         if (!form.agreed) newErrors['agreed'] = "You must agree to the Terms and Conditions";
@@ -333,11 +346,11 @@ export default function AffiliateSignup() {
             body: JSON.stringify(finalForm)
         })
             .then(async (response) => {
+                const data = await response.json();
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Submission failed');
+                    throw new Error(data.detail || 'Submission failed');
                 }
-                return response.json();
+                return data;
             })
             .then(data => {
 
@@ -348,9 +361,8 @@ export default function AffiliateSignup() {
                 window.scrollTo(0, 0);
             })
             .catch(error => {
-                // For demo purposes/CORS issues with external APIs in local dev, we might see errors.
-                // However, user asked to use this specific URL. 
-                alert("Error submitting form. Please check console for details. (Note: CORS might block this request from localhost)");
+                console.error("Signup error:", error);
+                alert(error.message || "Error submitting form. Please check console for details.");
             })
             .finally(() => {
                 setIsLoading(false);
@@ -557,13 +569,13 @@ export default function AffiliateSignup() {
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Address Line 1 <span className="text-danger">*</span></label>
                                         <input type="text" className={`form-control ${errors['companyInfo.address'] ? 'is-invalid' : ''}`} required placeholder="Enter Street Address"
-                                            value={form.companyInfo.address} onChange={e => handleChange('companyInfo', 'address', e.target.value)} />
+                                            value={form.companyInfo.address} onChange={e => handleChange('companyInfo', 'address', e.target.value)} maxLength={60} />
                                         <div className="invalid-feedback">{errors['companyInfo.address']}</div>
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Address Line 2</label>
                                         <input type="text" className={`form-control ${errors['companyInfo.address2'] ? 'is-invalid' : ''}`} placeholder="Enter Apartment, Suite, etc."
-                                            value={form.companyInfo.address2} onChange={e => handleChange('companyInfo', 'address2', e.target.value)} />
+                                            value={form.companyInfo.address2} onChange={e => handleChange('companyInfo', 'address2', e.target.value)} maxLength={60} />
                                         <div className="invalid-feedback">{errors['companyInfo.address2']}</div>
                                     </div>
                                     <div className="mb-3">
@@ -829,7 +841,7 @@ export default function AffiliateSignup() {
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">SSN / Tax ID <span className="text-danger">*</span></label>
                                         <input type="text" className={`form-control ${errors['paymentInfo.ssnTaxId'] ? 'is-invalid' : ''}`} required placeholder="Enter SSN or Tax ID"
-                                            value={form.paymentInfo.ssnTaxId} onChange={e => handleChange('paymentInfo', 'ssnTaxId', e.target.value)} />
+                                            value={form.paymentInfo.ssnTaxId} onChange={e => handleChange('paymentInfo', 'ssnTaxId', e.target.value)} maxLength={20} />
                                         <div className="invalid-feedback">{errors['paymentInfo.ssnTaxId']}</div>
                                     </div>
 
