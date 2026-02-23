@@ -23,6 +23,14 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
     BarChart2,
     Download,
     RefreshCw,
@@ -38,6 +46,7 @@ import {
     MousePointerClick,
     DollarSign,
     Target,
+    Settings2,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -212,6 +221,56 @@ export default function CampaignReportPage() {
         epc: 80,
     });
 
+    const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+        campaign_name: true,
+        affiliate_manager: true,
+        offer_name: true,
+        advertiser_manager: true,
+        price_media: true,
+        views: true,
+        clicks: true,
+        click_thru_pct: true,
+        conversions: true,
+        conversion_pct: true,
+        cost: true,
+        revenue: true,
+        profit: true,
+        margin: true,
+        epc: true,
+    });
+
+    const [tempVisibleColumns, setTempVisibleColumns] = useState(visibleColumns);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    // Load settings from localStorage
+    useEffect(() => {
+        const savedWidths = localStorage.getItem('reports_column_widths');
+        if (savedWidths) {
+            try { setColumnWidths(JSON.parse(savedWidths)); } catch (e) { }
+        }
+        const savedVisibility = localStorage.getItem('reports_visible_columns');
+        if (savedVisibility) {
+            try {
+                const parsed = JSON.parse(savedVisibility);
+                setVisibleColumns(parsed);
+                setTempVisibleColumns(parsed);
+            } catch (e) { }
+        }
+    }, []);
+
+    const handleApplyColumns = () => {
+        setVisibleColumns(tempVisibleColumns);
+        localStorage.setItem('reports_visible_columns', JSON.stringify(tempVisibleColumns));
+        setIsDropdownOpen(false);
+    };
+
+    const toggleTempColumn = (col: string) => {
+        setTempVisibleColumns(prev => ({
+            ...prev,
+            [col]: !prev[col]
+        }));
+    };
+
     const resizingColumn = useRef<string | null>(null);
     const startX = useRef<number>(0);
     const startWidth = useRef<number>(0);
@@ -237,6 +296,13 @@ export default function CampaignReportPage() {
         };
 
         const onMouseUp = () => {
+            if (resizingColumn.current) {
+                // Save final widths after resizing done
+                setColumnWidths(prev => {
+                    localStorage.setItem('reports_column_widths', JSON.stringify(prev));
+                    return prev;
+                });
+            }
             resizingColumn.current = null;
             document.body.style.cursor = 'default';
         };
@@ -372,6 +438,7 @@ export default function CampaignReportPage() {
 
     function SortableHead({ col, children, customCol }: { col?: keyof CampaignRow; children: React.ReactNode, customCol?: string }) {
         const colKey = (customCol || col) as string;
+        if (visibleColumns[colKey] === false) return null;
         return (
             <TableHead
                 style={{ width: columnWidths[colKey], minWidth: columnWidths[colKey] }}
@@ -655,7 +722,74 @@ export default function CampaignReportPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="relative w-full sm:w-64">
+
+                                {/* Column Visibility Toggle */}
+                                <DropdownMenu open={isDropdownOpen} onOpenChange={(open) => {
+                                    setIsDropdownOpen(open);
+                                    if (open) setTempVisibleColumns(visibleColumns);
+                                }}>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-9 px-4 flex items-center gap-2 border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-md shadow-sm transition-all ml-auto">
+                                            <Settings2 className="h-4 w-4" />
+                                            <span>Columns</span>
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-[180px] p-0 shadow-2xl border border-gray-100 rounded-xl overflow-hidden bg-white">
+                                        <div className="p-3 pb-1">
+                                            <h3 className="text-sm font-bold text-gray-900 leading-tight">Toggle Columns</h3>
+                                            <p className="text-[10px] text-gray-400 mt-0.5 mb-2">Select columns to display.</p>
+
+                                            <div className="space-y-1 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {[
+                                                    { id: 'campaign_name', label: 'Campaign' },
+                                                    { id: 'affiliate_manager', label: 'Aff. Manager' },
+                                                    { id: 'offer_name', label: 'Offer' },
+                                                    { id: 'advertiser_manager', label: 'Adv. Manager' },
+                                                    { id: 'price_media', label: 'Price / Media' },
+                                                    { id: 'views', label: 'Views' },
+                                                    { id: 'clicks', label: 'Clicks' },
+                                                    { id: 'click_thru_pct', label: 'CTR%' },
+                                                    { id: 'conversions', label: 'Conversions' },
+                                                    { id: 'conversion_pct', label: 'CVR%' },
+                                                    { id: 'cost', label: 'Cost' },
+                                                    { id: 'revenue', label: 'Revenue' },
+                                                    { id: 'profit', label: 'Profit' },
+                                                    { id: 'margin', label: 'Margin' },
+                                                    { id: 'epc', label: 'EPC' },
+                                                ].map((col) => (
+                                                    <div
+                                                        key={col.id}
+                                                        className="flex items-center gap-3 cursor-pointer group"
+                                                        onClick={() => toggleTempColumn(col.id)}
+                                                    >
+                                                        <div className={`h-4 w-4 rounded flex items-center justify-center transition-all border-2 ${tempVisibleColumns[col.id] ? 'bg-red-600 border-red-600 shadow-sm' : 'bg-white border-gray-300 group-hover:border-gray-400'}`}>
+                                                            {tempVisibleColumns[col.id] && (
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5">
+                                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                                </svg>
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-xs font-medium transition-colors ${tempVisibleColumns[col.id] ? 'text-gray-900' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                                                            {col.label}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-2 bg-gray-50 mt-1">
+                                            <Button
+                                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-8 rounded-lg text-xs shadow-md hover:shadow-lg transition-all"
+                                                onClick={handleApplyColumns}
+                                            >
+                                                Apply
+                                            </Button>
+                                        </div>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <div className="relative w-full sm:w-61">
                                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input
                                         placeholder="Search campaign, offer…"
@@ -720,43 +854,73 @@ export default function CampaignReportPage() {
                                     ) : (
                                         paginated.map((r, i) => (
                                             <TableRow key={i} className="hover:bg-gray-50/50 transition-colors">
-                                                <TableCell style={{ width: columnWidths.campaign_name, minWidth: columnWidths.campaign_name }} className="overflow-hidden">
-                                                    <div className="font-semibold text-gray-900 text-sm truncate">{r.campaign_name || '—'}</div>
-                                                    {r.campaign_id && <div className="text-[10px] text-gray-400">ID: {r.campaign_id}</div>}
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.affiliate_manager, minWidth: columnWidths.affiliate_manager }} className="overflow-hidden">
-                                                    <div className="text-sm text-gray-600 truncate">{r.affiliate_manager || '—'}</div>
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.offer_name, minWidth: columnWidths.offer_name }} className="overflow-hidden">
-                                                    <div className="text-sm text-gray-700 truncate" title={r.offer_name}>{r.offer_name || '—'}</div>
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.advertiser_manager, minWidth: columnWidths.advertiser_manager }} className="overflow-hidden">
-                                                    <div className="text-sm text-gray-600 truncate">{r.advertiser_manager || '—'}</div>
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.price_media, minWidth: columnWidths.price_media }} className="overflow-hidden">
-                                                    <div className="flex flex-col gap-1 truncate text-ellipsis">
-                                                        {r.price_format && <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 text-blue-700 border-blue-200 w-fit">{r.price_format}</Badge>}
-                                                        {r.media_type && <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-gray-50 text-gray-600 border-gray-200 w-fit">{r.media_type}</Badge>}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.views, minWidth: columnWidths.views }} className="text-right tabular-nums text-sm text-gray-700 truncate">{r.views.toLocaleString()}</TableCell>
-                                                <TableCell style={{ width: columnWidths.clicks, minWidth: columnWidths.clicks }} className="text-right tabular-nums text-sm font-semibold text-gray-800 truncate">{r.clicks.toLocaleString()}</TableCell>
-                                                <TableCell style={{ width: columnWidths.click_thru_pct, minWidth: columnWidths.click_thru_pct }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtPct(r.click_thru_pct)}</TableCell>
-                                                <TableCell style={{ width: columnWidths.conversions, minWidth: columnWidths.conversions }} className="text-right tabular-nums text-sm font-semibold text-gray-800 truncate">{fmt(r.conversions, 2)}</TableCell>
-                                                <TableCell style={{ width: columnWidths.conversion_pct, minWidth: columnWidths.conversion_pct }} className="text-right tabular-nums text-sm truncate">
-                                                    <span className={r.conversion_pct > 0 ? 'text-green-600 font-semibold' : 'text-gray-500'}>
-                                                        {fmtPct(r.conversion_pct)}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.cost, minWidth: columnWidths.cost }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.cost)}</TableCell>
-                                                <TableCell style={{ width: columnWidths.revenue, minWidth: columnWidths.revenue }} className="text-right tabular-nums text-sm font-semibold text-emerald-700 truncate">{fmtCurrency(r.revenue)}</TableCell>
-                                                <TableCell style={{ width: columnWidths.profit, minWidth: columnWidths.profit }} className="text-right tabular-nums text-sm font-bold truncate">
-                                                    <span className={r.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                        {fmtCurrency(r.profit)}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell style={{ width: columnWidths.margin, minWidth: columnWidths.margin }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtCurrency(r.margin)}</TableCell>
-                                                <TableCell style={{ width: columnWidths.epc, minWidth: columnWidths.epc }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.epc)}</TableCell>
+                                                {visibleColumns.campaign_name && (
+                                                    <TableCell style={{ width: columnWidths.campaign_name, minWidth: columnWidths.campaign_name }} className="overflow-hidden">
+                                                        <div className="font-semibold text-gray-900 text-sm truncate">{r.campaign_name || '—'}</div>
+                                                        {r.campaign_id && <div className="text-[10px] text-gray-400">ID: {r.campaign_id}</div>}
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.affiliate_manager && (
+                                                    <TableCell style={{ width: columnWidths.affiliate_manager, minWidth: columnWidths.affiliate_manager }} className="overflow-hidden">
+                                                        <div className="text-sm text-gray-600 truncate">{r.affiliate_manager || '—'}</div>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.offer_name && (
+                                                    <TableCell style={{ width: columnWidths.offer_name, minWidth: columnWidths.offer_name }} className="overflow-hidden">
+                                                        <div className="text-sm text-gray-700 truncate" title={r.offer_name}>{r.offer_name || '—'}</div>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.advertiser_manager && (
+                                                    <TableCell style={{ width: columnWidths.advertiser_manager, minWidth: columnWidths.advertiser_manager }} className="overflow-hidden">
+                                                        <div className="text-sm text-gray-600 truncate">{r.advertiser_manager || '—'}</div>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.price_media && (
+                                                    <TableCell style={{ width: columnWidths.price_media, minWidth: columnWidths.price_media }} className="overflow-hidden">
+                                                        <div className="flex flex-col gap-1 truncate text-ellipsis">
+                                                            {r.price_format && <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 text-blue-700 border-blue-200 w-fit">{r.price_format}</Badge>}
+                                                            {r.media_type && <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-gray-50 text-gray-600 border-gray-200 w-fit">{r.media_type}</Badge>}
+                                                        </div>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.views && (
+                                                    <TableCell style={{ width: columnWidths.views, minWidth: columnWidths.views }} className="text-right tabular-nums text-sm text-gray-700 truncate">{r.views.toLocaleString()}</TableCell>
+                                                )}
+                                                {visibleColumns.clicks && (
+                                                    <TableCell style={{ width: columnWidths.clicks, minWidth: columnWidths.clicks }} className="text-right tabular-nums text-sm font-semibold text-gray-800 truncate">{r.clicks.toLocaleString()}</TableCell>
+                                                )}
+                                                {visibleColumns.click_thru_pct && (
+                                                    <TableCell style={{ width: columnWidths.click_thru_pct, minWidth: columnWidths.click_thru_pct }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtPct(r.click_thru_pct)}</TableCell>
+                                                )}
+                                                {visibleColumns.conversions && (
+                                                    <TableCell style={{ width: columnWidths.conversions, minWidth: columnWidths.conversions }} className="text-right tabular-nums text-sm font-semibold text-gray-800 truncate">{fmt(r.conversions, 2)}</TableCell>
+                                                )}
+                                                {visibleColumns.conversion_pct && (
+                                                    <TableCell style={{ width: columnWidths.conversion_pct, minWidth: columnWidths.conversion_pct }} className="text-right tabular-nums text-sm truncate">
+                                                        <span className={r.conversion_pct > 0 ? 'text-green-600 font-semibold' : 'text-gray-500'}>
+                                                            {fmtPct(r.conversion_pct)}
+                                                        </span>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.cost && (
+                                                    <TableCell style={{ width: columnWidths.cost, minWidth: columnWidths.cost }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.cost)}</TableCell>
+                                                )}
+                                                {visibleColumns.revenue && (
+                                                    <TableCell style={{ width: columnWidths.revenue, minWidth: columnWidths.revenue }} className="text-right tabular-nums text-sm font-semibold text-emerald-700 truncate">{fmtCurrency(r.revenue)}</TableCell>
+                                                )}
+                                                {visibleColumns.profit && (
+                                                    <TableCell style={{ width: columnWidths.profit, minWidth: columnWidths.profit }} className="text-right tabular-nums text-sm font-bold truncate">
+                                                        <span className={r.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                            {fmtCurrency(r.profit)}
+                                                        </span>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.margin && (
+                                                    <TableCell style={{ width: columnWidths.margin, minWidth: columnWidths.margin }} className="text-right tabular-nums text-sm text-gray-600 truncate">{fmtCurrency(r.margin)}</TableCell>
+                                                )}
+                                                {visibleColumns.epc && (
+                                                    <TableCell style={{ width: columnWidths.epc, minWidth: columnWidths.epc }} className="text-right tabular-nums text-sm text-gray-700 truncate">{fmtCurrency(r.epc)}</TableCell>
+                                                )}
                                             </TableRow>
                                         ))
                                     )}
