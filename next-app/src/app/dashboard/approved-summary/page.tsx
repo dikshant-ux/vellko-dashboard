@@ -56,11 +56,13 @@ function ApprovedSummaryContent() {
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("all");
 
-    // Pagination State
+    // Sorting and Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+    const [sortBy, setSortBy] = useState("processed_at");
+    const [sortOrder, setSortOrder] = useState(-1);
 
     useEffect(() => {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrers`)
@@ -68,6 +70,18 @@ function ApprovedSummaryContent() {
             .then(data => setReferrers(data))
             .catch(console.error);
     }, []);
+
+    useEffect(() => {
+        if (session?.user?.application_permission && filterAppType === "all") {
+            const permission = session.user.application_permission as string;
+            if (permission === 'Call Traffic') {
+                setFilterAppType('Call Traffic');
+            } else if (permission === 'Web Traffic') {
+                setFilterAppType('Web Traffic');
+            }
+            // For 'Both' or SUPER_ADMIN, it stays 'all'
+        }
+    }, [session, filterAppType]);
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -78,12 +92,16 @@ function ApprovedSummaryContent() {
             if (filterReferral && filterReferral !== 'all') {
                 params.append('referral_id', filterReferral);
             }
+
+            // Only append application_type if it's not 'all'
             if (filterAppType && filterAppType !== 'all') {
                 params.append('application_type', filterAppType);
             }
 
             params.append('page', currentPage.toString());
             params.append('limit', limit.toString());
+            params.append('sort_by', sortBy);
+            params.append('sort_order', sortOrder.toString());
 
             const queryString = params.toString();
             if (queryString) {
@@ -109,7 +127,22 @@ function ApprovedSummaryContent() {
                     setIsLoading(false);
                 });
         }
-    }, [session, filterReferral, filterAppType, currentPage, limit, authFetch]);
+    }, [session, filterReferral, filterAppType, currentPage, limit, sortBy, sortOrder, authFetch]);
+
+    const handleSort = (field: string) => {
+        if (sortBy === field) {
+            setSortOrder(sortOrder === 1 ? -1 : 1);
+        } else {
+            setSortBy(field);
+            setSortOrder(-1);
+        }
+        setCurrentPage(1);
+    };
+
+    const SortIcon = ({ field }: { field: string }) => {
+        if (sortBy !== field) return null;
+        return sortOrder === 1 ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
+    };
 
     const filteredSignups = signups.filter(signup =>
         signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,18 +207,27 @@ function ApprovedSummaryContent() {
                                 />
                             </div>
 
-                            <div className="w-full sm:w-48 shrink-0">
-                                <Select value={filterAppType} onValueChange={(val) => { setFilterAppType(val); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-10 bg-muted/30 border-transparent focus:ring-primary/20">
-                                        <SelectValue placeholder="App Type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Traffic</SelectItem>
-                                        <SelectItem value="Web Traffic">Web Traffic</SelectItem>
-                                        <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {/* App Type Filter - Only show for Super Admin or Both permissions */}
+                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') ? (
+                                <div className="w-full sm:w-48 shrink-0">
+                                    <Select value={filterAppType} onValueChange={(val) => { setFilterAppType(val); setCurrentPage(1); }}>
+                                        <SelectTrigger className="h-10 bg-muted/30 border-transparent focus:ring-primary/20">
+                                            <SelectValue placeholder="App Type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Traffic</SelectItem>
+                                            <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                            <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            ) : (
+                                <div className="hidden sm:block">
+                                    <Badge variant="outline" className="h-10 px-4 bg-muted/20 text-muted-foreground border-transparent">
+                                        {filterAppType}
+                                    </Badge>
+                                </div>
+                            )}
 
                             <div className="w-full sm:w-48 shrink-0">
                                 <Select value={filterReferral} onValueChange={(val) => { setFilterReferral(val); setCurrentPage(1); }}>
@@ -208,14 +250,24 @@ function ApprovedSummaryContent() {
                         <Table>
                             <TableHeader className="bg-gray-50/50">
                                 <TableRow>
-                                    <TableHead className="font-semibold text-gray-600 pl-6">Affiliate / Company</TableHead>
+                                    <TableHead
+                                        className="font-semibold text-gray-600 pl-6 cursor-pointer hover:text-red-600 transition-colors"
+                                        onClick={() => handleSort('companyName')}
+                                    >
+                                        Affiliate / Company <SortIcon field="companyName" />
+                                    </TableHead>
                                     <TableHead className="font-semibold text-gray-600">Type</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Cake ID</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Ringba Details</TableHead>
                                     <TableHead className="font-semibold text-gray-600">QA Docs</TableHead>
                                     <TableHead className="font-semibold text-gray-600 text-center">Q/A Responses</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Referrer</TableHead>
-                                    <TableHead className="font-semibold text-gray-600">Approved Date</TableHead>
+                                    <TableHead
+                                        className="font-semibold text-gray-600 cursor-pointer hover:text-red-600 transition-colors"
+                                        onClick={() => handleSort('processed_at')}
+                                    >
+                                        Approved Date <SortIcon field="processed_at" />
+                                    </TableHead>
                                     <TableHead className="text-right font-semibold text-gray-600 pr-6">Action</TableHead>
                                 </TableRow>
                             </TableHeader>

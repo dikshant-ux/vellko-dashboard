@@ -238,6 +238,8 @@ async def get_signups(
     application_type: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    sort_by: Optional[str] = "created_at",
+    sort_order: int = Query(-1, ge=-1, le=1), # -1 for desc, 1 for asc
     user: User = Depends(get_current_admin)
 ):
     query = {}
@@ -277,12 +279,12 @@ async def get_signups(
     if application_type:
         if application_type == "Web Traffic":
              if "Web Traffic" in user_allowed_types:
-                  final_types_filter = ["Web Traffic", "Both"]
+                  final_types_filter = ["Web Traffic"]
              else:
                   final_types_filter = []
         elif application_type == "Call Traffic":
              if "Call Traffic" in user_allowed_types:
-                  final_types_filter = ["Call Traffic", "Both"]
+                  final_types_filter = ["Call Traffic"]
              else:
                   final_types_filter = []
     
@@ -325,10 +327,18 @@ async def get_signups(
             # Default behavior (Both or All)
             query["status"] = status
 
+    # Sorting
+    # Handle nested fields for sorting if needed, e.g., companyInfo.companyName
+    effective_sort_by = sort_by
+    if sort_by == "companyName":
+        effective_sort_by = "companyInfo.companyName"
+    
+    sort_dict = {effective_sort_by: sort_order} if effective_sort_by else {"created_at": -1}
+
     total_count = await db.signups.count_documents(query)
     
     skip = (page - 1) * limit
-    cursor = db.signups.find(query).sort("created_at", -1).skip(skip).limit(limit)
+    cursor = db.signups.find(query).sort(list(sort_dict.items())).skip(skip).limit(limit)
     items = await cursor.to_list(length=limit)
     
     return {
