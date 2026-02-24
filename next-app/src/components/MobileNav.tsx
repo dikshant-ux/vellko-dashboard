@@ -16,7 +16,8 @@ import {
     ChevronRight,
     HelpCircle,
     BarChart2,
-    ClipboardCheck
+    ClipboardCheck,
+    History
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,9 @@ export default function MobileNav() {
         ] : []),
         ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
+        ] : []),
+        ...(session?.user?.role === 'SUPER_ADMIN' ? [
+            { name: 'User Activity', href: '/dashboard/activity', icon: History },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ];

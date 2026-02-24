@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from typing import List, Optional
 from database import db
 from models import QAForm, QAFormCreate, QAFormUpdate, User, UserRole, APIConnectionType, ApplicationPermission
 from auth import get_current_user
 from bson import ObjectId
 from datetime import datetime
+from activity_utils import log_activity
 
 router = APIRouter(prefix="/admin/qa-forms", tags=["QA Forms"])
 
@@ -49,7 +50,7 @@ async def get_qa_forms(user: User = Depends(get_current_admin)):
     return [QAForm(**f) for f in forms]
 
 @router.post("", response_model=QAForm)
-async def create_qa_form(form_in: QAFormCreate, user: User = Depends(get_current_admin)):
+async def create_qa_form(form_in: QAFormCreate, request: Request, user: User = Depends(get_current_admin)):
     if not check_permission(user, form_in.api_type):
         raise HTTPException(status_code=403, detail="Not authorized to create forms for this API type")
         
@@ -62,6 +63,17 @@ async def create_qa_form(form_in: QAFormCreate, user: User = Depends(get_current
     
     result = await db.qa_forms.insert_one(form_dict)
     form_dict["_id"] = result.inserted_id
+
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Created QA Form",
+        details=f"Created {form_in.api_type} QA form: {form_in.name}",
+        api_type=str(form_in.api_type),
+        target_id=str(form_dict["_id"]),
+        ip_address=request.client.host if request.client else None
+    )
+
     return QAForm(**form_dict)
 
 @router.get("/{id}", response_model=QAForm)
@@ -77,7 +89,7 @@ async def get_qa_form(id: str, user: User = Depends(get_current_admin)):
     return qa_form
 
 @router.put("/{id}", response_model=QAForm)
-async def update_qa_form(id: str, form_in: QAFormUpdate, user: User = Depends(get_current_admin)):
+async def update_qa_form(id: str, form_in: QAFormUpdate, request: Request, user: User = Depends(get_current_admin)):
     existing = await db.qa_forms.find_one({"_id": ObjectId(id)})
     if not existing:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -95,10 +107,21 @@ async def update_qa_form(id: str, form_in: QAFormUpdate, user: User = Depends(ge
     )
     
     updated = await db.qa_forms.find_one({"_id": ObjectId(id)})
+
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Updated QA Form",
+        details=f"Updated QA form: {updated.get('name')}",
+        api_type=str(updated.get('api_type')),
+        target_id=id,
+        ip_address=request.client.host if request.client else None
+    )
+
     return QAForm(**updated)
 
 @router.delete("/{id}")
-async def delete_qa_form(id: str, user: User = Depends(get_current_admin)):
+async def delete_qa_form(id: str, request: Request, user: User = Depends(get_current_admin)):
     existing = await db.qa_forms.find_one({"_id": ObjectId(id)})
     if not existing:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -107,10 +130,21 @@ async def delete_qa_form(id: str, user: User = Depends(get_current_admin)):
         raise HTTPException(status_code=403, detail="Not authorized")
         
     await db.qa_forms.delete_one({"_id": ObjectId(id)})
+
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Deleted QA Form",
+        details=f"Deleted QA form: {existing.get('name')}",
+        api_type=str(existing.get('api_type')),
+        target_id=id,
+        ip_address=request.client.host if request.client else None
+    )
+
     return {"message": "Form deleted successfully"}
 
 @router.post("/{id}/activate")
-async def activate_qa_form(id: str, user: User = Depends(get_current_admin)):
+async def activate_qa_form(id: str, request: Request, user: User = Depends(get_current_admin)):
     existing = await db.qa_forms.find_one({"_id": ObjectId(id)})
     if not existing:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -132,6 +166,16 @@ async def activate_qa_form(id: str, user: User = Depends(get_current_admin)):
         {"$set": {"status": "Active"}}
     )
     
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Activated QA Form",
+        details=f"Activated QA form: {existing.get('name')}",
+        api_type=str(existing.get('api_type')),
+        target_id=id,
+        ip_address=request.client.host if request.client else None
+    )
+
     return {"message": f"Form activated for {api_type}"}
 
 @router.get("/active/{api_type}", response_model=Optional[QAForm])

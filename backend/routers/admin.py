@@ -4,7 +4,7 @@ import smtplib
 import asyncio
 import secrets
 from database import db, get_active_cake_connection, get_active_ringba_connection
-from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission, QAResponse
+from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission, QAResponse, ActivityLog, ClientEvent, PaginatedActivity
 from auth import get_current_user
 from bson import ObjectId
 from pydantic import BaseModel
@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import os
 import shutil
 from email_utils import send_invitation_email, send_referral_assignment_email, send_cake_credentials_email
+from activity_utils import log_activity
+from fastapi import Request
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -379,7 +381,7 @@ import httpx
 import xmltodict
 
 @router.post("/signups/{id}/approve")
-async def approve_signup(id: str, decision: SignupDecision = Body(...), user: User = Depends(get_current_admin)):
+async def approve_signup(id: str, request: Request, decision: SignupDecision = Body(...), user: User = Depends(get_current_admin)):
     signup_data = await db.signups.find_one({"_id": ObjectId(id)})
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
@@ -934,6 +936,17 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         # The user sees a 400 but the DB might have partial success (e.g. one API worked).
         raise HTTPException(status_code=400, detail="; ".join(detail_msg))
 
+    # Log activity
+    company_name = signup_data.get("companyInfo", {}).get("companyName", "Unknown")
+    await log_activity(
+        username=user.username,
+        action="Approved Signup",
+        details=f"Approved signup for {company_name} (Cake: {decision.addToCake}, Ringba: {decision.addToRingba})",
+        api_type=signup_data.get("marketingInfo", {}).get("applicationType"),
+        target_id=id,
+        ip_address=request.client.host if request.client else None
+    )
+
     params_result = {
         "cake": {"id": cake_affiliate_id, "message": cake_message},
         "ringba": {"id": ringba_affiliate_id, "message": ringba_message}
@@ -942,7 +955,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     return {"message": "Approval Processed", "details": params_result}
 
 @router.post("/signups/{id}/reject")
-async def reject_signup(id: str, decision: SignupDecision = Body(...), user: User = Depends(get_current_admin)):
+async def reject_signup(id: str, request: Request, decision: SignupDecision = Body(...), user: User = Depends(get_current_admin)):
     signup_data = await db.signups.find_one({"_id": ObjectId(id)})
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
@@ -1049,6 +1062,18 @@ async def reject_signup(id: str, decision: SignupDecision = Body(...), user: Use
         {"_id": ObjectId(id)},
         {"$set": update_fields}
     )
+
+    # Log activity
+    company_name = signup_data.get("companyInfo", {}).get("companyName", "Unknown")
+    await log_activity(
+        username=user.username,
+        action="Rejected Signup",
+        details=f"Rejected signup for {company_name}. Reason: {decision.reason}",
+        api_type=signup_data.get("marketingInfo", {}).get("applicationType"),
+        target_id=id,
+        ip_address=request.client.host if request.client else None
+    )
+    
     return {"message": "Rejected"}
 
 @router.patch("/signups/{id}/referral")
@@ -1395,6 +1420,45 @@ async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_cur
         raise HTTPException(status_code=404, detail="Note not found")
         
     return {"message": "Note deleted"}
+@router.get("/activity", response_model=PaginatedActivity)
+async def get_activity(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    user: User = Depends(get_current_admin)
+):
+    if user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Only Super Admins can view activity logs")
+    
+    total = await db.user_activities.count_documents({})
+    pages = (total + limit - 1) // limit
+    
+    skip = (page - 1) * limit
+    logs = await db.user_activities.find().sort("timestamp", -1).skip(skip).limit(limit).to_list(limit)
+    
+    return PaginatedActivity(
+        logs=[ActivityLog(**log) for log in logs],
+        total=total,
+        page=page,
+        pages=pages
+    )
+
+@router.post("/activity/log")
+async def log_client_activity(
+    event: ClientEvent,
+    request: Request,
+    user: User = Depends(get_current_admin)
+):
+    from activity_utils import log_activity
+    await log_activity(
+        username=user.username,
+        action=event.action,
+        details=event.details,
+        target_id=event.target_id,
+        api_type=event.api_type,
+        ip_address=request.client.host if request.client else None
+    )
+    return {"status": "ok"}
+
 from models import UserCreate, UserInDB
 from auth import get_password_hash
 
@@ -1422,7 +1486,7 @@ async def get_users(user: User = Depends(get_current_admin)):
     return users
 
 @router.post("/users", response_model=User)
-async def create_user(user_in: UserCreate, user: User = Depends(get_current_admin)):
+async def create_user(user_in: UserCreate, request: Request, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can create users")
     
@@ -1477,10 +1541,19 @@ async def create_user(user_in: UserCreate, user: User = Depends(get_current_admi
              role=user_in.role
          )
 
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Created User",
+        details=f"Created user {user_in.username} with role {user_in.role}",
+        target_id=user_in.username,
+        ip_address=request.client.host if request.client else None
+    )
+
     return user_db
 
 @router.delete("/users/{username}")
-async def delete_user(username: str, user: User = Depends(get_current_admin)):
+async def delete_user(username: str, request: Request, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can delete users")
         
@@ -1508,13 +1581,22 @@ async def delete_user(username: str, user: User = Depends(get_current_admin)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
         
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Deleted User",
+        details=f"Deleted user {username}",
+        target_id=username,
+        ip_address=request.client.host if request.client else None
+    )
+
     return {"message": "User deleted"}
 
 class UserStatusUpdate(BaseModel):
     disabled: bool
 
 @router.patch("/users/{username}/status")
-async def update_user_status(username: str, status_update: UserStatusUpdate, user: User = Depends(get_current_admin)):
+async def update_user_status(username: str, status_update: UserStatusUpdate, request: Request, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update user status")
         
@@ -1535,12 +1617,21 @@ async def update_user_status(username: str, status_update: UserStatusUpdate, use
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
         
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Updated User Status",
+        details=f"{'Deactivated' if status_update.disabled else 'Activated'} user {username}",
+        target_id=username,
+        ip_address=request.client.host if request.client else None
+    )
+
     return {"message": f"User {'deactivated' if status_update.disabled else 'activated'} successfully"}
 
 from models import UserRoleUpdate
 
 @router.patch("/users/{username}/role")
-async def update_user_role(username: str, role_update: UserRoleUpdate, user: User = Depends(get_current_admin)):
+async def update_user_role(username: str, role_update: UserRoleUpdate, request: Request, user: User = Depends(get_current_admin)):
     if user.role != UserRole.SUPER_ADMIN:
         raise HTTPException(status_code=403, detail="Only Super Admins can update roles")
         
@@ -1561,12 +1652,21 @@ async def update_user_role(username: str, role_update: UserRoleUpdate, user: Use
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
         
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Updated User Role",
+        details=f"Updated role for {username} to {role_update.role}",
+        target_id=username,
+        ip_address=request.client.host if request.client else None
+    )
+
     return {"message": f"User role updated to {role_update.role}"}
 
 from models import UserUpdate
 
 @router.patch("/users/{username}")
-async def update_user(username: str, user_update: UserUpdate, user: User = Depends(get_current_admin)):
+async def update_user(username: str, user_update: UserUpdate, request: Request, user: User = Depends(get_current_admin)):
     if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can update users")
     
@@ -1610,6 +1710,15 @@ async def update_user(username: str, user_update: UserUpdate, user: User = Depen
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Log activity
+    await log_activity(
+        username=user.username,
+        action="Updated User",
+        details=f"Updated information for user {username}",
+        target_id=username,
+        ip_address=request.client.host if request.client else None
+    )
+
     return {"message": "User updated successfully"}
 
 from models import SMTPConfigCreate

@@ -357,3 +357,29 @@ class QAFormUpdate(BaseModel):
     name: Optional[str] = None
     status: Optional[str] = None
     questions: Optional[List[QAQuestion]] = None
+
+class ActivityLog(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    username: str
+    action: str # e.g., "Approved Signup", "Rejected Signup", "Edited QA Form"
+    details: str # Descriptive text or structured data
+    api_type: Optional[str] = None # Web/Call if applicable
+    target_id: Optional[str] = None # ID of the signup/form/user affected
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    ip_address: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+class ClientEvent(BaseModel):
+    action: str
+    details: str
+    target_id: Optional[str] = None
+    api_type: Optional[str] = None
+
+class PaginatedActivity(BaseModel):
+    logs: List[ActivityLog]
+    total: int
+    page: int
+    pages: int
