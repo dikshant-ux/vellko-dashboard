@@ -1054,12 +1054,32 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 <CardContent>
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <div className="text-sm text-muted-foreground">
-                                                {signup.ringba_affiliate_id ? (
-                                                    <span className="font-mono bg-muted px-2 py-1 rounded">ID: {signup.ringba_affiliate_id}</span>
-                                                ) : (
-                                                    <span>No Affiliate ID yet</span>
-                                                )}
+                                            <div className="text-sm">
+                                                <div className="flex flex-col gap-2">
+                                                    {signup.ringba_affiliate_id ? (
+                                                        <span className="font-mono bg-muted px-2 py-1 rounded w-fit text-xs">ID: {signup.ringba_affiliate_id}</span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground italic text-xs">No Affiliate ID yet</span>
+                                                    )}
+
+                                                    {signup.ringba_assigned_name && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Name</span>
+                                                            <span className="font-bold text-red-700 bg-red-50 px-2 py-1 rounded text-sm border border-red-100 shadow-sm">
+                                                                {signup.ringba_assigned_name}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {signup.ringba_sub_id && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Sub ID</span>
+                                                            <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                                                {signup.ringba_sub_id}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="flex gap-2">
                                                 {session?.user?.can_approve_signups &&
