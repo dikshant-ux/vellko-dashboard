@@ -14,7 +14,8 @@ import {
     Zap,
     HelpCircle,
     ChevronDown,
-    BarChart2
+    BarChart2,
+    ClipboardCheck
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export default function Sidebar() {
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
+            { name: 'Approved Summary', href: '/dashboard/approved-summary', icon: ClipboardCheck },
         ] : []),
         ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },

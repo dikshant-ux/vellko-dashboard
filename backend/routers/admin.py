@@ -1194,7 +1194,13 @@ async def reset_signup(id: str, user: User = Depends(get_current_admin)):
     return {"message": "Signup reset to Pending"}
 
 @router.post("/signups/{id}/documents")
-async def upload_document(id: str, file: UploadFile = File(...), user: User = Depends(get_current_admin)):
+async def upload_document(
+    id: str, 
+    file: UploadFile = File(...), 
+    tag: Optional[str] = Body(None),
+    api_type: Optional[str] = Body(None),
+    user: User = Depends(get_current_admin)
+):
     signup_data = await db.signups.find_one({"_id": ObjectId(id)})
     if not signup_data:
         raise HTTPException(status_code=404, detail="Signup not found")
@@ -1213,22 +1219,48 @@ async def upload_document(id: str, file: UploadFile = File(...), user: User = De
             detail=f"File type not allowed. Supported types: {', '.join(ALLOWED_EXTENSIONS)}"
         )
 
+    # Custom naming logic: TAGname_AFFID
+    target_filename = file.filename
+    if tag:
+        affid = None
+        if api_type == 'cake':
+            affid = signup_data.get('cake_affiliate_id')
+        elif api_type == 'ringba':
+            affid = signup_data.get('ringba_affiliate_id') or signup_data.get('ringba_assigned_name')
+        
+        # Fallback if no AFFID yet
+        if not affid:
+            affid = id[-6:] # Last 6 chars of signup ID
+            
+        clean_tag = "".join(x for x in tag if x.isalnum() or x in " -_").strip().replace(" ", "_")
+        target_filename = f"{clean_tag}_{affid}{file_ext}"
+
     # Ensure uploads directory exists
     upload_dir = f"uploads/{id}"
     os.makedirs(upload_dir, exist_ok=True)
     
-    file_path = f"{upload_dir}/{file.filename}"
+    file_path = f"{upload_dir}/{target_filename}"
     
+    # Avoid overwriting if same filename exists (though TAGname_AFFID should be unique enough)
+    if os.path.exists(file_path):
+        timestamp = datetime.now().strftime("%H%M%S")
+        name_parts = os.path.splitext(target_filename)
+        target_filename = f"{name_parts[0]}_{timestamp}{name_parts[1]}"
+        file_path = f"{upload_dir}/{target_filename}"
+
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
     document = {
-        "filename": file.filename,
-        "path": f"/uploads/{id}/{file.filename}",
+        "filename": target_filename,
+        "path": f"/uploads/{id}/{target_filename}",
         "uploaded_by": user.username,
         "uploaded_at": datetime.utcnow()
     }
     
+    if tag:
+        document["tag"] = tag
+
     await db.signups.update_one(
         {"_id": ObjectId(id)},
         {"$push": {"documents": document}}

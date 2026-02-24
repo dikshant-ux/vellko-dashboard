@@ -176,7 +176,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
-    const handleQAUpload = async (file: File, questionId: string, apiType: 'cake' | 'ringba') => {
+    const handleQAUpload = async (file: File, questionId: string, apiType: 'cake' | 'ringba', tag?: string) => {
         if (!file) return;
 
         // Client-side validation
@@ -190,6 +190,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         setIsUploadingQA(true);
         const formData = new FormData();
         formData.append("file", file);
+        if (tag) formData.append("tag", tag);
+        if (apiType) formData.append("api_type", apiType);
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/documents`, {
@@ -203,9 +205,23 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 const data = await res.json();
                 const filePath = data.path;
                 if (apiType === 'cake') {
-                    setCakeQAResponses({ ...cakeQAResponses, [questionId]: filePath });
+                    if (tag) {
+                        setCakeQAResponses({
+                            ...cakeQAResponses,
+                            [questionId]: { ...(cakeQAResponses[questionId] || {}), [tag]: filePath }
+                        });
+                    } else {
+                        setCakeQAResponses({ ...cakeQAResponses, [questionId]: filePath });
+                    }
                 } else {
-                    setRingbaQAResponses({ ...ringbaQAResponses, [questionId]: filePath });
+                    if (tag) {
+                        setRingbaQAResponses({
+                            ...ringbaQAResponses,
+                            [questionId]: { ...(ringbaQAResponses[questionId] || {}), [tag]: filePath }
+                        });
+                    } else {
+                        setRingbaQAResponses({ ...ringbaQAResponses, [questionId]: filePath });
+                    }
                 }
             } else {
                 const err = await res.json();
@@ -423,7 +439,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     setCakeQAForm(data);
                     // Initialize responses
                     const initial: any = {};
-                    data.questions.forEach((q: any) => initial[q.id] = q.field_type === 'Yes/No' ? 'No' : '');
+                    data.questions.forEach((q: any) => {
+                        if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
+                            initial[q.id] = {}; // Object of tag: path
+                        } else {
+                            initial[q.id] = q.field_type === 'Yes/No' ? 'No' : '';
+                        }
+                    });
                     setCakeQAResponses(initial);
                 } else {
                     setCakeQAForm(null);
@@ -439,7 +461,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     setRingbaQAForm(data);
                     // Initialize responses
                     const initial: any = {};
-                    data.questions.forEach((q: any) => initial[q.id] = q.field_type === 'Yes/No' ? 'No' : '');
+                    data.questions.forEach((q: any) => {
+                        if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
+                            initial[q.id] = {}; // Object of tag: path
+                        } else {
+                            initial[q.id] = q.field_type === 'Yes/No' ? 'No' : '';
+                        }
+                    });
                     setRingbaQAResponses(initial);
                 } else {
                     setRingbaQAForm(null);
@@ -475,17 +503,39 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         if (['approve', 'request_approval', 'reject'].includes(pendingAction)) {
             if (apiSelection.cake && cakeQAForm) {
                 for (const q of cakeQAForm.questions) {
-                    if (q.required && !cakeQAResponses[q.id]) {
-                        alert(`Please answer the required question for Cake: "${q.text}"`);
-                        return;
+                    if (q.required) {
+                        const response = cakeQAResponses[q.id];
+                        if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
+                            // Check if all tags have been uploaded
+                            for (const tag of q.file_tags) {
+                                if (!response || !response[tag]) {
+                                    alert(`Please upload the required file for Cake: "${tag}" in "${q.text}"`);
+                                    return;
+                                }
+                            }
+                        } else if (!response) {
+                            alert(`Please answer the required question for Cake: "${q.text}"`);
+                            return;
+                        }
                     }
                 }
             }
             if (apiSelection.ringba && ringbaQAForm) {
                 for (const q of ringbaQAForm.questions) {
-                    if (q.required && !ringbaQAResponses[q.id]) {
-                        alert(`Please answer the required question for Ringba: "${q.text}"`);
-                        return;
+                    if (q.required) {
+                        const response = ringbaQAResponses[q.id];
+                        if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
+                            // Check if all tags have been uploaded
+                            for (const tag of q.file_tags) {
+                                if (!response || !response[tag]) {
+                                    alert(`Please upload the required file for Ringba: "${tag}" in "${q.text}"`);
+                                    return;
+                                }
+                            }
+                        } else if (!response) {
+                            alert(`Please answer the required question for Ringba: "${q.text}"`);
+                            return;
+                        }
                     }
                 }
             }
@@ -515,18 +565,38 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     addToCake: apiSelection.cake,
                     addToRingba: apiSelection.ringba,
                     ringba_sub_id: ringbaSubId, // Added ringba_sub_id
-                    cake_qa_responses: apiSelection.cake && cakeQAForm ? cakeQAForm.questions.map((q: any) => ({
-                        question_text: q.text,
-                        answer: q.field_type === 'File' ? "File Attached" : (cakeQAResponses[q.id] || ""),
-                        required: q.required,
-                        file_path: q.field_type === 'File' ? cakeQAResponses[q.id] : null
-                    })) : null,
-                    ringba_qa_responses: apiSelection.ringba && ringbaQAForm ? ringbaQAForm.questions.map((q: any) => ({
-                        question_text: q.text,
-                        answer: q.field_type === 'File' ? "File Attached" : (ringbaQAResponses[q.id] || ""),
-                        required: q.required,
-                        file_path: q.field_type === 'File' ? ringbaQAResponses[q.id] : null
-                    })) : null
+                    ringba_qa_responses: apiSelection.ringba && ringbaQAForm ? ringbaQAForm.questions.map((q: any) => {
+                        const response = ringbaQAResponses[q.id];
+                        const isFile = q.field_type === 'File';
+                        const hasTags = isFile && q.file_tags && q.file_tags.length > 0;
+
+                        return {
+                            question_text: q.text,
+                            answer: isFile ? "File(s) Attached" : (response || ""),
+                            required: q.required,
+                            file_path: isFile && !hasTags ? response : null,
+                            files: hasTags ? Object.entries(response || {}).map(([tag, path]) => ({
+                                tag,
+                                path: path as string
+                            })) : null
+                        };
+                    }) : null,
+                    cake_qa_responses: apiSelection.cake && cakeQAForm ? cakeQAForm.questions.map((q: any) => {
+                        const response = cakeQAResponses[q.id];
+                        const isFile = q.field_type === 'File';
+                        const hasTags = isFile && q.file_tags && q.file_tags.length > 0;
+
+                        return {
+                            question_text: q.text,
+                            answer: isFile ? "File(s) Attached" : (response || ""),
+                            required: q.required,
+                            file_path: isFile && !hasTags ? response : null,
+                            files: hasTags ? Object.entries(response || {}).map(([tag, path]) => ({
+                                tag,
+                                path: path as string
+                            })) : null
+                        };
+                    }) : null,
                 })
             });
 
@@ -1004,7 +1074,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                         </div>
 
                                         {(signup.cake_decision_reason || signup.cake_processed_by) && (
-                                            <div className="pt-4 border-t space-y-3">
+                                            <div className="space-y-3">
                                                 <div className="flex items-start gap-2">
                                                     <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                                                     <div className="text-sm">
@@ -1112,7 +1182,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                         </div>
 
                                         {(signup.ringba_decision_reason || signup.ringba_processed_by) && (
-                                            <div className="pt-4 border-t space-y-3">
+                                            <div className="space-y-3">
                                                 <div className="flex items-start gap-2">
                                                     <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                                                     <div className="text-sm">
@@ -1345,23 +1415,51 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                             </SelectContent>
                                                         </Select>
                                                     ) : q.field_type === 'File' ? (
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Input
-                                                                    type="file"
-                                                                    className="h-9 cursor-pointer"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) handleQAUpload(file, q.id, 'cake');
-                                                                    }}
-                                                                    disabled={isUploadingQA}
-                                                                />
-                                                                {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
-                                                            </div>
-                                                            {cakeQAResponses[q.id] && (
-                                                                <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-100 text-xs text-green-700">
-                                                                    <Check className="h-3 w-3" />
-                                                                    File uploaded: {cakeQAResponses[q.id].split('/').pop()}
+                                                        <div className="space-y-3">
+                                                            {q.file_tags && q.file_tags.length > 0 ? (
+                                                                q.file_tags.map((tag: string) => (
+                                                                    <div key={tag} className="space-y-1.5">
+                                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{tag}</Label>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Input
+                                                                                type="file"
+                                                                                className="h-8 text-xs cursor-pointer"
+                                                                                onChange={(e) => {
+                                                                                    const file = e.target.files?.[0];
+                                                                                    if (file) handleQAUpload(file, q.id, 'cake', tag);
+                                                                                }}
+                                                                                disabled={isUploadingQA}
+                                                                            />
+                                                                            {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                                                                        </div>
+                                                                        {cakeQAResponses[q.id]?.[tag] && (
+                                                                            <div className="flex items-center gap-2 p-1.5 bg-green-50 rounded border border-green-100 text-[10px] text-green-700">
+                                                                                <Check className="h-3 w-3" />
+                                                                                Uploaded: {cakeQAResponses[q.id][tag].split('/').pop()}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Input
+                                                                            type="file"
+                                                                            className="h-9 cursor-pointer"
+                                                                            onChange={(e) => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (file) handleQAUpload(file, q.id, 'cake');
+                                                                            }}
+                                                                            disabled={isUploadingQA}
+                                                                        />
+                                                                        {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                                                                    </div>
+                                                                    {cakeQAResponses[q.id] && typeof cakeQAResponses[q.id] === 'string' && (
+                                                                        <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-100 text-xs text-green-700">
+                                                                            <Check className="h-3 w-3" />
+                                                                            File uploaded: {cakeQAResponses[q.id].split('/').pop()}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1419,23 +1517,51 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                             </SelectContent>
                                                         </Select>
                                                     ) : q.field_type === 'File' ? (
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Input
-                                                                    type="file"
-                                                                    className="h-9 cursor-pointer"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) handleQAUpload(file, q.id, 'ringba');
-                                                                    }}
-                                                                    disabled={isUploadingQA}
-                                                                />
-                                                                {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
-                                                            </div>
-                                                            {ringbaQAResponses[q.id] && (
-                                                                <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-100 text-xs text-green-700">
-                                                                    <Check className="h-3 w-3" />
-                                                                    File uploaded: {ringbaQAResponses[q.id].split('/').pop()}
+                                                        <div className="space-y-3">
+                                                            {q.file_tags && q.file_tags.length > 0 ? (
+                                                                q.file_tags.map((tag: string) => (
+                                                                    <div key={tag} className="space-y-1.5">
+                                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{tag}</Label>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Input
+                                                                                type="file"
+                                                                                className="h-8 text-xs cursor-pointer"
+                                                                                onChange={(e) => {
+                                                                                    const file = e.target.files?.[0];
+                                                                                    if (file) handleQAUpload(file, q.id, 'ringba', tag);
+                                                                                }}
+                                                                                disabled={isUploadingQA}
+                                                                            />
+                                                                            {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                                                                        </div>
+                                                                        {ringbaQAResponses[q.id]?.[tag] && (
+                                                                            <div className="flex items-center gap-2 p-1.5 bg-green-50 rounded border border-green-100 text-[10px] text-green-700">
+                                                                                <Check className="h-3 w-3" />
+                                                                                Uploaded: {ringbaQAResponses[q.id][tag].split('/').pop()}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Input
+                                                                            type="file"
+                                                                            className="h-9 cursor-pointer"
+                                                                            onChange={(e) => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (file) handleQAUpload(file, q.id, 'ringba');
+                                                                            }}
+                                                                            disabled={isUploadingQA}
+                                                                        />
+                                                                        {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                                                                    </div>
+                                                                    {ringbaQAResponses[q.id] && typeof ringbaQAResponses[q.id] === 'string' && (
+                                                                        <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-100 text-xs text-green-700">
+                                                                            <Check className="h-3 w-3" />
+                                                                            File uploaded: {ringbaQAResponses[q.id].split('/').pop()}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2212,9 +2338,25 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                         className="h-auto p-0 text-red-600 justify-start gap-1.5 font-semibold text-[11px] mt-0.5 hover:no-underline"
                                                         onClick={() => handleView({ path: res.file_path })}
                                                     >
-                                                        <Download className="h-3 w-3" />
-                                                        View/Download Attached File
+                                                        <FileText className="h-3 w-3" />
+                                                        View Document
                                                     </Button>
+                                                )}
+                                                {res.files && res.files.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                        {res.files.map((f: any, fidx: number) => (
+                                                            <Button
+                                                                key={fidx}
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 px-2 text-[10px] text-red-600 border-red-100 bg-red-50/30 hover:bg-red-50 gap-1.5"
+                                                                onClick={() => handleView({ path: f.path })}
+                                                            >
+                                                                <FileText className="h-3.5 w-3.5" />
+                                                                {f.tag}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -2244,9 +2386,25 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                         className="h-auto p-0 text-red-600 justify-start gap-1.5 font-semibold text-[11px] mt-0.5 hover:no-underline"
                                                         onClick={() => handleView({ path: res.file_path })}
                                                     >
-                                                        <Download className="h-3 w-3" />
-                                                        View/Download Attached File
+                                                        <FileText className="h-3 w-3" />
+                                                        View Document
                                                     </Button>
+                                                )}
+                                                {res.files && res.files.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                        {res.files.map((f: any, fidx: number) => (
+                                                            <Button
+                                                                key={fidx}
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 px-2 text-[10px] text-red-600 border-red-100 bg-red-50/30 hover:bg-red-50 gap-1.5"
+                                                                onClick={() => handleView({ path: f.path })}
+                                                            >
+                                                                <FileText className="h-3.5 w-3.5" />
+                                                                {f.tag}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>

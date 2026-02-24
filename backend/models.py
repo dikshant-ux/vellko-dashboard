@@ -81,11 +81,16 @@ class SignupNote(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 
+class QAFileResponse(BaseModel):
+    tag: str
+    path: str
+
 class QAResponse(BaseModel):
     question_text: str
     answer: str
     required: bool = True
-    file_path: Optional[str] = None
+    file_path: Optional[str] = None # Legacy single file support
+    files: Optional[List[QAFileResponse]] = None # Multiple tagged files
 
 class SignupInDB(SignupCreate):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -328,6 +333,7 @@ class QAQuestion(BaseModel):
     field_type: QAFieldType = QAFieldType.TEXT
     required: bool = True
     options: Optional[List[str]] = None # For Dropdown
+    file_tags: Optional[List[str]] = None # For File
 
 class QAForm(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
