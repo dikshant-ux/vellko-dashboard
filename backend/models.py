@@ -45,6 +45,7 @@ class AccountInfo(BaseModel):
     timezone: str
     imService: Optional[str] = ""
     imHandle: Optional[str] = Field(default="", min_length=3, max_length=30)
+    linkedIn: Optional[str] = ""
     additionalImChannels: Optional[Dict[str, str]] = Field(default_factory=dict)
 
 class PaymentInfo(BaseModel):
@@ -252,6 +253,7 @@ class AccountInfoUpdate(BaseModel):
     timezone: Optional[str] = None
     imService: Optional[str] = None
     imHandle: Optional[str] = None
+    linkedIn: Optional[str] = None
     additionalImChannels: Optional[Dict[str, str]] = None
 
 class PaymentInfoUpdate(BaseModel):

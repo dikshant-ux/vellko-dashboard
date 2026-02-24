@@ -46,6 +46,7 @@ export default function AffiliateSignup() {
             timezone: "Pacific Standard Time (Mexico)",
             imService: "",
             imHandle: "",
+            linkedIn: "",
             additionalImChannels: {}
         },
         paymentInfo: {
@@ -743,6 +744,11 @@ export default function AffiliateSignup() {
                                         <input type="email" className={`form-control ${errors['accountInfo.email'] ? 'is-invalid' : ''}`} required placeholder="Enter Email Address"
                                             value={form.accountInfo.email} onChange={e => handleChange('accountInfo', 'email', e.target.value)} />
                                         <div className="invalid-feedback">{errors['accountInfo.email']}</div>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label small text-muted">LinkedIn Profile URL</label>
+                                        <input type="text" className="form-control" placeholder="Enter LinkedIn Profile URL (Optional)"
+                                            value={form.accountInfo.linkedIn} onChange={e => handleChange('accountInfo', 'linkedIn', e.target.value)} />
                                     </div>
                                     <div className="mb-3">
                                         <label className="form-label small text-muted">Timezone</label>

@@ -1744,6 +1744,27 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             )}
                         </div>
                         <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
+                            <span className="font-medium text-muted-foreground">LinkedIn:</span>
+                            {isEditing ? (
+                                <Input
+                                    className="h-8"
+                                    value={editForm.accountInfo?.linkedIn}
+                                    onChange={(e) => handleEditChange('accountInfo', 'linkedIn', e.target.value)}
+                                    placeholder="LinkedIn Profile URL"
+                                />
+                            ) : (
+                                <span className="">
+                                    {signup.accountInfo?.linkedIn ? (
+                                        <a href={signup.accountInfo.linkedIn.startsWith('http') ? signup.accountInfo.linkedIn : `https://${signup.accountInfo.linkedIn}`}
+                                            target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                                            {signup.accountInfo.linkedIn}
+                                            <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                    ) : '-'}
+                                </span>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[140px_1fr] gap-0.5 sm:gap-2 items-start py-1 border-b border-dashed last:border-0">
                             <span className="font-medium text-muted-foreground">Timezone:</span>
                             {isEditing ? (
                                 <select
