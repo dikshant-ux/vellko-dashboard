@@ -512,6 +512,7 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     
     cake_conn = await get_active_cake_connection()
     ringba_conn = await get_active_ringba_connection()
+    update_fields = {}
 
     api_params = {
         "api_key": cake_conn["api_key"],
@@ -810,7 +811,6 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     # Usually we want to know if it failed.
     
     # --- Granular Status Update (Boolean) ---
-    update_fields = {}
     if decision.addToCake:
         update_fields["cake_api_status"] = "APPROVED" if cake_success else "FAILED"
     if decision.addToRingba:
