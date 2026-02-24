@@ -54,7 +54,8 @@ export default function EditQAFormPage() {
                     setFormName(data.name);
                     setQuestions((data.questions || []).map((q: any) => ({
                         ...q,
-                        options: Array.isArray(q.options) ? q.options.join(", ") : (q.options || "")
+                        options: Array.isArray(q.options) ? q.options.join(", ") : (q.options || ""),
+                        file_tags: Array.isArray(q.file_tags) ? q.file_tags.join(", ") : (q.file_tags || "")
                     })));
                 } else {
                     alert("Form not found");
@@ -108,7 +109,8 @@ export default function EditQAFormPage() {
                     name: formName,
                     questions: questions.map(q => ({
                         ...q,
-                        options: q.field_type === 'Dropdown' ? (typeof q.options === 'string' ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : q.options) : []
+                        options: q.field_type === 'Dropdown' ? (typeof q.options === 'string' ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : q.options) : [],
+                        file_tags: q.field_type === 'File' ? (typeof q.file_tags === 'string' ? q.file_tags.split(",").map((s: string) => s.trim()).filter(Boolean) : q.file_tags) : []
                     }))
                 })
             });
@@ -262,6 +264,19 @@ export default function EditQAFormPage() {
                                                 value={q.options || ""}
                                                 onChange={(e) => updateQuestion(idx, 'options', e.target.value)}
                                             />
+                                        </div>
+                                    )}
+
+                                    {q.field_type === 'File' && (
+                                        <div className="md:ml-10 pt-2 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">File Tags (optional, comma separated - e.g. Front, Back)</Label>
+                                            <Input
+                                                placeholder="ID Front, ID Back, Business License"
+                                                className="border-gray-100 focus:border-red-500 h-9 text-sm"
+                                                value={typeof q.file_tags === 'string' ? q.file_tags : (q.file_tags?.join(", ") || "")}
+                                                onChange={(e) => updateQuestion(idx, 'file_tags', e.target.value)}
+                                            />
+                                            <p className="text-[10px] text-gray-400 italic">Leave empty for a single generic upload slot.</p>
                                         </div>
                                     )}
 
