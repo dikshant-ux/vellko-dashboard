@@ -13,7 +13,8 @@ import {
     Type,
     List,
     ToggleLeft,
-    HelpCircle
+    HelpCircle,
+    FileCode2 as File
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -201,6 +202,12 @@ export default function NewQAFormPage() {
                                                         <div className="flex items-center gap-2">
                                                             <ToggleLeft className="h-3.5 w-3.5 text-gray-400" />
                                                             Yes / No
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="File">
+                                                        <div className="flex items-center gap-2">
+                                                            <File className="h-3.5 w-3.5 text-gray-400" />
+                                                            File Upload
                                                         </div>
                                                     </SelectItem>
                                                 </SelectContent>

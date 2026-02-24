@@ -84,6 +84,7 @@ class QAResponse(BaseModel):
     question_text: str
     answer: str
     required: bool = True
+    file_path: Optional[str] = None
 
 class SignupInDB(SignupCreate):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -131,6 +132,7 @@ class SignupInDB(SignupCreate):
 class UserRole(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
     ADMIN = "ADMIN"
+    ANALYTIC = "ANALYTIC"
     USER = "USER"
 
 class ApplicationPermission(str, Enum):
@@ -314,6 +316,7 @@ class QAFieldType(str, Enum):
     TEXT = "Text"
     DROPDOWN = "Dropdown"
     YES_NO = "Yes/No"
+    FILE = "File"
 
 class QAQuestion(BaseModel):
     id: str = Field(default_factory=lambda: str(ObjectId()))

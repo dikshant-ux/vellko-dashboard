@@ -252,6 +252,7 @@ export default function UsersPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="USER">User</SelectItem>
+                                            <SelectItem value="ANALYTIC">Analytic</SelectItem>
                                             <SelectItem value="ADMIN">Admin</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -388,6 +389,7 @@ export default function UsersPage() {
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="USER">User</SelectItem>
+                                                            <SelectItem value="ANALYTIC">Analytic</SelectItem>
                                                             <SelectItem value="ADMIN">Admin</SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -525,6 +527,7 @@ export default function UsersPage() {
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="USER">User</SelectItem>
+                                                                <SelectItem value="ANALYTIC">Analytic</SelectItem>
                                                                 <SelectItem value="ADMIN">Admin</SelectItem>
                                                             </SelectContent>
                                                         </Select>

@@ -48,6 +48,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     // Decision Dialog State
     const [isDecisionOpen, setIsDecisionOpen] = useState(false);
     const [decisionReason, setDecisionReason] = useState("");
+    const [ringbaSubId, setRingbaSubId] = useState('');
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'request_approval' | null>(null);
     const [apiSelection, setApiSelection] = useState({ cake: true, ringba: true });
     const [showApiSelection, setShowApiSelection] = useState(false);
@@ -62,6 +63,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     // Document Upload State
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [isUploadingQA, setIsUploadingQA] = useState(false);
 
     // IP Location State
     const [ipLocation, setIpLocation] = useState<string | null>(null);
@@ -171,6 +173,49 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             alert("Error uploading");
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleQAUpload = async (file: File, questionId: string, apiType: 'cake' | 'ringba') => {
+        if (!file) return;
+
+        // Client-side validation
+        const allowedExtensions = ['.pdf', '.doc', '.docx', '.zip', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+        if (!allowedExtensions.includes(fileExt)) {
+            alert(`File type not allowed. Supported types: ${allowedExtensions.join(', ')}`);
+            return;
+        }
+
+        setIsUploadingQA(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/documents`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${session?.accessToken}`
+                },
+                body: formData
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const filePath = data.path;
+                if (apiType === 'cake') {
+                    setCakeQAResponses({ ...cakeQAResponses, [questionId]: filePath });
+                } else {
+                    setRingbaQAResponses({ ...ringbaQAResponses, [questionId]: filePath });
+                }
+            } else {
+                const err = await res.json();
+                alert(`Error uploading QA file: ${err.detail}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error uploading QA file");
+        } finally {
+            setIsUploadingQA(false);
         }
     };
 
@@ -284,6 +329,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const initiateAction = (action: 'approve' | 'reject' | 'request_approval', target?: 'cake' | 'ringba') => {
         setPendingAction(action);
         setDecisionReason("");
+        setRingbaSubId(""); // Reset ringbaSubId
 
         // Reset QA states to avoid showing stale data from previous actions
         setCakeQAForm(null);
@@ -419,6 +465,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             }
         }
 
+        // Ringba Sub ID validation
+        if (apiSelection.ringba && !ringbaSubId.trim()) {
+            alert("Ringba Sub ID is required when Ringba is selected.");
+            return;
+        }
+
         // QA Form Validation
         if (['approve', 'request_approval', 'reject'].includes(pendingAction)) {
             if (apiSelection.cake && cakeQAForm) {
@@ -462,15 +514,18 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     reason: decisionReason,
                     addToCake: apiSelection.cake,
                     addToRingba: apiSelection.ringba,
+                    ringba_sub_id: ringbaSubId, // Added ringba_sub_id
                     cake_qa_responses: apiSelection.cake && cakeQAForm ? cakeQAForm.questions.map((q: any) => ({
                         question_text: q.text,
-                        answer: cakeQAResponses[q.id],
-                        required: q.required
+                        answer: q.field_type === 'File' ? "File Attached" : (cakeQAResponses[q.id] || ""),
+                        required: q.required,
+                        file_path: q.field_type === 'File' ? cakeQAResponses[q.id] : null
                     })) : null,
                     ringba_qa_responses: apiSelection.ringba && ringbaQAForm ? ringbaQAForm.questions.map((q: any) => ({
                         question_text: q.text,
-                        answer: ringbaQAResponses[q.id],
-                        required: q.required
+                        answer: q.field_type === 'File' ? "File Attached" : (ringbaQAResponses[q.id] || ""),
+                        required: q.required,
+                        file_path: q.field_type === 'File' ? ringbaQAResponses[q.id] : null
                     })) : null
                 })
             });
@@ -1206,6 +1261,22 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             />
                         </div>
 
+                        {pendingAction === 'approve' && apiSelection.ringba && (
+                            <div className="grid gap-2 pt-2">
+                                <Label htmlFor="ringbaSubId" className="text-sm font-medium">
+                                    Ringba Sub ID <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                    id="ringbaSubId"
+                                    placeholder="Enter Sub ID for Ringba..."
+                                    value={ringbaSubId}
+                                    onChange={(e) => setRingbaSubId(e.target.value)}
+                                    className="h-10"
+                                />
+                                <p className="text-xs text-muted-foreground">This will be used as the Publisher Sub ID in Ringba.</p>
+                            </div>
+                        )}
+
                         {/* Dynamic QA Forms */}
                         {isFetchingQA ? (
                             <div className="flex items-center justify-center p-4">
@@ -1253,10 +1324,31 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                                 <SelectItem value="No">No</SelectItem>
                                                             </SelectContent>
                                                         </Select>
+                                                    ) : q.field_type === 'File' ? (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Input
+                                                                    type="file"
+                                                                    className="h-9 cursor-pointer"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) handleQAUpload(file, q.id, 'cake');
+                                                                    }}
+                                                                    disabled={isUploadingQA}
+                                                                />
+                                                                {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                                                            </div>
+                                                            {cakeQAResponses[q.id] && (
+                                                                <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-100 text-xs text-green-700">
+                                                                    <Check className="h-3 w-3" />
+                                                                    File uploaded: {cakeQAResponses[q.id].split('/').pop()}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <Input
                                                             className="h-9"
-                                                            value={cakeQAResponses[q.id]}
+                                                            value={cakeQAResponses[q.id] || ""}
                                                             onChange={(e) => setCakeQAResponses({ ...cakeQAResponses, [q.id]: e.target.value })}
                                                             placeholder="Enter answer..."
                                                         />
@@ -1306,10 +1398,31 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                                 <SelectItem value="No">No</SelectItem>
                                                             </SelectContent>
                                                         </Select>
+                                                    ) : q.field_type === 'File' ? (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Input
+                                                                    type="file"
+                                                                    className="h-9 cursor-pointer"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) handleQAUpload(file, q.id, 'ringba');
+                                                                    }}
+                                                                    disabled={isUploadingQA}
+                                                                />
+                                                                {isUploadingQA && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                                                            </div>
+                                                            {ringbaQAResponses[q.id] && (
+                                                                <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-100 text-xs text-green-700">
+                                                                    <Check className="h-3 w-3" />
+                                                                    File uploaded: {ringbaQAResponses[q.id].split('/').pop()}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <Input
                                                             className="h-9"
-                                                            value={ringbaQAResponses[q.id]}
+                                                            value={ringbaQAResponses[q.id] || ""}
                                                             onChange={(e) => setRingbaQAResponses({ ...ringbaQAResponses, [q.id]: e.target.value })}
                                                             placeholder="Enter answer..."
                                                         />
@@ -2049,7 +2162,20 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     {signup.cake_qa_responses.map((res: any, idx: number) => (
                                         <div key={idx} className="space-y-1">
                                             <p className="text-xs font-medium text-gray-500">{res.question_text}</p>
-                                            <p className="text-sm text-gray-900 border-l-2 border-red-200 pl-3 py-0.5">{res.answer || '-'}</p>
+                                            <div className="flex flex-col border-l-2 border-red-200 pl-3 py-0.5">
+                                                <p className="text-sm text-gray-900">{res.answer || '-'}</p>
+                                                {res.file_path && (
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="h-auto p-0 text-red-600 justify-start gap-1.5 font-semibold text-[11px] mt-0.5 hover:no-underline"
+                                                        onClick={() => handleView({ path: res.file_path })}
+                                                    >
+                                                        <Download className="h-3 w-3" />
+                                                        View/Download Attached File
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </CardContent>
@@ -2068,7 +2194,20 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     {signup.ringba_qa_responses.map((res: any, idx: number) => (
                                         <div key={idx} className="space-y-1">
                                             <p className="text-xs font-medium text-gray-500">{res.question_text}</p>
-                                            <p className="text-sm text-gray-900 border-l-2 border-red-200 pl-3 py-0.5">{res.answer || '-'}</p>
+                                            <div className="flex flex-col border-l-2 border-red-200 pl-3 py-0.5">
+                                                <p className="text-sm text-gray-900">{res.answer || '-'}</p>
+                                                {res.file_path && (
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="h-auto p-0 text-red-600 justify-start gap-1.5 font-semibold text-[11px] mt-0.5 hover:no-underline"
+                                                        onClick={() => handleView({ path: res.file_path })}
+                                                    >
+                                                        <Download className="h-3 w-3" />
+                                                        View/Download Attached File
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </CardContent>

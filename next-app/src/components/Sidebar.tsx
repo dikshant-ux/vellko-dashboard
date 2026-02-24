@@ -41,14 +41,16 @@ export default function Sidebar() {
     }, [pathname]);
 
     const navigation = [
-        { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
-        { name: 'Signups', href: '/dashboard/signups', icon: FileText },
-        { name: 'Offers', href: '/dashboard/offers', icon: Zap },
+        ...(session?.user?.role !== 'ANALYTIC' ? [
+            { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
+            { name: 'Signups', href: '/dashboard/signups', icon: FileText },
+            { name: 'Offers', href: '/dashboard/offers', icon: Zap },
+        ] : []),
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
         ] : []),
-        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_reports ? [
+        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },

@@ -361,6 +361,7 @@ class SignupDecision(BaseModel):
     reason: Optional[str] = ""
     addToCake: bool = False
     addToRingba: bool = False
+    ringba_sub_id: Optional[str] = None
     cake_qa_responses: Optional[List[QAResponse]] = None
     ringba_qa_responses: Optional[List[QAResponse]] = None
 
@@ -714,13 +715,30 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
         except Exception as email_err:
             print(f"Warning: Failed to send Cake credentials email: {email_err}")
     
-    # Ringba Logic (Placeholder)
     # Ringba Logic
     if decision.addToRingba:
         try:
+            # --- PPC_NX Naming Logic ---
+            # Default to PPC_N1 if no previous approved name found
+            assigned_name = "PPC_N1"
+            
+            # Find the latest approved Ringba signup with the PPC_NX pattern
+            last_ringba_signup = await db.signups.find_one(
+                {"ringba_api_status": "APPROVED", "ringba_assigned_name": {"$regex": "^PPC_N\\d+$"}},
+                sort=[("ringba_processed_at", -1)]
+            )
+            
+            if last_ringba_signup and last_ringba_signup.get("ringba_assigned_name"):
+                last_name = last_ringba_signup["ringba_assigned_name"]
+                import re
+                match = re.search(r"PPC_N(\d+)", last_name)
+                if match:
+                    next_number = int(match.group(1)) + 1
+                    assigned_name = f"PPC_N{next_number}"
+
             ringba_payload = {
-                "name": f"{signup_data.get('accountInfo', {}).get('firstName', '')} {signup_data.get('accountInfo', {}).get('lastName', '')}".strip() or "Unknown",
-                "subId": str(id),
+                "name": assigned_name,
+                "subId": str(decision.ringba_sub_id or id),
                 "createNumbers": True,
                 "doNotCreateUser": True,
                 "blockCallsIfCapped": False,
@@ -749,7 +767,11 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                         # Fallback if structure is different or top level
                         ringba_affiliate_id = result.get("id")
                         
-                    ringba_message = "Ringba Publisher Created Successfully"
+                    ringba_message = f"Ringba Publisher '{assigned_name}' Created Successfully"
+                    
+                    # Store assigned name for next increment
+                    update_fields["ringba_assigned_name"] = assigned_name
+                    update_fields["ringba_sub_id"] = decision.ringba_sub_id
 
                     # Send Invitation if publisher created successfully
                     if ringba_affiliate_id:
