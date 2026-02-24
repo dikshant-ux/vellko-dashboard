@@ -15,7 +15,8 @@ import {
     Link2,
     ChevronRight,
     HelpCircle,
-    BarChart2
+    BarChart2,
+    ClipboardCheck
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,14 +40,17 @@ export default function MobileNav() {
     const { data: session } = useSession();
 
     const navigation = [
-        { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
-        { name: 'Signups', href: '/dashboard/signups', icon: FileText },
-        { name: 'Offers', href: '/dashboard/offers', icon: Zap },
+        ...(session?.user?.role !== 'ANALYTIC' ? [
+            { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
+            { name: 'Signups', href: '/dashboard/signups', icon: FileText },
+            { name: 'Offers', href: '/dashboard/offers', icon: Zap },
+        ] : []),
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
+            { name: 'Approved Summary', href: '/dashboard/approved-summary', icon: ClipboardCheck },
         ] : []),
-        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_reports ? [
+        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
         ] : []),
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
