@@ -11,7 +11,7 @@ export const GlobalClickTracker: React.FC<{ children: React.ReactNode }> = ({ ch
 
         const handleClick = async (event: MouseEvent) => {
             const target = event.target as HTMLElement;
-            const interactiveElement = target.closest('button, a, input[type="button"], input[type="submit"], select');
+            const interactiveElement = target.closest('button, a, input[type="button"], input[type="submit"], select') as HTMLElement | null;
 
             if (interactiveElement) {
                 const tag = interactiveElement.tagName;
