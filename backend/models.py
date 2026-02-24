@@ -103,6 +103,8 @@ class SignupInDB(SignupCreate):
     cake_processed_at: Optional[datetime] = None
     
     ringba_api_status: Optional[str] = None
+    ringba_assigned_name: Optional[str] = None
+    ringba_sub_id: Optional[str] = None
     ringba_decision_reason: Optional[str] = None
     ringba_processed_by: Optional[str] = None
     ringba_processed_at: Optional[datetime] = None
