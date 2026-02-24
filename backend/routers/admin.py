@@ -720,22 +720,29 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
     if decision.addToRingba:
         try:
             # --- PPC_NX Naming Logic ---
-            # Default to PPC_N1 if no previous approved name found
+            # Default to PPC_N1
             assigned_name = "PPC_N1"
             
-            # Find the latest approved Ringba signup with the PPC_NX pattern
-            last_ringba_signup = await db.signups.find_one(
-                {"ringba_api_status": "APPROVED", "ringba_assigned_name": {"$regex": "^PPC_N\\d+$"}},
-                sort=[("ringba_processed_at", -1)]
+            # Find all signups that have an assigned name in the PPC_NX pattern
+            # We look across all statuses to avoid reuse of names that were previously attempted or accepted
+            cursor = db.signups.find(
+                {"ringba_assigned_name": {"$regex": "^PPC_N\\d+$"}},
+                {"ringba_assigned_name": 1}
             )
             
-            if last_ringba_signup and last_ringba_signup.get("ringba_assigned_name"):
-                last_name = last_ringba_signup["ringba_assigned_name"]
-                import re
-                match = re.search(r"PPC_N(\d+)", last_name)
-                if match:
-                    next_number = int(match.group(1)) + 1
-                    assigned_name = f"PPC_N{next_number}"
+            max_num = 0
+            import re
+            async for s in cursor:
+                name = s.get("ringba_assigned_name")
+                if name:
+                    match = re.search(r"PPC_N(\d+)", name)
+                    if match:
+                        num = int(match.group(1))
+                        if num > max_num:
+                            max_num = num
+            
+            if max_num > 0:
+                assigned_name = f"PPC_N{max_num + 1}"
 
             ringba_payload = {
                 "name": assigned_name,
@@ -757,6 +764,11 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                 response = await client.post(ringba_url, json=ringba_payload, headers=headers, timeout=30.0)
                 ringba_raw_response = response.text
                 
+                # Store assigned name for next increment regardless of success, 
+                # especially if Ringba says it "already exists"
+                update_fields["ringba_assigned_name"] = assigned_name
+                update_fields["ringba_sub_id"] = decision.ringba_sub_id
+
                 if response.status_code in [200, 201]:
                     result = response.json()
                     ringba_success = True
@@ -769,10 +781,6 @@ async def approve_signup(id: str, decision: SignupDecision = Body(...), user: Us
                         ringba_affiliate_id = result.get("id")
                         
                     ringba_message = f"Ringba Publisher '{assigned_name}' Created Successfully"
-                    
-                    # Store assigned name for next increment
-                    update_fields["ringba_assigned_name"] = assigned_name
-                    update_fields["ringba_sub_id"] = decision.ringba_sub_id
 
                     # Send Invitation if publisher created successfully
                     if ringba_affiliate_id:
