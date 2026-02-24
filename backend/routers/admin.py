@@ -944,7 +944,7 @@ async def approve_signup(id: str, request: Request, decision: SignupDecision = B
         details=f"Approved signup for {company_name} (Cake: {decision.addToCake}, Ringba: {decision.addToRingba})",
         api_type=signup_data.get("marketingInfo", {}).get("applicationType"),
         target_id=id,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
 
     params_result = {
@@ -1455,7 +1455,7 @@ async def log_client_activity(
         details=event.details,
         target_id=event.target_id,
         api_type=event.api_type,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
     return {"status": "ok"}
 
@@ -1547,7 +1547,7 @@ async def create_user(user_in: UserCreate, request: Request, user: User = Depend
         action="Created User",
         details=f"Created user {user_in.username} with role {user_in.role}",
         target_id=user_in.username,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
 
     return user_db
@@ -1587,7 +1587,7 @@ async def delete_user(username: str, request: Request, user: User = Depends(get_
         action="Deleted User",
         details=f"Deleted user {username}",
         target_id=username,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
 
     return {"message": "User deleted"}
@@ -1623,7 +1623,7 @@ async def update_user_status(username: str, status_update: UserStatusUpdate, req
         action="Updated User Status",
         details=f"{'Deactivated' if status_update.disabled else 'Activated'} user {username}",
         target_id=username,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
 
     return {"message": f"User {'deactivated' if status_update.disabled else 'activated'} successfully"}
@@ -1658,7 +1658,7 @@ async def update_user_role(username: str, role_update: UserRoleUpdate, request: 
         action="Updated User Role",
         details=f"Updated role for {username} to {role_update.role}",
         target_id=username,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
 
     return {"message": f"User role updated to {role_update.role}"}
@@ -1716,7 +1716,7 @@ async def update_user(username: str, user_update: UserUpdate, request: Request, 
         action="Updated User",
         details=f"Updated information for user {username}",
         target_id=username,
-        ip_address=request.client.host if request.client else None
+        request=request
     )
 
     return {"message": "User updated successfully"}

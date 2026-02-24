@@ -68,10 +68,9 @@ async def create_qa_form(form_in: QAFormCreate, request: Request, user: User = D
     await log_activity(
         username=user.username,
         action="Created QA Form",
-        details=f"Created {form_in.api_type} QA form: {form_in.name}",
-        api_type=str(form_in.api_type),
-        target_id=str(form_dict["_id"]),
-        ip_address=request.client.host if request.client else None
+        details=f"Created form: {form_in.name} for {form_in.api_type}",
+        api_type=form_in.api_type,
+        request=request
     )
 
     return QAForm(**form_dict)
@@ -112,10 +111,9 @@ async def update_qa_form(id: str, form_in: QAFormUpdate, request: Request, user:
     await log_activity(
         username=user.username,
         action="Updated QA Form",
-        details=f"Updated QA form: {updated.get('name')}",
-        api_type=str(updated.get('api_type')),
-        target_id=id,
-        ip_address=request.client.host if request.client else None
+        details=f"Updated form: {updated.get('name')} for {updated.get('api_type')}",
+        api_type=updated.get('api_type'),
+        request=request
     )
 
     return QAForm(**updated)
@@ -135,10 +133,9 @@ async def delete_qa_form(id: str, request: Request, user: User = Depends(get_cur
     await log_activity(
         username=user.username,
         action="Deleted QA Form",
-        details=f"Deleted QA form: {existing.get('name')}",
-        api_type=str(existing.get('api_type')),
-        target_id=id,
-        ip_address=request.client.host if request.client else None
+        details=f"Deleted form for {existing.get('api_type')}",
+        api_type=existing.get('api_type'),
+        request=request
     )
 
     return {"message": "Form deleted successfully"}
@@ -170,10 +167,9 @@ async def activate_qa_form(id: str, request: Request, user: User = Depends(get_c
     await log_activity(
         username=user.username,
         action="Activated QA Form",
-        details=f"Activated QA form: {existing.get('name')}",
-        api_type=str(existing.get('api_type')),
-        target_id=id,
-        ip_address=request.client.host if request.client else None
+        details=f"Activated form for {existing.get('api_type')}",
+        api_type=existing.get('api_type'),
+        request=request
     )
 
     return {"message": f"Form activated for {api_type}"}
