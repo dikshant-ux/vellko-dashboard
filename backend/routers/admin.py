@@ -275,24 +275,21 @@ async def get_signups(
         # If Both, allowed all.
     
     # 2. Determine Requested Filter
-    final_types_filter = user_allowed_types
+    final_types_filter = None # Default to no filter
     if application_type:
         if application_type == "Web Traffic":
-             if "Web Traffic" in user_allowed_types:
-                  final_types_filter = ["Web Traffic"]
-             else:
-                  final_types_filter = []
+            final_types_filter = ["Web Traffic", "Both"]
         elif application_type == "Call Traffic":
-             if "Call Traffic" in user_allowed_types:
-                  final_types_filter = ["Call Traffic"]
-             else:
-                  final_types_filter = []
+            final_types_filter = ["Call Traffic", "Both"]
+        else:
+            final_types_filter = user_allowed_types
+    elif user.role != UserRole.SUPER_ADMIN:
+        # Restricted admins only see what they are allowed
+        final_types_filter = user_allowed_types
     
     # 3. Apply Filters to Query
-    if final_types_filter:
+    if final_types_filter is not None:
         query["marketingInfo.applicationType"] = {"$in": final_types_filter}
-    else:
-        query["marketingInfo.applicationType"] = {"$in": []}
 
     if status:
         if application_type == "Web Traffic":
@@ -326,6 +323,9 @@ async def get_signups(
         else:
             # Default behavior (Both or All)
             query["status"] = status
+            
+    # Remove empty query keys if any were accidentally set to None
+    query = {k: v for k, v in query.items() if v is not None}
 
     # Sorting
     # Handle nested fields for sorting if needed, e.g., companyInfo.companyName
