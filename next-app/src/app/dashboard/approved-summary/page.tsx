@@ -25,7 +25,8 @@ import {
     ChevronLeft,
     ChevronRight,
     ExternalLink,
-    FilterX
+    FilterX,
+    MessageSquare
 } from "lucide-react";
 import {
     Select,
@@ -34,6 +35,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from 'next/link';
 
 function ApprovedSummaryContent() {
@@ -204,6 +213,7 @@ function ApprovedSummaryContent() {
                                     <TableHead className="font-semibold text-gray-600">Cake ID</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Ringba Details</TableHead>
                                     <TableHead className="font-semibold text-gray-600">QA Docs</TableHead>
+                                    <TableHead className="font-semibold text-gray-600 text-center">Q/A Responses</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Referrer</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Approved Date</TableHead>
                                     <TableHead className="text-right font-semibold text-gray-600 pr-6">Action</TableHead>
@@ -251,10 +261,10 @@ function ApprovedSummaryContent() {
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${signup.marketingInfo?.applicationType === 'Both'
-                                                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                                        : signup.marketingInfo?.applicationType === 'Call Traffic'
-                                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                    : signup.marketingInfo?.applicationType === 'Call Traffic'
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                     }`}>
                                                     {signup.marketingInfo?.applicationType}
                                                 </Badge>
@@ -291,8 +301,115 @@ function ApprovedSummaryContent() {
                                                         }`}>
                                                         {getDocCount(signup)}
                                                     </div>
-                                                    <span className="text-[10px] text-gray-500 font-medium">Files</span>
+                                                    <span className="text-[10px] text-gray-500 font-medium tracking-tight">Files</span>
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 px-2 rounded-lg">
+                                                            <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                                                            <span className="text-[11px] font-bold">View Q/A</span>
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden border-none shadow-2xl">
+                                                        <DialogHeader className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
+                                                            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                                                                <MessageSquare className="h-5 w-5" />
+                                                                QA Responses: {signup.companyInfo?.companyName}
+                                                            </DialogTitle>
+                                                        </DialogHeader>
+                                                        <ScrollArea className="p-6 overflow-y-auto max-h-[calc(85vh-88px)]">
+                                                            <div className="space-y-8 pb-4">
+                                                                {/* Web Traffic Section */}
+                                                                <div className="space-y-4">
+                                                                    <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                                                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-bold uppercase text-[10px]">Web Traffic</Badge>
+                                                                        <h3 className="text-sm font-bold text-gray-800">Cake Approval Q/A</h3>
+                                                                    </div>
+                                                                    {!signup.cake_qa_responses || signup.cake_qa_responses.length === 0 ? (
+                                                                        <p className="text-xs text-muted-foreground italic pl-4">No cake Q/A responses available.</p>
+                                                                    ) : (
+                                                                        <div className="grid gap-4 pl-2">
+                                                                            {signup.cake_qa_responses.map((res: any, idx: number) => (
+                                                                                <div key={idx} className="bg-gray-50/50 p-3 rounded-xl border border-gray-100/50 space-y-2">
+                                                                                    <div className="flex items-start gap-2">
+                                                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400">{idx + 1}</span>
+                                                                                        <p className="text-xs font-bold text-gray-700 leading-relaxed">{res.question_text}</p>
+                                                                                    </div>
+                                                                                    <div className="pl-7 space-y-2">
+                                                                                        <p className="text-xs text-gray-600 bg-white p-2 rounded-lg border border-gray-100">{res.answer}</p>
+                                                                                        {(res.file_path || (res.files && res.files.length > 0)) && (
+                                                                                            <div className="flex flex-wrap gap-2 pt-1">
+                                                                                                {res.file_path && (
+                                                                                                    <Button asChild variant="outline" size="sm" className="h-7 text-[10px] font-bold bg-white border-red-100 text-red-600 hover:bg-red-50">
+                                                                                                        <a href={`${process.env.NEXT_PUBLIC_API_URL}${res.file_path}`} target="_blank" rel="noopener noreferrer">
+                                                                                                            <FileText className="h-3 w-3 mr-1" /> View File
+                                                                                                        </a>
+                                                                                                    </Button>
+                                                                                                )}
+                                                                                                {res.files?.map((f: any, fIdx: number) => (
+                                                                                                    <Button key={fIdx} asChild variant="outline" size="sm" className="h-7 text-[10px] font-bold bg-white border-red-100 text-red-600 hover:bg-red-50">
+                                                                                                        <a href={`${process.env.NEXT_PUBLIC_API_URL}${f.path}`} target="_blank" rel="noopener noreferrer">
+                                                                                                            <FileText className="h-3 w-3 mr-1" /> {f.tag}
+                                                                                                        </a>
+                                                                                                    </Button>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Call Traffic Section */}
+                                                                <div className="space-y-4 pt-4">
+                                                                    <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                                                                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none font-bold uppercase text-[10px]">Call Traffic</Badge>
+                                                                        <h3 className="text-sm font-bold text-gray-800">Ringba Approval Q/A</h3>
+                                                                    </div>
+                                                                    {!signup.ringba_qa_responses || signup.ringba_qa_responses.length === 0 ? (
+                                                                        <p className="text-xs text-muted-foreground italic pl-4">No ringba Q/A responses available.</p>
+                                                                    ) : (
+                                                                        <div className="grid gap-4 pl-2">
+                                                                            {signup.ringba_qa_responses.map((res: any, idx: number) => (
+                                                                                <div key={idx} className="bg-gray-50/50 p-3 rounded-xl border border-gray-100/50 space-y-2">
+                                                                                    <div className="flex items-start gap-2">
+                                                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400">{idx + 1}</span>
+                                                                                        <p className="text-xs font-bold text-gray-700 leading-relaxed">{res.question_text}</p>
+                                                                                    </div>
+                                                                                    <div className="pl-7 space-y-2">
+                                                                                        <p className="text-xs text-gray-600 bg-white p-2 rounded-lg border border-gray-100">{res.answer}</p>
+                                                                                        {(res.file_path || (res.files && res.files.length > 0)) && (
+                                                                                            <div className="flex flex-wrap gap-2 pt-1">
+                                                                                                {res.file_path && (
+                                                                                                    <Button asChild variant="outline" size="sm" className="h-7 text-[10px] font-bold bg-white border-red-100 text-red-600 hover:bg-red-50">
+                                                                                                        <a href={`${process.env.NEXT_PUBLIC_API_URL}${res.file_path}`} target="_blank" rel="noopener noreferrer">
+                                                                                                            <FileText className="h-3 w-3 mr-1" /> View File
+                                                                                                        </a>
+                                                                                                    </Button>
+                                                                                                )}
+                                                                                                {res.files?.map((f: any, fIdx: number) => (
+                                                                                                    <Button key={fIdx} asChild variant="outline" size="sm" className="h-7 text-[10px] font-bold bg-white border-red-100 text-red-600 hover:bg-red-50">
+                                                                                                        <a href={`${process.env.NEXT_PUBLIC_API_URL}${f.path}`} target="_blank" rel="noopener noreferrer">
+                                                                                                            <FileText className="h-3 w-3 mr-1" /> {f.tag}
+                                                                                                        </a>
+                                                                                                    </Button>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </ScrollArea>
+                                                    </DialogContent>
+                                                </Dialog>
                                             </TableCell>
                                             <TableCell>
                                                 <span className="text-xs font-medium text-gray-600">
