@@ -18,11 +18,18 @@ async def log_activity(
     This is designed to be non-blocking and safe to call from any route.
     """
     if request and not ip_address:
-        # Check X-Forwarded-For for public IP if behind a proxy
-        x_forwarded_for = request.headers.get("x-forwarded-for")
-        if x_forwarded_for:
-            ip_address = x_forwarded_for.split(",")[0].strip()
-        else:
+        # Check various headers for public IP if behind a proxy (Nginx, Cloudflare, etc.)
+        headers_to_check = ["cf-connecting-ip", "x-real-ip", "x-forwarded-for"]
+        for header in headers_to_check:
+            value = request.headers.get(header)
+            if value:
+                if header == "x-forwarded-for":
+                    ip_address = value.split(",")[0].strip()
+                else:
+                    ip_address = value.strip()
+                break
+        
+        if not ip_address:
             ip_address = request.client.host if request.client else None
 
     try:

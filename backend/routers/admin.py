@@ -1455,6 +1455,7 @@ async def log_client_activity(
         details=event.details,
         target_id=event.target_id,
         api_type=event.api_type,
+        ip_address=event.client_ip or None,
         request=request
     )
     return {"status": "ok"}

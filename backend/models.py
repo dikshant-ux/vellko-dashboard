@@ -377,6 +377,7 @@ class ClientEvent(BaseModel):
     details: str
     target_id: Optional[str] = None
     api_type: Optional[str] = None
+    client_ip: Optional[str] = None
 
 class PaginatedActivity(BaseModel):
     logs: List[ActivityLog]

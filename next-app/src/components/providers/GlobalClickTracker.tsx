@@ -1,10 +1,24 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 export const GlobalClickTracker: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { data: session } = useSession();
+    const [clientIp, setClientIp] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchIp = async () => {
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                const data = await res.json();
+                setClientIp(data.ip);
+            } catch (error) {
+                console.error('Failed to fetch public IP for tracking:', error);
+            }
+        };
+        fetchIp();
+    }, []);
 
     useEffect(() => {
         if (!session?.accessToken) return;
@@ -40,7 +54,8 @@ export const GlobalClickTracker: React.FC<{ children: React.ReactNode }> = ({ ch
                             body: JSON.stringify({
                                 action,
                                 details: details.trim(),
-                                target_id: interactiveElement.id || undefined
+                                target_id: interactiveElement.id || undefined,
+                                client_ip: clientIp || undefined
                             })
                         });
                     } catch (error) {
@@ -53,7 +68,7 @@ export const GlobalClickTracker: React.FC<{ children: React.ReactNode }> = ({ ch
 
         document.addEventListener('click', handleClick);
         return () => document.removeEventListener('click', handleClick);
-    }, [session]);
+    }, [session, clientIp]);
 
     return <>{children}</>;
 };
