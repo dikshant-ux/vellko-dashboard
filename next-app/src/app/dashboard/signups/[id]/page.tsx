@@ -364,13 +364,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             setIsDecisionOpen(true);
 
             // FETCH QA FORMS
-            if (['approve', 'request_approval', 'reject'].includes(action)) {
+            if (['approve', 'request_approval'].includes(action)) {
                 fetchQAForms();
             }
             return;
         }
 
-        if (['approve', 'request_approval', 'reject'].includes(action)) {
+        if (['approve', 'request_approval'].includes(action)) {
             const appType = signup.marketingInfo?.applicationType;
             const userPermission = session?.user?.application_permission;
 
@@ -410,7 +410,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         setIsDecisionOpen(true);
 
         // Fetch Q/A Forms if it's a qualifying action
-        if (['approve', 'request_approval', 'reject'].includes(action)) {
+        if (['approve', 'request_approval'].includes(action)) {
             fetchQAForms();
         }
     };
@@ -500,7 +500,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
 
         // QA Form Validation
-        if (['approve', 'request_approval', 'reject'].includes(pendingAction)) {
+        if (['approve', 'request_approval'].includes(pendingAction)) {
             if (apiSelection.cake && cakeQAForm) {
                 for (const q of cakeQAForm.questions) {
                     if (q.required) {
@@ -1368,12 +1368,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         )}
 
                         {/* Dynamic QA Forms */}
-                        {isFetchingQA ? (
+                        {(pendingAction === 'approve' || pendingAction === 'request_approval') && isFetchingQA ? (
                             <div className="flex items-center justify-center p-4">
                                 <Loader2 className="h-5 w-5 animate-spin text-red-600" />
                                 <span className="ml-2 text-sm text-gray-500">Loading Q/A Forms...</span>
                             </div>
-                        ) : (
+                        ) : (pendingAction === 'approve' || pendingAction === 'request_approval') && (
                             <div className="max-h-[60vh] overflow-y-auto pr-2 -mr-2 space-y-6">
                                 {apiSelection.cake && cakeQAForm && (
                                     <div className="space-y-4 pt-4 border-t border-gray-100 first:border-t-0 first:pt-0">
