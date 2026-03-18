@@ -480,8 +480,7 @@ export default function UsersPage() {
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     {/* Web/Call admins cannot edit users with Both permission */}
-                                                    {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' &&
-                                                        !(['ADMIN'].includes(session?.user?.role || '') && ['Web Traffic', 'Call Traffic'].includes(session?.user?.application_permission || '') && user.application_permission === 'Both') && (
+                                                    {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' && (
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
@@ -493,8 +492,7 @@ export default function UsersPage() {
                                                         )}
                                                     {/* Web/Call admins cannot delete users with Both permission */}
                                                     {session?.user?.name !== user.username && user.role !== 'SUPER_ADMIN' &&
-                                                        !(user.role === 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') && // Only Super Admin can delete Admins
-                                                        !(['ADMIN'].includes(session?.user?.role || '') && ['Web Traffic', 'Call Traffic'].includes(session?.user?.application_permission || '') && user.application_permission === 'Both') && (
+                                                        !(user.role === 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') && (
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"

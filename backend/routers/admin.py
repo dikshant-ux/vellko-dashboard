@@ -1702,14 +1702,6 @@ async def update_user(username: str, user_update: UserUpdate, request: Request, 
     if user.username == username:
         raise HTTPException(status_code=403, detail="You cannot update your own account")
     
-    # Prevent Web/Call admins from editing users with Both permission
-    if user.role != UserRole.SUPER_ADMIN and hasattr(user, 'application_permission'):
-        from models import ApplicationPermission
-        target_user = await db.users.find_one({"username": username})
-        if target_user and target_user.get("application_permission") == "Both":
-            if user.application_permission in [ApplicationPermission.WEB_TRAFFIC, ApplicationPermission.CALL_TRAFFIC]:
-                raise HTTPException(status_code=403, detail="You cannot update users with Both permission")
-    
     # Build update dict with only provided fields
     update_data = {}
     if user_update.full_name is not None:
