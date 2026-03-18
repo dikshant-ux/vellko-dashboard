@@ -16,8 +16,11 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
     return current_user
 
 async def get_current_approver(current_user: User = Depends(get_current_user)):
-    # Allow if Admin/Super Admin OR if can_approve_signups is True
-    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or current_user.can_approve_signups:
+    # Allow if Admin/Super Admin OR if they have ANY request or approve permission
+    if (current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or 
+        current_user.can_approve_signups or
+        current_user.can_approve_cake or current_user.can_approve_ringba or
+        current_user.can_request_cake or current_user.can_request_ringba):
         return current_user
     raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -25,10 +28,13 @@ def check_permission(user: User, api_type: APIConnectionType):
     if user.role == UserRole.SUPER_ADMIN:
         return True
     
+    # Check if they have at least one permission for this platform and correct application permission
     if api_type == APIConnectionType.CAKE:
-        return user.application_permission in [ApplicationPermission.WEB_TRAFFIC, ApplicationPermission.BOTH]
+        has_platform_perm = user.can_approve_cake or user.can_request_cake
+        return has_platform_perm and user.application_permission in [ApplicationPermission.WEB_TRAFFIC, ApplicationPermission.BOTH]
     elif api_type == APIConnectionType.RINGBA:
-        return user.application_permission in [ApplicationPermission.CALL_TRAFFIC, ApplicationPermission.BOTH]
+        has_platform_perm = user.can_approve_ringba or user.can_request_ringba
+        return has_platform_perm and user.application_permission in [ApplicationPermission.CALL_TRAFFIC, ApplicationPermission.BOTH]
     
     return False
 

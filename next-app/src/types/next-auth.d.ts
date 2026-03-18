@@ -10,6 +10,10 @@ declare module "next-auth" {
             image?: string | null
             role?: string
             can_approve_signups?: boolean
+            can_approve_cake?: boolean
+            can_approve_ringba?: boolean
+            can_request_cake?: boolean
+            can_request_ringba?: boolean
             can_view_reports?: boolean
         }
     }

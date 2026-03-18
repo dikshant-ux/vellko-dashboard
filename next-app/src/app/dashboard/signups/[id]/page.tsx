@@ -344,7 +344,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
 
     const initiateAction = (action: 'approve' | 'reject' | 'request_approval', target?: 'cake' | 'ringba') => {
         setPendingAction(action);
-        setDecisionReason("");
+        setDecisionReason(signup.decision_reason || "");
         setRingbaSubId(""); // Reset ringbaSubId
 
         // Reset QA states to avoid showing stale data from previous actions
@@ -365,12 +365,22 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
 
             // FETCH QA FORMS
             if (['approve', 'request_approval'].includes(action)) {
+                if (signup.ringba_sub_id && target === 'ringba') {
+                    setRingbaSubId(signup.ringba_sub_id);
+                } else if (!signup.ringba_sub_id) {
+                    setRingbaSubId('');
+                }
                 fetchQAForms();
             }
             return;
         }
 
         if (['approve', 'request_approval'].includes(action)) {
+            if (signup.ringba_sub_id) {
+                setRingbaSubId(signup.ringba_sub_id);
+            } else {
+                setRingbaSubId('');
+            }
             const appType = signup.marketingInfo?.applicationType;
             const userPermission = session?.user?.application_permission;
 
@@ -440,10 +450,21 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     // Initialize responses
                     const initial: any = {};
                     data.questions.forEach((q: any) => {
+                        // Check for existing response in signup object
+                        const existing = signup.cake_qa_responses?.find((r: any) => r.question_text === q.text);
+
                         if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
-                            initial[q.id] = {}; // Object of tag: path
+                            const filesObj: any = {};
+                            if (existing && existing.files) {
+                                existing.files.forEach((f: any) => {
+                                    filesObj[f.tag] = f.path;
+                                });
+                            }
+                            initial[q.id] = filesObj;
+                        } else if (q.field_type === 'File') {
+                            initial[q.id] = existing?.file_path || '';
                         } else {
-                            initial[q.id] = q.field_type === 'Yes/No' ? 'No' : '';
+                            initial[q.id] = existing?.answer || (q.field_type === 'Yes/No' ? 'No' : '');
                         }
                     });
                     setCakeQAResponses(initial);
@@ -462,10 +483,21 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     // Initialize responses
                     const initial: any = {};
                     data.questions.forEach((q: any) => {
+                         // Check for existing response in signup object
+                         const existing = signup.ringba_qa_responses?.find((r: any) => r.question_text === q.text);
+
                         if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
-                            initial[q.id] = {}; // Object of tag: path
+                            const filesObj: any = {};
+                            if (existing && existing.files) {
+                                existing.files.forEach((f: any) => {
+                                    filesObj[f.tag] = f.path;
+                                });
+                            }
+                            initial[q.id] = filesObj;
+                        } else if (q.field_type === 'File') {
+                            initial[q.id] = existing?.file_path || '';
                         } else {
-                            initial[q.id] = q.field_type === 'Yes/No' ? 'No' : '';
+                            initial[q.id] = existing?.answer || (q.field_type === 'Yes/No' ? 'No' : '');
                         }
                     });
                     setRingbaQAResponses(initial);
@@ -493,9 +525,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             }
         }
 
-        // Ringba Sub ID validation - only for approval actions
-        if (['approve', 'request_approval'].includes(pendingAction) && apiSelection.ringba && !ringbaSubId.trim()) {
-            alert("Ringba Sub ID is required when Ringba is selected.");
+        // Ringba Sub ID validation - only for APPROVAL finalization
+        if (pendingAction === 'approve' && apiSelection.ringba && !ringbaSubId.trim()) {
+            alert("Ringba Sub ID is required when Ringba is selected for approval.");
             return;
         }
 
@@ -977,17 +1009,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
 
                         {/* Action buttons — collapse to row on sm, wrap naturally */}
                         <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:items-start">
-                            {!session?.user?.can_approve_signups && signup.status === 'PENDING' && (
-                                <Button
-                                    className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
-                                    onClick={() => initiateAction('request_approval')}
-                                    disabled={!!actionLoading}
-                                >
-                                    {actionLoading === 'request_approval' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                                    Request Approval
-                                </Button>
-                            )}
-                            {session?.user?.can_approve_signups && (
+                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) && (
                                 <>
                                     {isEditing ? (
                                         <>
@@ -1014,7 +1036,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             {/* Decision Cards - Granularity & Actions */}
-            {session?.user?.can_approve_signups && (signup.status === 'PENDING' || signup.status === 'APPROVED' || signup.status === 'PARTIALLY APPROVED' || signup.status === 'APPROVED (PARTIAL)' || signup.status === 'REQUESTED_FOR_APPROVAL') && (
+            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) && 
+             (signup.status === 'PENDING' || signup.status === 'APPROVED' || signup.status === 'PARTIALLY APPROVED' || signup.status === 'APPROVED (PARTIAL)' || signup.status === 'REQUESTED_FOR_APPROVAL') && (
                 <div className="space-y-6">
                     <div className="grid gap-6 md:grid-cols-2">
                         {/* Cake Card */}
@@ -1044,7 +1067,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                 )}
                                             </div>
                                             <div className="flex gap-2">
-                                                {session?.user?.can_approve_signups &&
+                                                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_request_cake) &&
                                                     (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
                                                         <>
                                                             {!signup.cake_affiliate_id && (
@@ -1057,14 +1080,25 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                                     >
                                                                         Reject
                                                                     </Button>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        className="bg-green-600 hover:bg-green-700"
-                                                                        onClick={() => initiateAction('approve', 'cake')}
-                                                                        disabled={!!actionLoading}
-                                                                    >
-                                                                        {signup.cake_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
-                                                                    </Button>
+                                                                    {session?.user?.can_approve_cake ? (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="bg-green-600 hover:bg-green-700"
+                                                                            onClick={() => initiateAction('approve', 'cake')}
+                                                                            disabled={!!actionLoading}
+                                                                        >
+                                                                            {signup.cake_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="bg-blue-600 hover:bg-blue-700"
+                                                                            onClick={() => initiateAction('request_approval', 'cake')}
+                                                                            disabled={!!actionLoading}
+                                                                        >
+                                                                            Process & Request
+                                                                        </Button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </>
@@ -1152,7 +1186,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
-                                                {session?.user?.can_approve_signups &&
+                                                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_ringba || session?.user?.can_request_ringba) &&
                                                     (['Call Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
                                                         <>
                                                             {!signup.ringba_affiliate_id && (
@@ -1165,14 +1199,25 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                                                     >
                                                                         Reject
                                                                     </Button>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        className="bg-green-600 hover:bg-green-700"
-                                                                        onClick={() => initiateAction('approve', 'ringba')}
-                                                                        disabled={!!actionLoading}
-                                                                    >
-                                                                        {signup.ringba_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
-                                                                    </Button>
+                                                                    {session?.user?.can_approve_ringba ? (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="bg-green-600 hover:bg-green-700"
+                                                                            onClick={() => initiateAction('approve', 'ringba')}
+                                                                            disabled={!!actionLoading}
+                                                                        >
+                                                                            {signup.ringba_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="bg-blue-600 hover:bg-blue-700"
+                                                                            onClick={() => initiateAction('request_approval', 'ringba')}
+                                                                            disabled={!!actionLoading}
+                                                                        >
+                                                                            Process & Request
+                                                                        </Button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </>

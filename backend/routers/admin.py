@@ -408,10 +408,33 @@ async def approve_signup(id: str, request: Request, decision: SignupDecision = B
                 raise HTTPException(status_code=403, detail="Call Traffic admins cannot approve Web Traffic signups")
         # Both permission can approve anything (Web, Call, Both)
 
-    # Check for Approval Permission
-    # If user lacks permission, force REQUESTED_FOR_APPROVAL
-    # Existing Admins default to True, so this mostly affects new restricted users.
-    if hasattr(user, 'can_approve_signups') and user.can_approve_signups is False:
+    # Check for Approval Permissions (Granular)
+    # If user lacks permission for what they are trying to do, trigger approval request logic.
+    
+    can_approve_cake = getattr(user, 'can_approve_cake', True)
+    can_approve_ringba = getattr(user, 'can_approve_ringba', True)
+    can_request_cake = getattr(user, 'can_request_cake', True)
+    can_request_ringba = getattr(user, 'can_request_ringba', True)
+    
+    needs_approval_request = False
+    
+    # 1. Permission to APPROVE
+    if decision.addToCake and not can_approve_cake:
+        # If they can't approve, they MUST at least have permission to REQUEST
+        if not can_request_cake:
+            raise HTTPException(status_code=403, detail="You do not have permission to request or approve Cake applications")
+        needs_approval_request = True
+        
+    if decision.addToRingba and not can_approve_ringba:
+        if not can_request_ringba:
+            raise HTTPException(status_code=403, detail="You do not have permission to request or approve Ringba applications")
+        needs_approval_request = True
+
+    # 2. Rejection also needs permission? (Usually if you can request/approve, you can reject)
+    # For now, we assume if they can do either for that platform, they can reject.
+    # (Optional: add can_reject_cake if needed, but keeping it simple as per request)
+
+    if needs_approval_request or (hasattr(user, 'can_approve_signups') and user.can_approve_signups is False):
         # User cannot directly approve. Create Approval Request.
         await db.signups.update_one(
             {"_id": ObjectId(id)},
@@ -422,7 +445,9 @@ async def approve_signup(id: str, request: Request, decision: SignupDecision = B
                     "approval_requested_at": datetime.utcnow(),
                     "requested_cake_approval": decision.addToCake,
                     "requested_ringba_approval": decision.addToRingba,
-                    # We can still save their intended decision reason/mapping?
+                    "cake_qa_responses": [r.dict() for r in decision.cake_qa_responses] if decision.cake_qa_responses else None,
+                    "ringba_qa_responses": [r.dict() for r in decision.ringba_qa_responses] if decision.ringba_qa_responses else None,
+                    "ringba_sub_id": decision.ringba_sub_id,
                     "decision_reason": decision.reason,
                     # Logic: Do we save the CAKE/Ringba params they WANTED to use?
                     # For now, just mark status. The final approver might need to re-confirm params.
@@ -1513,12 +1538,14 @@ async def create_user(user_in: UserCreate, request: Request, user: User = Depend
     # Let's start with: Any Admin can grant it, or restrict to Super Admin?
     # User requirement: "Super Admin and Admin should have the ability to grant or revoke"
     # So no extra check needed other than being an Admin (which is already checked at start of func)
-    if user_in.can_approve_signups is None:
-        # Default to True for Admins/Super Admins, False for Users? 
-        # Or just default to True as per model default. 
-        # Let's stick to model default (True) if not specified, or force explicit?
-        # Model default is True.
-        pass
+    if user_in.can_approve_cake is None:
+        user_in.can_approve_cake = True
+    if user_in.can_approve_ringba is None:
+        user_in.can_approve_ringba = True
+    if user_in.can_request_cake is None:
+        user_in.can_request_cake = True
+    if user_in.can_request_ringba is None:
+        user_in.can_request_ringba = True
         
     existing_user = await db.users.find_one({"username": user_in.username})
     if existing_user:
@@ -1693,6 +1720,14 @@ async def update_user(username: str, user_update: UserUpdate, request: Request, 
         update_data["application_permission"] = user_update.application_permission
     if user_update.can_approve_signups is not None:
         update_data["can_approve_signups"] = user_update.can_approve_signups
+    if user_update.can_approve_cake is not None:
+        update_data["can_approve_cake"] = user_update.can_approve_cake
+    if user_update.can_approve_ringba is not None:
+        update_data["can_approve_ringba"] = user_update.can_approve_ringba
+    if user_update.can_request_cake is not None:
+        update_data["can_request_cake"] = user_update.can_request_cake
+    if user_update.can_request_ringba is not None:
+        update_data["can_request_ringba"] = user_update.can_request_ringba
     if user_update.can_view_reports is not None:
         update_data["can_view_reports"] = user_update.can_view_reports
     if user_update.password is not None:

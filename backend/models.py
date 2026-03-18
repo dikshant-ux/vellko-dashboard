@@ -160,6 +160,10 @@ class User(BaseModel):
     two_factor_secret: Optional[str] = None
     is_two_factor_enabled: Optional[bool] = False
     can_approve_signups: Optional[bool] = True
+    can_approve_cake: bool = True
+    can_approve_ringba: bool = True
+    can_request_cake: bool = True
+    can_request_ringba: bool = True
     can_view_reports: Optional[bool] = True
     cake_account_manager_id: Optional[str] = None
     
@@ -174,6 +178,10 @@ class UserUpdate(BaseModel):
     current_password: Optional[str] = None
     application_permission: Optional[ApplicationPermission] = None
     can_approve_signups: Optional[bool] = None
+    can_approve_cake: Optional[bool] = None
+    can_approve_ringba: Optional[bool] = None
+    can_request_cake: Optional[bool] = None
+    can_request_ringba: Optional[bool] = None
     can_view_reports: Optional[bool] = None
     cake_account_manager_id: Optional[str] = None
 

@@ -69,6 +69,10 @@ export const {
                                     role: me.role,
                                     application_permission: me.application_permission,
                                     can_approve_signups: me.can_approve_signups,
+                                    can_approve_cake: me.role === 'SUPER_ADMIN' ? (me.can_approve_cake ?? true) : (me.can_approve_cake ?? me.can_approve_signups),
+                                    can_approve_ringba: me.role === 'SUPER_ADMIN' ? (me.can_approve_ringba ?? true) : (me.can_approve_ringba ?? me.can_approve_signups),
+                                    can_request_cake: me.role === 'SUPER_ADMIN' ? (me.can_request_cake ?? true) : (me.can_request_cake ?? me.can_approve_signups),
+                                    can_request_ringba: me.role === 'SUPER_ADMIN' ? (me.can_request_ringba ?? true) : (me.can_request_ringba ?? me.can_approve_signups),
                                     can_view_reports: me.can_view_reports,
                                     accessToken: user.access_token,
                                 } as any;
@@ -113,6 +117,10 @@ export const {
                 token.role = user.role;
                 token.application_permission = user.application_permission;
                 token.can_approve_signups = user.can_approve_signups;
+                token.can_approve_cake = user.can_approve_cake;
+                token.can_approve_ringba = user.can_approve_ringba;
+                token.can_request_cake = user.can_request_cake;
+                token.can_request_ringba = user.can_request_ringba;
                 token.can_view_reports = user.can_view_reports;
             }
             // When update() is called client-side, merge the updated fields into the token
@@ -126,6 +134,10 @@ export const {
             session.user.role = token.role;
             session.user.application_permission = token.application_permission;
             session.user.can_approve_signups = token.can_approve_signups;
+            session.user.can_approve_cake = token.can_approve_cake;
+            session.user.can_approve_ringba = token.can_approve_ringba;
+            session.user.can_request_cake = token.can_request_cake;
+            session.user.can_request_ringba = token.can_request_ringba;
             session.user.can_view_reports = token.can_view_reports;
             return session;
         }

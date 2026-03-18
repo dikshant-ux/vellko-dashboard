@@ -13,18 +13,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Shield, User as UserIcon, Eye, EyeOff, Loader2, Ban, CheckCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+// Modern Switch Component
+const Switch = ({ checked, onChange, id, label }: { checked: boolean; onChange: (checked: boolean) => void; id: string; label: string }) => {
+    return (
+        <div className="flex items-center justify-between gap-4 py-1.5 px-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => onChange(!checked)}>
+            <Label htmlFor={id} className="text-xs font-medium cursor-pointer flex-1">
+                {label}
+            </Label>
+            <div 
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-red-600' : 'bg-gray-200'}`}
+            >
+                <span
+                    className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`}
+                />
+            </div>
+        </div>
+    );
+};
+
 export default function UsersPage() {
     const { data: session } = useSession();
     const authFetch = useAuthFetch();
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, can_view_reports: true, cake_account_manager_id: '' });
+    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, cake_account_manager_id: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
-    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_signups: false, can_view_reports: true, cake_account_manager_id: '' });
+    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, cake_account_manager_id: '' });
     const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
@@ -61,7 +79,7 @@ export default function UsersPage() {
             .then(async res => {
                 if (res && res.ok) {
                     setOpen(false);
-                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_signups: false, can_view_reports: true, cake_account_manager_id: '' });
+                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, cake_account_manager_id: '' });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
@@ -150,7 +168,10 @@ export default function UsersPage() {
             full_name: user.full_name || '',
             email: user.email || '',
             application_permission: user.application_permission || 'Both',
-            can_approve_signups: user.can_approve_signups ?? false,
+            can_approve_cake: user.can_approve_cake ?? false,
+            can_approve_ringba: user.can_approve_ringba ?? false,
+            can_request_cake: user.can_request_cake ?? false,
+            can_request_ringba: user.can_request_ringba ?? false,
             can_view_reports: user.can_view_reports ?? true,
             password: '', // Leave empty
             cake_account_manager_id: user.cake_account_manager_id || ''
@@ -167,7 +188,10 @@ export default function UsersPage() {
         if (editForm.full_name !== editingUser.full_name) updateData.full_name = editForm.full_name;
         if (editForm.email !== editingUser.email) updateData.email = editForm.email;
         if (editForm.application_permission !== editingUser.application_permission) updateData.application_permission = editForm.application_permission;
-        if (editForm.can_approve_signups !== editingUser.can_approve_signups) updateData.can_approve_signups = editForm.can_approve_signups;
+        if (editForm.can_approve_cake !== editingUser.can_approve_cake) updateData.can_approve_cake = editForm.can_approve_cake;
+        if (editForm.can_approve_ringba !== editingUser.can_approve_ringba) updateData.can_approve_ringba = editForm.can_approve_ringba;
+        if (editForm.can_request_cake !== editingUser.can_request_cake) updateData.can_request_cake = editForm.can_request_cake;
+        if (editForm.can_request_ringba !== editingUser.can_request_ringba) updateData.can_request_ringba = editForm.can_request_ringba;
         if (editForm.can_view_reports !== editingUser.can_view_reports) updateData.can_view_reports = editForm.can_view_reports;
         if (editForm.cake_account_manager_id !== editingUser.cake_account_manager_id) updateData.cake_account_manager_id = editForm.cake_account_manager_id;
         if (editForm.password) updateData.password = editForm.password; // Only send if changed
@@ -288,39 +312,76 @@ export default function UsersPage() {
                                 <Label>Cake Account Manager ID</Label>
                                 <Input value={newUser.cake_account_manager_id} onChange={e => setNewUser({ ...newUser, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
                             </div>
-                            <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base">Approval Permission</Label>
-                                    <div className="text-xs text-muted-foreground">
-                                        Allow user to approve signups
-                                    </div>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="new_can_approve"
-                                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
-                                        checked={newUser.can_approve_signups}
-                                        onChange={(e) => setNewUser({ ...newUser, can_approve_signups: e.target.checked })}
+                            <div className="grid grid-cols-2 gap-4 border p-3 rounded-md">
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-semibold">Cake Permissions</Label>
+                                    <div className="flex flex-col gap-2">
+                                    <Switch
+                                        id="new_can_request_cake"
+                                        label="Can Request"
+                                        checked={newUser.can_request_cake}
+                                        onChange={(checked) => {
+                                            setNewUser({ 
+                                                ...newUser, 
+                                                can_request_cake: checked,
+                                                can_approve_cake: checked ? false : newUser.can_approve_cake
+                                            });
+                                        }}
                                     />
-                                    <Label htmlFor="new_can_approve" className="text-sm font-normal">
-                                        {newUser.can_approve_signups ? "Can Approve" : "Request Only"}
-                                    </Label>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="new_can_report"
-                                        type="checkbox"
-                                        className="h-4 w-4"
-                                        checked={newUser.can_view_reports}
-                                        onChange={(e) => setNewUser({ ...newUser, can_view_reports: e.target.checked })}
+                                    <Switch
+                                        id="new_can_approve_cake"
+                                        label="Can Approve"
+                                        checked={newUser.can_approve_cake}
+                                        onChange={(checked) => {
+                                            setNewUser({ 
+                                                ...newUser, 
+                                                can_approve_cake: checked,
+                                                can_request_cake: checked ? false : newUser.can_request_cake
+                                            });
+                                        }}
                                     />
-                                    <Label htmlFor="new_can_report" className="text-sm font-normal">
-                                        Reports Access
-                                    </Label>
                                 </div>
                             </div>
-                            <div className="pt-4 flex justify-end">
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold">Ringba Permissions</Label>
+                                <div className="flex flex-col gap-1">
+                                    <Switch
+                                        id="new_can_request_ringba"
+                                        label="Can Request"
+                                        checked={newUser.can_request_ringba}
+                                        onChange={(checked) => {
+                                            setNewUser({ 
+                                                ...newUser, 
+                                                can_request_ringba: checked,
+                                                can_approve_ringba: checked ? false : newUser.can_approve_ringba
+                                            });
+                                        }}
+                                    />
+                                    <Switch
+                                        id="new_can_approve_ringba"
+                                        label="Can Approve"
+                                        checked={newUser.can_approve_ringba}
+                                        onChange={(checked) => {
+                                            setNewUser({ 
+                                                ...newUser, 
+                                                can_approve_ringba: checked,
+                                                can_request_ringba: checked ? false : newUser.can_request_ringba
+                                            });
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
+                                <Label className="text-sm font-semibold">Additional Access</Label>
+                                <Switch
+                                    id="new_can_report"
+                                    label="Reports Access"
+                                    checked={newUser.can_view_reports}
+                                    onChange={(checked) => setNewUser({ ...newUser, can_view_reports: checked })}
+                                />
+                            </div>
+                        </div>
+                        <div className="pt-4 flex justify-end">
                                 <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Create User
@@ -630,47 +691,76 @@ export default function UsersPage() {
                             <Label>Cake Account Manager ID</Label>
                             <Input value={editForm.cake_account_manager_id} onChange={e => setEditForm({ ...editForm, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
                         </div>
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Approval Permission</Label>
-                                <div className="text-xs text-muted-foreground">
-                                    Allow user to approve signups
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="edit_can_approve"
-                                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
-                                    checked={editForm.can_approve_signups ?? true}
-                                    onChange={(e) => setEditForm({ ...editForm, can_approve_signups: e.target.checked })}
+                        <div className="grid grid-cols-2 gap-4 border p-3 rounded-md">
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold">Cake Permissions</Label>
+                                <div className="flex flex-col gap-2">
+                                <Switch
+                                    id="edit_can_request_cake"
+                                    label="Can Request"
+                                    checked={editForm.can_request_cake}
+                                    onChange={(checked) => {
+                                        setEditForm({ 
+                                            ...editForm, 
+                                            can_request_cake: checked,
+                                            can_approve_cake: checked ? false : editForm.can_approve_cake
+                                        });
+                                    }}
                                 />
-                                <Label htmlFor="edit_can_approve" className="text-sm font-normal">
-                                    {(editForm.can_approve_signups ?? true) ? "Can Approve" : "Request Only"}
-                                </Label>
+                                <Switch
+                                    id="edit_can_approve_cake"
+                                    label="Can Approve"
+                                    checked={editForm.can_approve_cake}
+                                    onChange={(checked) => {
+                                        setEditForm({ 
+                                            ...editForm, 
+                                            can_approve_cake: checked,
+                                            can_request_cake: checked ? false : editForm.can_request_cake
+                                        });
+                                    }}
+                                />
                             </div>
                         </div>
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Reports Access</Label>
-                                <div className="text-xs text-muted-foreground">
-                                    Allow user to view reports
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="edit_can_report"
-                                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-600"
-                                    checked={editForm.can_view_reports ?? true}
-                                    onChange={(e) => setEditForm({ ...editForm, can_view_reports: e.target.checked })}
+                        <div className="space-y-3">
+                            <Label className="text-sm font-semibold">Ringba Permissions</Label>
+                            <div className="flex flex-col gap-1">
+                                <Switch
+                                    id="edit_can_request_ringba"
+                                    label="Can Request"
+                                    checked={editForm.can_request_ringba}
+                                    onChange={(checked) => {
+                                        setEditForm({ 
+                                            ...editForm, 
+                                            can_request_ringba: checked,
+                                            can_approve_ringba: checked ? false : editForm.can_approve_ringba
+                                        });
+                                    }}
                                 />
-                                <Label htmlFor="edit_can_report" className="text-sm font-normal">
-                                    {(editForm.can_view_reports ?? true) ? "Enabled" : "Disabled"}
-                                </Label>
+                                <Switch
+                                    id="edit_can_approve_ringba"
+                                    label="Can Approve"
+                                    checked={editForm.can_approve_ringba}
+                                    onChange={(checked) => {
+                                        setEditForm({ 
+                                            ...editForm, 
+                                            can_approve_ringba: checked,
+                                            can_request_ringba: checked ? false : editForm.can_request_ringba
+                                        });
+                                    }}
+                                />
                             </div>
                         </div>
-                        <div className="space-y-2">
+                        <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
+                            <Label className="text-sm font-semibold">Additional Access</Label>
+                            <Switch
+                                id="edit_can_report"
+                                label="Reports Access"
+                                checked={editForm.can_view_reports}
+                                onChange={(checked) => setEditForm({ ...editForm, can_view_reports: checked })}
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
                             <Label>New Password (leave empty to keep current)</Label>
                             <div className="relative">
                                 <Input
