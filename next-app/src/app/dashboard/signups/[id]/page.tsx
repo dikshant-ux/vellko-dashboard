@@ -493,8 +493,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             }
         }
 
-        // Ringba Sub ID validation
-        if (apiSelection.ringba && !ringbaSubId.trim()) {
+        // Ringba Sub ID validation - only for approval actions
+        if (['approve', 'request_approval'].includes(pendingAction) && apiSelection.ringba && !ringbaSubId.trim()) {
             alert("Ringba Sub ID is required when Ringba is selected.");
             return;
         }
