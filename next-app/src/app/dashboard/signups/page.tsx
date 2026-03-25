@@ -74,41 +74,39 @@ function SignupsContent() {
     }, [session, filterAppType]);
 
     useEffect(() => {
+        const controller = new AbortController();
+        const signal = controller.signal;
+
         if (session?.accessToken && filterAppType !== null) {
             setIsLoading(true);
             let url = `${process.env.NEXT_PUBLIC_API_URL}/admin/signups`;
             const params = new URLSearchParams();
 
-            if (filterStatus !== 'ALL') {
-                params.append('status', filterStatus);
-            }
-            if (filterReferral && filterReferral !== 'all') {
-                params.append('referral_id', filterReferral);
-            }
-            if (filterAppType) {
-                params.append('application_type', filterAppType);
-            }
-            if (searchTerm) {
-                params.append('search', searchTerm);
-            }
+            if (filterStatus !== 'ALL') params.append('status', filterStatus);
+            if (filterReferral && filterReferral !== 'all') params.append('referral_id', filterReferral);
+            if (filterAppType) params.append('application_type', filterAppType);
+            if (searchTerm) params.append('search', searchTerm);
 
             params.append('page', currentPage.toString());
             params.append('limit', limit.toString());
 
             const queryString = params.toString();
-            if (queryString) {
-                url += `?${queryString}`;
-            }
+            if (queryString) url += `?${queryString}`;
+
+            // We must manually pass the signal to fetch inside authFetch if supported, 
+            // but assuming authFetch doesn't support signal out of the box, 
+            // we will use an active flag to ignore stale responses.
+            let isActive = true;
 
             authFetch(url)
                 .then(res => res ? res.json() : null)
                 .then(data => {
+                    if (!isActive) return;
                     if (data && data.items) {
                         setSignups(data.items);
                         setTotalCount(data.total);
                         setTotalPages(Math.ceil(data.total / limit));
                     } else {
-                        // Fallback for non-paginated or error
                         setSignups(Array.isArray(data) ? data : []);
                         setTotalCount(0);
                         setTotalPages(1);
@@ -116,9 +114,15 @@ function SignupsContent() {
                     setIsLoading(false);
                 })
                 .catch(err => {
+                    if (!isActive) return;
                     console.error(err);
                     setIsLoading(false);
                 });
+                
+            return () => {
+                isActive = false;
+                controller.abort();
+            };
         }
     }, [session, filterStatus, filterReferral, filterAppType, currentPage, limit, searchTerm, authFetch]);
 

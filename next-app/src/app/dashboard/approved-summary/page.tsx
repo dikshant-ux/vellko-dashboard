@@ -84,22 +84,16 @@ function ApprovedSummaryContent() {
     }, [session, filterAppType]);
 
     useEffect(() => {
+        let isActive = true;
+
         if (session?.accessToken) {
             setIsLoading(true);
             let url = `${process.env.NEXT_PUBLIC_API_URL}/admin/signups?status=APPROVED`;
             const params = new URLSearchParams();
 
-            if (filterReferral && filterReferral !== 'all') {
-                params.append('referral_id', filterReferral);
-            }
-
-            // Only append application_type if it's not 'all'
-            if (filterAppType && filterAppType !== 'all') {
-                params.append('application_type', filterAppType);
-            }
-            if (searchTerm) {
-                params.append('search', searchTerm);
-            }
+            if (filterReferral && filterReferral !== 'all') params.append('referral_id', filterReferral);
+            if (filterAppType && filterAppType !== 'all') params.append('application_type', filterAppType);
+            if (searchTerm) params.append('search', searchTerm);
 
             params.append('page', currentPage.toString());
             params.append('limit', limit.toString());
@@ -107,13 +101,12 @@ function ApprovedSummaryContent() {
             params.append('sort_order', sortOrder.toString());
 
             const queryString = params.toString();
-            if (queryString) {
-                url += `&${queryString}`;
-            }
+            if (queryString) url += `&${queryString}`;
 
             authFetch(url)
                 .then(res => res ? res.json() : null)
                 .then(data => {
+                    if (!isActive) return;
                     if (data && data.items) {
                         setSignups(data.items);
                         setTotalCount(data.total);
@@ -126,9 +119,14 @@ function ApprovedSummaryContent() {
                     setIsLoading(false);
                 })
                 .catch(err => {
+                    if (!isActive) return;
                     console.error(err);
                     setIsLoading(false);
                 });
+                
+            return () => {
+                isActive = false;
+            };
         }
     }, [session, filterReferral, filterAppType, currentPage, limit, sortBy, sortOrder, searchTerm, authFetch]);
 
