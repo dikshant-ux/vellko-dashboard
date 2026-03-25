@@ -108,7 +108,10 @@ export default function Sidebar() {
             )}
 
             {/* Navigation */}
-            <div className="flex-1 overflow-y-auto py-8 px-4">
+            <div className={cn(
+                "flex-1 overflow-y-auto py-8 transition-all duration-300 scrollbar-thin",
+                isCollapsed ? "px-2" : "px-4"
+            )}>
                 <nav className="space-y-2">
                     {navigation.map((item) => {
                         const isActive = pathname.startsWith(item.href);
@@ -129,7 +132,7 @@ export default function Sidebar() {
                                         onClick={() => setIsOffersOpen(!isOffersOpen)}
                                         title={isCollapsed ? item.name : undefined}
                                     >
-                                        <div className="flex items-center gap-3 flex-1">
+                                        <div className={cn("flex items-center flex-1", isCollapsed ? "justify-center" : "gap-3")}>
                                             <Icon className={cn(
                                                 "h-[1.15rem] w-[1.15rem] transition-colors",
                                                 isActive && !pathname.includes('shared') ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
@@ -195,7 +198,7 @@ export default function Sidebar() {
                                         onClick={() => setIsQAOpen(!isQAOpen)}
                                         title={isCollapsed ? item.name : undefined}
                                     >
-                                        <div className="flex items-center gap-3 flex-1">
+                                        <div className={cn("flex items-center flex-1", isCollapsed ? "justify-center" : "gap-3")}>
                                             <Icon className={cn(
                                                 "h-[1.15rem] w-[1.15rem] transition-colors",
                                                 isActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
@@ -252,11 +255,11 @@ export default function Sidebar() {
                                 key={item.name}
                                 href={item.href}
                                 className={cn(
-                                    "group flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 outline-none ring-0",
+                                    "group flex items-center rounded-lg py-3 text-sm font-medium transition-all duration-200 outline-none ring-0",
                                     isActive
                                         ? "bg-red-50 text-red-700"
                                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80",
-                                    isCollapsed && "justify-center px-2"
+                                    isCollapsed ? "justify-center px-2" : "gap-3 px-4"
                                 )}
                                 title={isCollapsed ? item.name : undefined}
                             >

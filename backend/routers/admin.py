@@ -4,7 +4,7 @@ import smtplib
 import asyncio
 import secrets
 from database import db, get_active_cake_connection, get_active_ringba_connection
-from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission, QAResponse, ActivityLog, ClientEvent, PaginatedActivity
+from models import SignupInDB, SignupStatus, User, UserRole, SignupUpdate, PaginatedSignups, ApplicationPermission, QAResponse, ActivityLog, ClientEvent, PaginatedActivity, Tag
 from auth import get_current_user
 from bson import ObjectId
 from pydantic import BaseModel
@@ -1468,13 +1468,38 @@ async def update_tags(id: str, tags: List[str] = Body(..., embed=True), user: Us
 async def get_all_tags(user: User = Depends(get_current_admin)):
     if user.role == UserRole.ANALYTIC:
         raise HTTPException(status_code=403, detail="Analytic users cannot view tags")
-    tags = await db.signups.distinct("tags")
-    return sorted([t for t in tags if t and isinstance(t, str)])
+    
+    # Get tags from signups
+    signup_tags = await db.signups.distinct("tags")
+    
+    # Get standalone tags from the tags collection
+    standalone_tags_cursor = db.tags.find({}, {"name": 1})
+    standalone_tags = [t["name"] async for t in standalone_tags_cursor]
+    
+    # Merge and unique
+    all_tags = set(signup_tags + standalone_tags)
+    return sorted([t for t in all_tags if t and isinstance(t, str)])
+
+@router.post("/tags", response_model=Tag)
+async def create_standalone_tag(tag: Tag, user: User = Depends(get_current_admin)):
+    if user.role == UserRole.ANALYTIC:
+        raise HTTPException(status_code=403, detail="Analytic users cannot create tags")
+    
+    # Check if tag already exists in the standalone collection
+    existing = await db.tags.find_one({"name": tag.name})
+    if existing:
+        return existing
+        
+    await db.tags.insert_one(tag.dict())
+    return tag
 
 @router.delete("/tags/{tag_name}")
 async def delete_tag(tag_name: str, user: User = Depends(get_current_admin)):
     if user.role == UserRole.ANALYTIC:
         raise HTTPException(status_code=403, detail="Analytic users cannot delete tags")
+    
+    # Remove from standalone collection
+    await db.tags.delete_many({"name": tag_name})
     
     # Remove the tag from all signups
     result = await db.signups.update_many(
@@ -1482,12 +1507,15 @@ async def delete_tag(tag_name: str, user: User = Depends(get_current_admin)):
         {"$pull": {"tags": tag_name}}
     )
     
-    return {"message": f"Tag '{tag_name}' removed from {result.modified_count} applications"}
+    return {"message": f"Tag '{tag_name}' removed from {result.modified_count} applications and global registry"}
 
 @router.put("/tags/{tag_name}")
 async def rename_tag(tag_name: str, new_name: str = Body(..., embed=True), user: User = Depends(get_current_admin)):
     if user.role == UserRole.ANALYTIC:
         raise HTTPException(status_code=403, detail="Analytic users cannot edit tags")
+    
+    # Update standalone collection
+    await db.tags.update_many({"name": tag_name}, {"$set": {"name": new_name}})
     
     # Update all signups that have the old tag
     result = await db.signups.update_many(

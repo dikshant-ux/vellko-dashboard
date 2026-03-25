@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Trash, Tag, RefreshCcw, Pencil } from "lucide-react";
+import { Loader2, Trash, Tag, RefreshCcw, Pencil, Plus } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -35,6 +35,8 @@ export default function TagsPage() {
     const [editingTag, setEditingTag] = useState<string | null>(null);
     const [newTagName, setNewTagName] = useState("");
     const [isRenaming, setIsRenaming] = useState(false);
+    const [createTagName, setCreateTagName] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
     const fetchTags = async () => {
         setIsLoading(true);
@@ -56,6 +58,33 @@ export default function TagsPage() {
             fetchTags();
         }
     }, [session, authFetch]);
+
+    const handleCreateTag = async () => {
+        const trimmedName = createTagName.trim();
+        if (!trimmedName) return;
+        
+        setIsCreating(true);
+        try {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: trimmedName })
+            });
+
+            if (res && res.ok) {
+                setCreateTagName("");
+                fetchTags(); // Refresh to include new standalone tag
+            } else {
+                const errorData = await res?.json();
+                alert(errorData?.detail || "Failed to create tag.");
+            }
+        } catch (error) {
+            console.error("Error creating tag:", error);
+            alert("An error occurred while creating the tag.");
+        } finally {
+            setIsCreating(false);
+        }
+    };
 
     const handleRenameTag = async () => {
         if (!editingTag || !newTagName.trim() || editingTag === newTagName.trim()) {
@@ -120,6 +149,39 @@ export default function TagsPage() {
                 </Button>
             </div>
 
+            <Card className="border-none shadow-sm bg-white overflow-hidden mb-6">
+                <CardContent className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row items-end gap-4">
+                        <div className="flex-1 w-full">
+                            <Label htmlFor="createTag" className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                                Create New Global Tag
+                            </Label>
+                            <div className="relative">
+                                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    id="createTag"
+                                    placeholder="Enter tag name (e.g. High Priority)"
+                                    value={createTagName}
+                                    onChange={(e) => setCreateTagName(e.target.value)}
+                                    className="pl-10 h-11 border-gray-200 focus:border-red-500 focus:ring-red-500"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleCreateTag();
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <Button 
+                            onClick={handleCreateTag} 
+                            disabled={isCreating || !createTagName.trim()}
+                            className="h-11 px-8 bg-red-600 hover:bg-red-700 text-white font-bold w-full sm:w-auto"
+                        >
+                            {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                            Create Tag
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card className="border-none shadow-md bg-white overflow-hidden">
                 <CardHeader className="pb-3 border-b border-gray-50 px-4 sm:px-6">
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -127,7 +189,7 @@ export default function TagsPage() {
                         Available Tags
                     </CardTitle>
                     <CardDescription>
-                        Deleting a tag here will remove it from all applications that currently have it.
+                        Renaming or deleting a tag here will update all associated applications globally.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">

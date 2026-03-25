@@ -133,11 +133,11 @@ class SignupInDB(SignupCreate):
     requested_ringba_approval: Optional[bool] = None
     referrer_manager_id: Optional[str] = None
     
-    class Config:
-        populate_by_name = True
-        json_encoders = {
-            # This might not be needed with v2 annotation but kept for safety if v1 logic persists
-        }
+        
+
+class Tag(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserRole(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
