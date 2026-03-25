@@ -74,6 +74,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editNoteContent, setEditNoteContent] = useState("");
+    const [tagInput, setTagInput] = useState("");
+    const [isSavingTag, setIsSavingTag] = useState(false);
+    const [globalTags, setGlobalTags] = useState<string[]>([]);
 
     useEffect(() => {
         if (session?.accessToken && id) {
@@ -104,6 +107,14 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     console.error(err);
                     setLoading(false);
                 });
+
+            // Fetch global tags for suggestions
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`, {
+                headers: { Authorization: `Bearer ${session.accessToken}` }
+            })
+                .then(res => res ? res.json() : [])
+                .then(data => setGlobalTags(Array.isArray(data) ? data : []))
+                .catch(err => console.error("Error fetching global tags:", err));
         }
     }, [session, id]);
 
@@ -794,9 +805,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
-    const [tagInput, setTagInput] = useState("");
-    const [isSavingTag, setIsSavingTag] = useState(false);
-
     const handleAddTag = async () => {
         if (!tagInput.trim()) return;
         const newTag = tagInput.trim();
@@ -822,6 +830,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             if (res.ok) {
                 setSignup((prev: any) => ({ ...prev, tags: updatedTags }));
                 setTagInput("");
+                // Add to global suggests if not there
+                if (!globalTags.includes(newTag)) {
+                    setGlobalTags(prev => [...prev, newTag].sort());
+                }
             } else {
                 const err = await res.json();
                 alert(`Error adding tag: ${err.detail}`);
@@ -2263,6 +2275,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                     className="h-8 text-xs flex-1 border-border/50 bg-muted/20" 
                                     placeholder="Add new tag..." 
                                     value={tagInput}
+                                    list="global-tags"
                                     onChange={(e) => setTagInput(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
@@ -2271,6 +2284,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                         }
                                     }}
                                 />
+                                <datalist id="global-tags">
+                                    {globalTags.map((tag) => (
+                                        <option key={tag} value={tag} />
+                                    ))}
+                                </datalist>
                                 <Button 
                                     size="sm" 
                                     className="h-8 px-3" 
