@@ -337,6 +337,7 @@ function SignupsContent() {
                                     <TableHead className="font-semibold text-gray-600">Company</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Contact</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Referrer</TableHead>
+                                    <TableHead className="font-semibold text-gray-600">Tags</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Status</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Date</TableHead>
                                     <TableHead className="text-right font-semibold text-gray-600">Action</TableHead>
@@ -345,7 +346,7 @@ function SignupsContent() {
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-64 text-center">
+                                        <TableCell colSpan={7} className="h-64 text-center">
                                             <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                                 <p className="font-medium">Loading applications...</p>
@@ -354,7 +355,7 @@ function SignupsContent() {
                                     </TableRow>
                                 ) : filteredSignups.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-64 text-center">
+                                        <TableCell colSpan={7} className="h-64 text-center">
                                             <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                                                 <FileText className="h-10 w-10 text-gray-200" />
                                                 <p className="font-medium">No signups found.</p>
@@ -401,6 +402,19 @@ function SignupsContent() {
                                                 <div className="text-sm font-medium text-gray-700 bg-gray-50 px-3 py-1 rounded-full border border-gray-100 w-fit">
                                                     {typeof signup.companyInfo?.referral === 'object' && signup.companyInfo?.referral !== null ? (signup.companyInfo.referral as any).name : (signup.companyInfo?.referral || 'Direct')}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {signup.tags && signup.tags.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                                        {signup.tags.map((tag: string, idx: number) => (
+                                                            <Badge key={idx} variant="outline" className="text-[10px] px-2 py-0.5 h-5 bg-pink-50 text-pink-700 border-pink-200 font-semibold shadow-sm truncate max-w-full">
+                                                                {tag}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400 italic">No tags</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <StatusBadge signup={signup} />
@@ -478,6 +492,15 @@ function SignupsContent() {
                                                         <Calendar className="h-3 w-3 flex-shrink-0" />
                                                         {new Date(signup.created_at).toLocaleDateString()}
                                                     </div>
+                                                    {signup.tags && signup.tags.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-4">
+                                                            {signup.tags.map((tag: string, idx: number) => (
+                                                                <Badge key={idx} variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-pink-50 text-pink-700 border-pink-200 font-medium whitespace-nowrap shadow-sm">
+                                                                    {tag}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex-shrink-0">

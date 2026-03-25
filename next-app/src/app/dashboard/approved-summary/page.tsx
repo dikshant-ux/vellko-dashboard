@@ -258,6 +258,7 @@ function ApprovedSummaryContent() {
                                     <TableHead className="font-semibold text-gray-600">Type</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Cake ID</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Ringba Details</TableHead>
+                                    <TableHead className="font-semibold text-gray-600">Tags</TableHead>
                                     <TableHead className="font-semibold text-gray-600">QA Docs</TableHead>
                                     <TableHead className="font-semibold text-gray-600 text-center">Q/A Responses</TableHead>
                                     <TableHead className="font-semibold text-gray-600">Referrer</TableHead>
@@ -273,7 +274,7 @@ function ApprovedSummaryContent() {
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-64 text-center">
+                                        <TableCell colSpan={9} className="h-64 text-center">
                                             <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                                 <p className="font-medium">Loading approved signups...</p>
@@ -282,7 +283,7 @@ function ApprovedSummaryContent() {
                                     </TableRow>
                                 ) : filteredSignups.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-64 text-center">
+                                        <TableCell colSpan={9} className="h-64 text-center">
                                             <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                                                 <FileText className="h-10 w-10 text-gray-200" />
                                                 <p className="font-medium">No approved signups found.</p>
@@ -350,6 +351,19 @@ function ApprovedSummaryContent() {
                                                         <span className="text-xs text-gray-400 italic">N/A</span>
                                                     )}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {signup.tags && signup.tags.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                                        {signup.tags.map((tag: string, idx: number) => (
+                                                            <Badge key={idx} variant="outline" className="text-[10px] px-2 py-0.5 h-5 bg-pink-50 text-pink-700 border-pink-200 font-semibold shadow-sm truncate max-w-full">
+                                                                {tag}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400 italic">No tags</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1.5">

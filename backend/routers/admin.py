@@ -335,7 +335,8 @@ async def get_signups(
             {"cake_affiliate_id": search_regex},
             {"ringba_affiliate_id": search_regex},
             {"ringba_assigned_name": search_regex},
-            {"application_number": search_regex}
+            {"application_number": search_regex},
+            {"tags": search_regex}
         ]
         if "$or" in query:
             existing_or = query.pop("$or")
@@ -1442,6 +1443,22 @@ async def update_signup_note(id: str, note_id: str, note: str = Body(..., embed=
         updated_note["updated_at"] = datetime.utcnow()
         
     return {"message": "Note updated", "note": updated_note}
+
+@router.put("/signups/{id}/tags")
+async def update_tags(id: str, tags: List[str] = Body(..., embed=True), user: User = Depends(get_current_admin)):
+    if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can update tags")
+        
+    signup_data = await db.signups.find_one({"_id": ObjectId(id)})
+    if not signup_data:
+        raise HTTPException(status_code=404, detail="Signup not found")
+        
+    await db.signups.update_one(
+        {"_id": ObjectId(id)},
+        {"$set": {"tags": tags}}
+    )
+    
+    return {"message": "Tags updated", "tags": tags}
 
 @router.delete("/signups/{id}/notes/{note_id}")
 async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_current_admin)):

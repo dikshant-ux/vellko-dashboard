@@ -95,6 +95,7 @@ class QAResponse(BaseModel):
 class SignupInDB(SignupCreate):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     application_number: Optional[str] = None
+    tags: Optional[List[str]] = Field(default_factory=list)
     status: SignupStatus = SignupStatus.PENDING
     created_at: datetime = Field(default_factory=datetime.utcnow)
     cake_affiliate_id: Optional[str] = None

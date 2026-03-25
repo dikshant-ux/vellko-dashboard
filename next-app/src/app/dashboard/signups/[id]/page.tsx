@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin, Clock, User, Calendar, MessageSquare, Send, Eye, HelpCircle, ArrowLeft, Building2, Phone, Mail, Globe, ExternalLink, Shield, CreditCard } from "lucide-react";
+import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin, Clock, User, Calendar, MessageSquare, Send, Eye, HelpCircle, ArrowLeft, Building2, Phone, Mail, Globe, ExternalLink, Shield, CreditCard, Tag } from "lucide-react";
 import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES, APPLICATION_TYPES } from "@/constants/mappings";
 import {
     Dialog,
@@ -791,6 +791,70 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             }
         } catch (error) {
             console.error("Error deleting note", error);
+        }
+    };
+
+    const [tagInput, setTagInput] = useState("");
+    const [isSavingTag, setIsSavingTag] = useState(false);
+
+    const handleAddTag = async () => {
+        if (!tagInput.trim()) return;
+        const newTag = tagInput.trim();
+        const currentTags = signup.tags || [];
+        if (currentTags.includes(newTag)) {
+            setTagInput("");
+            return; // Already exists
+        }
+        
+        setIsSavingTag(true);
+        const updatedTags = [...currentTags, newTag];
+        
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/tags`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({ tags: updatedTags })
+            });
+
+            if (res.ok) {
+                setSignup((prev: any) => ({ ...prev, tags: updatedTags }));
+                setTagInput("");
+            } else {
+                const err = await res.json();
+                alert(`Error adding tag: ${err.detail}`);
+            }
+        } catch (error) {
+            console.error("Error adding tag", error);
+            alert("Failed to add tag");
+        } finally {
+            setIsSavingTag(false);
+        }
+    };
+
+    const handleRemoveTag = async (tagToRemove: string) => {
+        const currentTags = signup.tags || [];
+        const updatedTags = currentTags.filter((t: string) => t !== tagToRemove);
+        
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/tags`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({ tags: updatedTags })
+            });
+
+            if (res.ok) {
+                setSignup((prev: any) => ({ ...prev, tags: updatedTags }));
+            } else {
+                alert("Failed to remove tag.");
+            }
+        } catch (error) {
+            console.error("Error removing tag", error);
         }
     };
 
@@ -2122,7 +2186,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* System Info */}
-                <Card className="shadow-sm md:col-span-2">
+                <Card className="shadow-sm">
                     <CardHeader className="pb-3 border-b">
                         <CardTitle className="flex items-center gap-2 text-base">
                             <div className="p-1.5 rounded-lg bg-gray-100 text-gray-700"><Shield className="h-4 w-4" /></div>
@@ -2161,6 +2225,62 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                             <span className="font-medium text-muted-foreground">Submission Date:</span>
                             <span className="">{signup.created_at ? new Date(signup.created_at).toLocaleString() : 'Unknown'}</span>
                         </div>
+                    </CardContent>
+                </Card>
+
+                {/* Tags Section */}
+                <Card className="shadow-sm">
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <div className="p-1.5 rounded-lg bg-pink-100 text-pink-700"><Tag className="h-4 w-4" /></div>
+                            Tags
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm px-4 sm:px-6 pt-4 pb-4 space-y-4">
+                        <div className="flex flex-wrap gap-2 min-h-[28px]">
+                            {signup.tags && signup.tags.length > 0 ? (
+                                signup.tags.map((tag: string, idx: number) => (
+                                    <Badge key={idx} variant="secondary" className="px-2.5 py-1 text-xs bg-muted/50 border-border/50 text-foreground flex items-center gap-1.5">
+                                        {tag}
+                                        {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                            <button 
+                                                onClick={() => handleRemoveTag(tag)}
+                                                className="text-muted-foreground hover:text-red-500 rounded-full focus:outline-none transition-colors"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </Badge>
+                                ))
+                            ) : (
+                                <span className="text-sm text-muted-foreground italic mt-1">No tags assigned.</span>
+                            )}
+                        </div>
+                        
+                        {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                            <div className="flex items-center gap-2 pt-2 border-t border-dashed">
+                                <Input 
+                                    className="h-8 text-xs flex-1 border-border/50 bg-muted/20" 
+                                    placeholder="Add new tag..." 
+                                    value={tagInput}
+                                    onChange={(e) => setTagInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddTag();
+                                        }
+                                    }}
+                                />
+                                <Button 
+                                    size="sm" 
+                                    className="h-8 px-3" 
+                                    onClick={handleAddTag}
+                                    disabled={!tagInput.trim() || isSavingTag}
+                                >
+                                    {isSavingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
