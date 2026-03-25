@@ -946,8 +946,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         {/* Title block */}
                         <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate">
-                                    {signup.companyInfo?.companyName || `${signup.accountInfo?.firstName} ${signup.accountInfo?.lastName}`}
+                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate flex items-center gap-2">
+                                    {signup.application_number && (
+                                        <span className="text-sm font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/50">
+                                            {signup.application_number}
+                                        </span>
+                                    )}
+                                    <span>{signup.companyInfo?.companyName || `${signup.accountInfo?.firstName} ${signup.accountInfo?.lastName}`}</span>
                                 </h2>
                                 <StatusBadge status={signup.status} />
                                 {signup.marketingInfo?.applicationType && (

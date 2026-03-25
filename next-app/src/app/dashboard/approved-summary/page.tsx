@@ -148,6 +148,7 @@ function ApprovedSummaryContent() {
         signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         signup.cake_affiliate_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         signup.ringba_affiliate_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        signup.application_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         signup.ringba_assigned_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -302,6 +303,11 @@ function ApprovedSummaryContent() {
                                                         {signup.companyInfo?.companyName?.slice(0, 2) || '??'}
                                                     </div>
                                                     <div className="flex flex-col">
+                                                        {signup.application_number && (
+                                                            <span className="text-[10px] font-mono text-gray-400 font-semibold mb-0.5">
+                                                                {signup.application_number}
+                                                            </span>
+                                                        )}
                                                         <span className="font-bold text-gray-900 group-hover:text-red-600 transition-colors text-sm">
                                                             {signup.companyInfo?.companyName}
                                                         </span>

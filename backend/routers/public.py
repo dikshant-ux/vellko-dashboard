@@ -8,6 +8,7 @@ from email_utils import send_reset_password_email, send_signup_notification_emai
 from pydantic import BaseModel, EmailStr
 import uuid
 import pyotp
+from pymongo import ReturnDocument
 
 router = APIRouter()
 
@@ -43,7 +44,19 @@ async def create_signup(signup: SignupCreate):
             detail="An application with this email already exists. Please contact support to check your application status."
         )
 
+    # Generate generic application number atomically
+    counter = await db.counters.find_one_and_update(
+        {"_id": "signup_application_number"},
+        {"$inc": {"seq": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER
+    )
+    
+    # Ensure it formats nicely if we start at 10001
+    seq_num = counter.get("seq", 1)
+    
     # Create new record
+    signup_dict["application_number"] = f"VK-{seq_num:05d}"
     signup_dict["status"] = SignupStatus.PENDING
     signup_dict["created_at"] = datetime.utcnow()
     signup_dict["is_updated"] = False

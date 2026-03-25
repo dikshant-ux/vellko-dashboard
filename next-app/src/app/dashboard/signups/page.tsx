@@ -121,7 +121,8 @@ function SignupsContent() {
 
     const filteredSignups = signups.filter(signup =>
         signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.accountInfo?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        signup.accountInfo?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        signup.application_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const StatusBadge = ({ signup }: { signup: any }) => {
@@ -370,6 +371,11 @@ function SignupsContent() {
                                                         {signup.companyInfo?.companyName?.slice(0, 2) || '??'}
                                                     </div>
                                                     <div>
+                                                        {signup.application_number && (
+                                                            <div className="text-[10px] font-mono text-gray-400 font-semibold mb-0.5">
+                                                                {signup.application_number}
+                                                            </div>
+                                                        )}
                                                         <div className="font-bold text-gray-900 group-hover:text-red-600 transition-colors">
                                                             {String(signup.companyInfo?.companyName || '')}
                                                         </div>
@@ -457,6 +463,11 @@ function SignupsContent() {
                                                     {signup.companyInfo?.companyName?.slice(0, 2) || '??'}
                                                 </div>
                                                 <div className="min-w-0">
+                                                    {signup.application_number && (
+                                                        <div className="text-[9px] sm:text-[10px] font-mono text-gray-400 font-semibold mb-0.5">
+                                                            {signup.application_number}
+                                                        </div>
+                                                    )}
                                                     <div className="font-bold text-gray-900 leading-tight truncate text-sm sm:text-base">
                                                         {signup.companyInfo?.companyName}
                                                     </div>

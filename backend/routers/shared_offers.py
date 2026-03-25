@@ -101,9 +101,12 @@ async def create_share_link(request: ShareRequest, current_user: dict = Depends(
     }
 
 @router.get("/list", response_model=List[SharedLinkItem])
-async def list_shared_links():
-    # In a real app, filter by current_user. For MVP/This task, return all.
-    cursor = db.shared_offers.find({}).sort("created_at", -1)
+async def list_shared_links(current_user = Depends(auth.get_current_active_user)):
+    query = {}
+    if current_user.role != "SUPER_ADMIN":
+        query["created_by"] = current_user.username
+        
+    cursor = db.shared_offers.find(query).sort("created_at", -1)
     links = []
     async for doc in cursor:
         links.append({
@@ -117,15 +120,23 @@ async def list_shared_links():
     return links
 
 @router.delete("/{token}")
-async def delete_share_link(token: str):
-    result = await db.shared_offers.delete_one({"token": token})
+async def delete_share_link(token: str, current_user = Depends(auth.get_current_active_user)):
+    query = {"token": token}
+    if current_user.role != "SUPER_ADMIN":
+        query["created_by"] = current_user.username
+        
+    result = await db.shared_offers.delete_one(query)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Link not found")
     return {"message": "Link deleted"}
 
 @router.get("/{token}/config", response_model=SharedLinkConfig)
-async def get_shared_link_config(token: str):
-    doc = await db.shared_offers.find_one({"token": token})
+async def get_shared_link_config(token: str, current_user = Depends(auth.get_current_active_user)):
+    query = {"token": token}
+    if current_user.role != "SUPER_ADMIN":
+        query["created_by"] = current_user.username
+        
+    doc = await db.shared_offers.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Link not found")
     
@@ -143,7 +154,11 @@ async def get_shared_link_config(token: str):
     }
 
 @router.patch("/{token}")
-async def update_shared_link(token: str, request: ShareRequest):
+async def update_shared_link(token: str, request: ShareRequest, current_user = Depends(auth.get_current_active_user)):
+    query = {"token": token}
+    if current_user.role != "SUPER_ADMIN":
+        query["created_by"] = current_user.username
+
     expires_at = datetime.now(timezone.utc) + timedelta(hours=request.duration_hours)
     
     update_data = {
@@ -157,7 +172,7 @@ async def update_shared_link(token: str, request: ShareRequest):
     }
     
     result = await db.shared_offers.update_one(
-        {"token": token},
+        query,
         {"$set": update_data}
     )
     
