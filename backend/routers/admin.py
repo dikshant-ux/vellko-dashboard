@@ -238,6 +238,7 @@ async def get_signups(
     referral: Optional[str] = None,
     referral_id: Optional[str] = None,
     application_type: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     sort_by: Optional[str] = "created_at",
@@ -326,6 +327,26 @@ async def get_signups(
             # Default behavior (Both or All)
             query["status"] = status
             
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        search_or = [
+            {"companyInfo.companyName": search_regex},
+            {"accountInfo.email": search_regex},
+            {"cake_affiliate_id": search_regex},
+            {"ringba_affiliate_id": search_regex},
+            {"ringba_assigned_name": search_regex},
+            {"application_number": search_regex}
+        ]
+        if "$or" in query:
+            existing_or = query.pop("$or")
+            if "$and" not in query:
+                query["$and"] = []
+            query["$and"].extend([{"$or": existing_or}, {"$or": search_or}])
+        elif "$and" in query:
+            query["$and"].append({"$or": search_or})
+        else:
+            query["$or"] = search_or
+
     # Remove empty query keys if any were accidentally set to None
     query = {k: v for k, v in query.items() if v is not None}
 

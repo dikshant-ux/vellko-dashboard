@@ -97,6 +97,9 @@ function ApprovedSummaryContent() {
             if (filterAppType && filterAppType !== 'all') {
                 params.append('application_type', filterAppType);
             }
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
 
             params.append('page', currentPage.toString());
             params.append('limit', limit.toString());
@@ -127,7 +130,7 @@ function ApprovedSummaryContent() {
                     setIsLoading(false);
                 });
         }
-    }, [session, filterReferral, filterAppType, currentPage, limit, sortBy, sortOrder, authFetch]);
+    }, [session, filterReferral, filterAppType, currentPage, limit, sortBy, sortOrder, searchTerm, authFetch]);
 
     const handleSort = (field: string) => {
         if (sortBy === field) {
@@ -144,13 +147,7 @@ function ApprovedSummaryContent() {
         return sortOrder === 1 ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
     };
 
-    const filteredSignups = signups.filter(signup =>
-        signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.cake_affiliate_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.ringba_affiliate_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.application_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.ringba_assigned_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredSignups = signups;
 
     const getDocCount = (signup: any) => {
         let count = 0;
@@ -204,7 +201,10 @@ function ApprovedSummaryContent() {
                                     placeholder="Search by name or Affiliate ID..."
                                     className="pl-10 h-10 bg-muted/30 border-transparent focus:bg-white focus:border-primary/50 transition-all rounded-lg"
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
                                 />
                             </div>
 

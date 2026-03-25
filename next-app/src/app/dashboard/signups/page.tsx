@@ -88,6 +88,9 @@ function SignupsContent() {
             if (filterAppType) {
                 params.append('application_type', filterAppType);
             }
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
 
             params.append('page', currentPage.toString());
             params.append('limit', limit.toString());
@@ -117,13 +120,9 @@ function SignupsContent() {
                     setIsLoading(false);
                 });
         }
-    }, [session, filterStatus, filterReferral, filterAppType, currentPage, limit, authFetch]);
+    }, [session, filterStatus, filterReferral, filterAppType, currentPage, limit, searchTerm, authFetch]);
 
-    const filteredSignups = signups.filter(signup =>
-        signup.companyInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.accountInfo?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        signup.application_number?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredSignups = signups;
 
     const StatusBadge = ({ signup }: { signup: any }) => {
         const getDisplayStatus = (s: any) => {
