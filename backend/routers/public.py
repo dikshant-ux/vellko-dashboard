@@ -52,11 +52,11 @@ async def create_signup(signup: SignupCreate):
         return_document=ReturnDocument.AFTER
     )
     
-    # Ensure it formats nicely if we start at 10001
+    # Ensure it formats nicely
     seq_num = counter.get("seq", 1)
     
     # Create new record
-    signup_dict["application_number"] = f"VK-{seq_num:05d}"
+    signup_dict["application_number"] = f"VK-{seq_num}"
     signup_dict["status"] = SignupStatus.PENDING
     signup_dict["created_at"] = datetime.utcnow()
     signup_dict["is_updated"] = False
