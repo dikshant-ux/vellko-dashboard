@@ -16,7 +16,8 @@ import {
     ChevronDown,
     BarChart2,
     ClipboardCheck,
-    History
+    History,
+    Tag
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,9 @@ export default function Sidebar() {
             { name: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
             { name: 'Signups', href: '/dashboard/signups', icon: FileText },
             { name: 'Offers', href: '/dashboard/offers', icon: Zap },
+        ] : []),
+        ...(['ADMIN', 'SUPER_ADMIN', 'USER'].includes(session?.user?.role || '') ? [
+            { name: 'Manage Tags', href: '/dashboard/tags', icon: Tag },
         ] : []),
         ...(['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') ? [
             { name: 'Users', href: '/dashboard/users', icon: Users },

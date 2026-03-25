@@ -1466,8 +1466,36 @@ async def update_tags(id: str, tags: List[str] = Body(..., embed=True), user: Us
 
 @router.get("/tags", response_model=List[str])
 async def get_all_tags(user: User = Depends(get_current_admin)):
+    if user.role == UserRole.ANALYTIC:
+        raise HTTPException(status_code=403, detail="Analytic users cannot view tags")
     tags = await db.signups.distinct("tags")
     return sorted([t for t in tags if t and isinstance(t, str)])
+
+@router.delete("/tags/{tag_name}")
+async def delete_tag(tag_name: str, user: User = Depends(get_current_admin)):
+    if user.role == UserRole.ANALYTIC:
+        raise HTTPException(status_code=403, detail="Analytic users cannot delete tags")
+    
+    # Remove the tag from all signups
+    result = await db.signups.update_many(
+        {"tags": tag_name},
+        {"$pull": {"tags": tag_name}}
+    )
+    
+    return {"message": f"Tag '{tag_name}' removed from {result.modified_count} applications"}
+
+@router.put("/tags/{tag_name}")
+async def rename_tag(tag_name: str, new_name: str = Body(..., embed=True), user: User = Depends(get_current_admin)):
+    if user.role == UserRole.ANALYTIC:
+        raise HTTPException(status_code=403, detail="Analytic users cannot edit tags")
+    
+    # Update all signups that have the old tag
+    result = await db.signups.update_many(
+        {"tags": tag_name},
+        {"$set": {"tags.$": new_name}}
+    )
+    
+    return {"message": f"Tag '{tag_name}' renamed to '{new_name}' in {result.modified_count} applications"}
 
 @router.delete("/signups/{id}/notes/{note_id}")
 async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_current_admin)):
