@@ -46,6 +46,8 @@ function SignupsContent() {
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("all");
     const [filterAppType, setFilterAppType] = useState<string | null>(null);
+    const [tags, setTags] = useState<string[]>([]);
+    const [filterTag, setFilterTag] = useState<string>("all");
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -59,7 +61,14 @@ function SignupsContent() {
             .then(res => res.json())
             .then(data => setReferrers(data))
             .catch(console.error);
-    }, []);
+            
+        if (session?.accessToken) {
+            authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`)
+                .then(res => res ? res.json() : [])
+                .then(data => setTags(Array.isArray(data) ? data : []))
+                .catch(console.error);
+        }
+    }, [session, authFetch]);
 
     useEffect(() => {
         if (session?.user?.application_permission && filterAppType === null) {
@@ -85,6 +94,7 @@ function SignupsContent() {
             if (filterStatus !== 'ALL') params.append('status', filterStatus);
             if (filterReferral && filterReferral !== 'all') params.append('referral_id', filterReferral);
             if (filterAppType) params.append('application_type', filterAppType);
+            if (filterTag && filterTag !== 'all') params.append('tag', filterTag);
             if (searchTerm) params.append('search', searchTerm);
 
             params.append('page', currentPage.toString());
@@ -124,7 +134,7 @@ function SignupsContent() {
                 controller.abort();
             };
         }
-    }, [session, filterStatus, filterReferral, filterAppType, currentPage, limit, searchTerm, authFetch]);
+    }, [session, filterStatus, filterReferral, filterAppType, filterTag, currentPage, limit, searchTerm, authFetch]);
 
     const filteredSignups = signups;
 
@@ -299,9 +309,9 @@ function SignupsContent() {
                             </TabsList>
                         </Tabs>
 
-                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto min-w-0">
+                        <div className="flex items-center justify-end gap-1 shrink-0 ml-auto flex-wrap sm:flex-nowrap">
                             {['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role || '') && (
-                                <div className="w-full sm:w-48 shrink-0">
+                                <div className="w-full sm:w-40 shrink-0">
                                     <Select value={filterReferral} onValueChange={(val: string) => { setFilterReferral(val); setCurrentPage(1); }}>
                                         <SelectTrigger className="h-10 bg-muted/30 border-transparent focus:ring-primary/20">
                                             <SelectValue placeholder="All Referrers" />
@@ -316,7 +326,21 @@ function SignupsContent() {
                                 </div>
                             )}
 
-                            <div className="relative w-full sm:w-64">
+                            <div className="w-full sm:w-40 shrink-0">
+                                <Select value={filterTag} onValueChange={(val: string) => { setFilterTag(val); setCurrentPage(1); }}>
+                                    <SelectTrigger className="h-10 bg-muted/30 border-transparent focus:ring-primary/20">
+                                        <SelectValue placeholder="All Tags" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Tags</SelectItem>
+                                        {tags.map((t) => (
+                                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="relative w-full sm:w-64 shrink-0">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search companies..."

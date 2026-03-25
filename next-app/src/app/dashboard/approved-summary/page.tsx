@@ -55,6 +55,8 @@ function ApprovedSummaryContent() {
     const [filterAppType, setFilterAppType] = useState<string>("all");
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("all");
+    const [tags, setTags] = useState<string[]>([]);
+    const [filterTag, setFilterTag] = useState<string>("all");
 
     // Sorting and Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -69,7 +71,14 @@ function ApprovedSummaryContent() {
             .then(res => res.json())
             .then(data => setReferrers(data))
             .catch(console.error);
-    }, []);
+
+        if (session?.accessToken) {
+            authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`)
+                .then(res => res ? res.json() : [])
+                .then(data => setTags(Array.isArray(data) ? data : []))
+                .catch(console.error);
+        }
+    }, [session, authFetch]);
 
     useEffect(() => {
         if (session?.user?.application_permission && filterAppType === "all") {
@@ -93,6 +102,7 @@ function ApprovedSummaryContent() {
 
             if (filterReferral && filterReferral !== 'all') params.append('referral_id', filterReferral);
             if (filterAppType && filterAppType !== 'all') params.append('application_type', filterAppType);
+            if (filterTag && filterTag !== 'all') params.append('tag', filterTag);
             if (searchTerm) params.append('search', searchTerm);
 
             params.append('page', currentPage.toString());
@@ -128,7 +138,7 @@ function ApprovedSummaryContent() {
                 isActive = false;
             };
         }
-    }, [session, filterReferral, filterAppType, currentPage, limit, sortBy, sortOrder, searchTerm, authFetch]);
+    }, [session, filterReferral, filterAppType, filterTag, currentPage, limit, sortBy, sortOrder, searchTerm, authFetch]);
 
     const handleSort = (field: string) => {
         if (sortBy === field) {
@@ -237,6 +247,20 @@ function ApprovedSummaryContent() {
                                         <SelectItem value="all">All Referrers</SelectItem>
                                         {referrers.map((r) => (
                                             <SelectItem key={String(r.id)} value={String(r.id)}>{String(r.name)}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="w-full sm:w-40 shrink-0">
+                                <Select value={filterTag} onValueChange={(val: string) => { setFilterTag(val); setCurrentPage(1); }}>
+                                    <SelectTrigger className="h-10 bg-muted/30 border-transparent focus:ring-primary/20">
+                                        <SelectValue placeholder="All Tags" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Tags</SelectItem>
+                                        {tags.map((t) => (
+                                            <SelectItem key={t} value={t}>{t}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

@@ -239,6 +239,7 @@ async def get_signups(
     referral_id: Optional[str] = None,
     application_type: Optional[str] = None,
     search: Optional[str] = None,
+    tag: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     sort_by: Optional[str] = "created_at",
@@ -350,6 +351,9 @@ async def get_signups(
 
     # Remove empty query keys if any were accidentally set to None
     query = {k: v for k, v in query.items() if v is not None}
+    
+    if tag:
+        query["tags"] = tag
 
     # Sorting
     # Handle nested fields for sorting if needed, e.g., companyInfo.companyName
@@ -1459,6 +1463,11 @@ async def update_tags(id: str, tags: List[str] = Body(..., embed=True), user: Us
     )
     
     return {"message": "Tags updated", "tags": tags}
+
+@router.get("/tags", response_model=List[str])
+async def get_all_tags(user: User = Depends(get_current_admin)):
+    tags = await db.signups.distinct("tags")
+    return sorted([t for t in tags if t and isinstance(t, str)])
 
 @router.delete("/signups/{id}/notes/{note_id}")
 async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_current_admin)):
