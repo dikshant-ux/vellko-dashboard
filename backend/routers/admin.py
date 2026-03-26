@@ -1414,6 +1414,46 @@ async def add_signup_note(id: str, note: str = Body(..., embed=True), user: User
         {"_id": ObjectId(id)},
         {"$push": {"notes": new_note.dict()}}
     )
+
+    # --- Notification Logic for Internal Note ---
+    try:
+        from email_utils import send_internal_note_notification_email
+        
+        # 1. Identify Target Audience
+        signup_app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+        
+        target_permissions = []
+        if signup_app_type == "Web Traffic":
+            target_permissions = ["Web Traffic", "Both"]
+        elif signup_app_type == "Call Traffic":
+            target_permissions = ["Call Traffic", "Both"]
+        elif signup_app_type == "Both":
+            target_permissions = ["Web Traffic", "Call Traffic", "Both"]
+            
+        # 2. Fetch Users
+        # Find users who are ADMIN (NOT SUPER_ADMIN as per user request) with matching permission
+        # And exclude the author themselves
+        cursor = db.users.find({
+            "role": UserRole.ADMIN,
+            "application_permission": {"$in": target_permissions},
+            "username": {"$ne": user.username} # Exclude the person adding the note
+        })
+        
+        recipients = await cursor.to_list(length=100)
+        recipient_emails = [u["email"] for u in recipients if u.get("email")]
+        
+        if recipient_emails:
+            # Send notification (fire-and-forget background task to keep UI snappy)
+            asyncio.create_task(send_internal_note_notification_email(
+                to_emails=recipient_emails,
+                signup_data=signup_data,
+                signup_id=id,
+                author=user.full_name or user.username,
+                note_content=note
+            ))
+            
+    except Exception as e:
+        print(f"Failed to send internal note notifications: {e}")
     
     return new_note
 

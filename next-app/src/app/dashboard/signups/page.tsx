@@ -31,6 +31,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { MessageSquare } from "lucide-react";
+import { InternalNotesModal } from "@/components/InternalNotesModal";
 
 function SignupsContent() {
     const { data: session } = useSession();
@@ -54,6 +56,10 @@ function SignupsContent() {
     const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+
+    // Notes Modal State
+    const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+    const [selectedSignupForNotes, setSelectedSignupForNotes] = useState<any>(null);
 
     useEffect(() => {
         // referrers is public or requires auth? Public router has /referrers
@@ -451,8 +457,26 @@ function SignupsContent() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-9 w-9 text-gray-400 hover:text-primary hover:bg-primary/5"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedSignupForNotes(signup);
+                                                            setIsNotesModalOpen(true);
+                                                        }}
+                                                        title="Manage Internal Notes"
+                                                    >
+                                                        <div className="relative">
+                                                            <MessageSquare className="h-4 w-4" />
+                                                            <span className="absolute -top-2 -right-2 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground shadow-sm">
+                                                                {signup.notes?.length || 0}
+                                                            </span>
+                                                        </div>
+                                                    </Button>
                                                     <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                                        <Link href={`/dashboard/signups/${signup._id}`}>
+                                                        <Link href={`/dashboard/signups/${signup._id}`} onClick={(e) => e.stopPropagation()}>
                                                             <ChevronRight className="h-5 w-5" />
                                                         </Link>
                                                     </Button>
@@ -567,6 +591,23 @@ function SignupsContent() {
                                                         <Trash className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                     </Button>
                                                 )}
+                                                <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-primary"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedSignupForNotes(signup);
+                                                        setIsNotesModalOpen(true);
+                                                    }}
+                                                >
+                                                    <div className="relative">
+                                                        <MessageSquare className="h-4 w-4" />
+                                                        <span className="absolute -top-2 -right-2 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground shadow-sm">
+                                                            {signup.notes?.length || 0}
+                                                        </span>
+                                                    </div>
+                                                </Button>
                                                 <Button size="sm" variant="secondary" className="bg-gray-50 hover:bg-gray-100 text-gray-900 border-none font-bold rounded-lg h-8 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3">
                                                     Details
                                                     <ChevronRight className="ml-1 h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -631,6 +672,24 @@ function SignupsContent() {
                     </div>
                 </CardContent>
             </Card>
+
+            {selectedSignupForNotes && (
+                <InternalNotesModal
+                    isOpen={isNotesModalOpen}
+                    onClose={() => {
+                        setIsNotesModalOpen(false);
+                        setSelectedSignupForNotes(null);
+                    }}
+                    signupId={selectedSignupForNotes._id}
+                    companyName={selectedSignupForNotes.companyInfo?.companyName || 'Affiliate'}
+                    initialNotes={selectedSignupForNotes.notes || []}
+                    onNotesUpdate={(updatedNotes) => {
+                        setSignups(prev => prev.map(s => 
+                            s._id === selectedSignupForNotes._id ? { ...s, notes: updatedNotes } : s
+                        ));
+                    }}
+                />
+            )}
         </div>
     );
 }

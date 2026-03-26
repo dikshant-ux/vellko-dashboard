@@ -298,3 +298,37 @@ async def send_cake_credentials_email(to_email: str, first_name: str, password: 
     except Exception as e:
         print(f"Error sending Cake credentials email: {str(e)}")
         return False
+
+
+async def send_internal_note_notification_email(to_emails: list[str], signup_data: dict, signup_id: str, author: str, note_content: str):
+    """
+    Sends a notification email to admins when a new internal note is added to a signup.
+    """
+    if not to_emails:
+        return False
+        
+    try:
+        template = env.get_template("internal_note_notification.html")
+        
+        # Link to the signup detail page in dashboard
+        link = f"{settings.FRONTEND_URL}/dashboard/signups/{signup_id}"
+        
+        company_name = signup_data.get("companyInfo", {}).get("companyName", "Unknown Company")
+        
+        html_content = template.render(
+            company_name=company_name,
+            author=author,
+            note_content=note_content,
+            link=link
+        )
+        
+        # Send to each recipient
+        success_count = 0
+        for email in to_emails:
+            if await send_email(to_email=email, subject=f"New Internal Note: {company_name}", html_content=html_content):
+                success_count += 1
+                
+        return success_count > 0
+    except Exception as e:
+        print(f"Error preparing internal note notification email: {str(e)}")
+        return False

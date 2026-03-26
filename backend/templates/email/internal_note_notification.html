@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Internal Note Added - Vellko{% endblock %}
+
+{% block content %}
+<h1>New Internal Note 📝</h1>
+<p>A new internal note has been added to a signup record. Review the details below:</p>
+
+<div class="info-box">
+    <div class="info-item">
+        <span class="info-label">Company Name</span>
+        <span class="info-value">{{ company_name }}</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Author</span>
+        <span class="info-value">{{ author }}</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Note Content</span>
+        <div class="info-value" style="padding-top: 8px; font-style: italic; color: #475569; border-top: 1px solid #e2e8f0; margin-top: 8px;">
+            "{{ note_content }}"
+        </div>
+    </div>
+</div>
+
+<p>Click the button below to view the signup details and full note history in the dashboard.</p>
+
+<div class="btn-container">
+    <a href="{{ link }}" class="btn">View Signup Details</a>
+</div>
+{% endblock %}
