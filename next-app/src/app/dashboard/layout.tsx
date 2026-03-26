@@ -1,7 +1,6 @@
-'use client';
-
 import Sidebar from "@/components/Sidebar";
-import MobileNav from "@/components/MobileNav";
+import DashboardHeader from "@/components/DashboardHeader";
+import { BreadcrumbProvider } from "@/context/BreadcrumbContext";
 
 export default function DashboardLayout({
     children,
@@ -9,16 +8,21 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex h-screen overflow-hidden bg-gray-50 flex-col md:flex-row">
-            <div className="hidden md:block h-full">
-                <Sidebar />
-            </div>
-            <MobileNav />
-            <main className="flex-1 overflow-y-auto">
-                <div className="container mx-auto p-4 md:p-8 max-w-7xl">
-                    {children}
+        <BreadcrumbProvider>
+            <div className="flex h-screen overflow-hidden bg-gray-50 flex-col md:flex-row">
+                <div className="hidden md:block h-full">
+                    <Sidebar />
                 </div>
-            </main>
-        </div>
+                
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                    <DashboardHeader />
+                    <main className="flex-1 overflow-y-auto">
+                        <div className="container mx-auto p-4 md:p-8 max-w-7xl">
+                            {children}
+                        </div>
+                    </main>
+                </div>
+            </div>
+        </BreadcrumbProvider>
     );
 }

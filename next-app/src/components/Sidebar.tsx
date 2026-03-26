@@ -109,7 +109,7 @@ export default function Sidebar() {
 
             {/* Navigation */}
             <div className={cn(
-                "flex-1 overflow-y-auto py-8 transition-all duration-300 scrollbar-thin",
+                "flex-1 overflow-y-auto py-2 transition-all duration-300 scrollbar-thin",
                 isCollapsed ? "px-2" : "px-4"
             )}>
                 <nav className="space-y-2">

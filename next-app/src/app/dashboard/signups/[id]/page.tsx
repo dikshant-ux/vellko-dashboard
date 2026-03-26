@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin, Clock, User, Calendar, MessageSquare, Send, Eye, HelpCircle, ArrowLeft, Building2, Phone, Mail, Globe, ExternalLink, Shield, CreditCard, Tag } from "lucide-react";
+import { Check, X, Loader2, FileText, Upload, Download, RotateCcw, Pencil, Save, Trash, MapPin, Clock, User, Calendar, MessageSquare, Send, Eye, HelpCircle, ArrowLeft, Building2, Phone, Mail, Globe, ExternalLink, Shield, CreditCard, Tag, Home, ChevronRight } from "lucide-react";
+import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { COUNTRIES, PAYMENT_MODELS, CATEGORIES, PAYMENT_TO, CURRENCIES, US_STATES, TIMEZONES, IM_SERVICES, TAX_CLASSES, APPLICATION_TYPES } from "@/constants/mappings";
 import {
     Dialog,
@@ -27,6 +28,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { InternalNotesChat } from "@/components/InternalNotesChat";
+
+import { use } from 'react';
 
 export default function SignupDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -51,6 +55,9 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [ringbaSubId, setRingbaSubId] = useState('');
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'request_approval' | null>(null);
     const [apiSelection, setApiSelection] = useState({ cake: true, ringba: true });
+    const [tagInput, setTagInput] = useState("");
+    const [isSavingTag, setIsSavingTag] = useState(false);
+    const [globalTags, setGlobalTags] = useState<string[]>([]);
     const [showApiSelection, setShowApiSelection] = useState(false);
 
     // Q/A Forms States
@@ -68,15 +75,13 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     // IP Location State
     const [ipLocation, setIpLocation] = useState<string | null>(null);
     const [loadingLocation, setLoadingLocation] = useState(false);
+    const { setLabel } = useBreadcrumbs();
 
-    // Notes State
-    const [noteContent, setNoteContent] = useState("");
-    const [isAddingNote, setIsAddingNote] = useState(false);
-    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-    const [editNoteContent, setEditNoteContent] = useState("");
-    const [tagInput, setTagInput] = useState("");
-    const [isSavingTag, setIsSavingTag] = useState(false);
-    const [globalTags, setGlobalTags] = useState<string[]>([]);
+    useEffect(() => {
+        if (signup?.companyInfo?.companyName) {
+            setLabel(`/dashboard/signups/${id}`, signup.companyInfo.companyName);
+        }
+    }, [signup, id, setLabel]);
 
     useEffect(() => {
         if (session?.accessToken && id) {
@@ -721,90 +726,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
-
-
-    const handleAddNote = async () => {
-        if (!noteContent.trim()) return;
-        setIsAddingNote(true);
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/notes`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session?.accessToken}`
-                },
-                body: JSON.stringify({ note: noteContent })
-            });
-
-            if (res.ok) {
-                const newNote = await res.json();
-                setSignup((prev: { notes: any; }) => ({
-                    ...prev,
-                    notes: [...(prev.notes || []), newNote]
-                }));
-                setNoteContent("");
-            } else {
-                const err = await res.json();
-                alert(`Error adding note: ${err.detail}`);
-            }
-        } catch (error) {
-            console.error("Error adding note", error);
-            alert("Failed to add note");
-        } finally {
-            setIsAddingNote(false);
-        }
-    };
-
-    const handleUpdateNote = async (noteId: string) => {
-        if (!editNoteContent.trim()) return;
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/notes/${noteId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session?.accessToken}`
-                },
-                body: JSON.stringify({ note: editNoteContent })
-            });
-
-            if (res.ok) {
-                setSignup((prev: { notes: any[]; }) => ({
-                    ...prev,
-                    notes: prev.notes.map((n: any) => n.id === noteId ? { ...n, content: editNoteContent, updated_at: new Date().toISOString() } : n)
-                }));
-                setEditingNoteId(null);
-                setEditNoteContent("");
-            } else {
-                alert("Failed to update note");
-            }
-        } catch (error) {
-            console.error("Error updating note", error);
-        }
-    };
-
-    const handleDeleteNote = async (noteId: string) => {
-        if (!confirm("Are you sure you want to delete this note?")) return;
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/notes/${noteId}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${session?.accessToken}`
-                }
-            });
-
-            if (res.ok) {
-                setSignup((prev: { notes: any[]; }) => ({
-                    ...prev,
-                    notes: prev.notes.filter((n: any) => n.id !== noteId)
-                }));
-            } else {
-                alert("Failed to delete note");
-            }
-        } catch (error) {
-            console.error("Error deleting note", error);
-        }
-    };
-
     const handleAddTag = async () => {
         if (!tagInput.trim()) return;
         const newTag = tagInput.trim();
@@ -993,128 +914,114 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const importIcons = { Pencil: "lucide-react" }; // Just a marker for imports logic if needed, but imports are at top
 
     return (
-        <div className="space-y-6 p-0">
+        <div className="space-y-6 p-0 min-h-screen">
             {/* ── Hero Header ───────────────────────────────────────────── */}
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                {/* Coloured top accent bar based on status */}
-                <div className={`h-1.5 w-full ${signup.status === 'APPROVED' ? 'bg-green-500' :
-                    signup.status === 'REJECTED' ? 'bg-red-500' :
-                        signup.status === 'REQUESTED_FOR_APPROVAL' ? 'bg-blue-500' :
-                            'bg-yellow-400'
-                    }`} />
+            {!loading && signup && (
+                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                    <div className="p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                            {/* Avatar */}
+                            <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl">
+                                {(signup.companyInfo?.companyName || signup.accountInfo?.firstName || '?')[0].toUpperCase()}
+                            </div>
 
-                <div className="p-4 sm:p-6">
-                    {/* Back link */}
-                    <button
-                        onClick={() => router.back()}
-                        className="mb-4 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                        <ArrowLeft className="h-3.5 w-3.5" />
-                        Back to Signups
-                    </button>
+                            {/* Title block */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate flex items-center gap-2">
+                                        {signup.application_number && (
+                                            <span className="text-sm font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/50">
+                                                {signup.application_number}
+                                            </span>
+                                        )}
+                                        <span>{signup.companyInfo?.companyName || `${signup.accountInfo?.firstName} ${signup.accountInfo?.lastName}`}</span>
+                                    </h2>
+                                    <StatusBadge status={signup.status} />
+                                    {signup.marketingInfo?.applicationType && (
+                                        <Badge variant="outline" className="text-xs font-normal">
+                                            {signup.marketingInfo.applicationType}
+                                        </Badge>
+                                    )}
+                                </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                        {/* Avatar */}
-                        <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl">
-                            {(signup.companyInfo?.companyName || signup.accountInfo?.firstName || '?')[0].toUpperCase()}
-                        </div>
-
-                        {/* Title block */}
-                        <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate flex items-center gap-2">
-                                    {signup.application_number && (
-                                        <span className="text-sm font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/50">
-                                            {signup.application_number}
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                    {signup.accountInfo?.email && (
+                                        <span className="flex items-center gap-1">
+                                            <Mail className="h-3.5 w-3.5" />
+                                            {signup.accountInfo.email}
                                         </span>
                                     )}
-                                    <span>{signup.companyInfo?.companyName || `${signup.accountInfo?.firstName} ${signup.accountInfo?.lastName}`}</span>
-                                </h2>
-                                <StatusBadge status={signup.status} />
-                                {signup.marketingInfo?.applicationType && (
-                                    <Badge variant="outline" className="text-xs font-normal">
-                                        {signup.marketingInfo.applicationType}
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                {signup.accountInfo?.email && (
-                                    <span className="flex items-center gap-1">
-                                        <Mail className="h-3.5 w-3.5" />
-                                        {signup.accountInfo.email}
-                                    </span>
-                                )}
-                                {signup.accountInfo?.phone && (
-                                    <span className="flex items-center gap-1">
-                                        <Phone className="h-3.5 w-3.5" />
-                                        {signup.accountInfo.phone}
-                                    </span>
-                                )}
-                                {signup.created_at && (
-                                    <span className="flex items-center gap-1">
-                                        <Clock className="h-3.5 w-3.5" />
-                                        {new Date(signup.created_at).toLocaleDateString()}
-                                    </span>
-                                )}
-                                {signup.is_updated && signup.updated_at && (
-                                    <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
-                                        <RotateCcw className="h-3 w-3" />
-                                        Edited {new Date(signup.updated_at).toLocaleString()}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Granular API status badges (Both type) */}
-                            {signup.marketingInfo?.applicationType === 'Both' && session?.user?.can_approve_signups && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    <Badge variant="outline" className={
-                                        signup.cake_api_status === 'APPROVED' ? "border-green-500 text-green-700 bg-green-50" :
-                                            signup.cake_api_status === 'REJECTED' ? "border-red-500 text-red-700 bg-red-50" :
-                                                signup.cake_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
-                                                    "border-yellow-500 text-yellow-700 bg-yellow-50"
-                                    }>
-                                        Cake: {signup.cake_api_status === 'APPROVED' ? 'Approved' : signup.cake_api_status === 'REJECTED' ? 'Rejected' : signup.cake_api_status === 'FAILED' ? 'Failed' : 'Pending'}
-                                    </Badge>
-                                    <Badge variant="outline" className={
-                                        signup.ringba_api_status === 'APPROVED' ? "border-green-500 text-green-700 bg-green-50" :
-                                            signup.ringba_api_status === 'REJECTED' ? "border-red-500 text-red-700 bg-red-50" :
-                                                signup.ringba_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
-                                                    "border-yellow-500 text-yellow-700 bg-yellow-50"
-                                    }>
-                                        Ringba: {signup.ringba_api_status === 'APPROVED' ? 'Approved' : signup.ringba_api_status === 'REJECTED' ? 'Rejected' : signup.ringba_api_status === 'FAILED' ? 'Failed' : 'Pending'}
-                                    </Badge>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Action buttons — collapse to row on sm, wrap naturally */}
-                        <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:items-start">
-                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) && (
-                                <>
-                                    {isEditing ? (
-                                        <>
-                                            <Button variant="outline" onClick={toggleEdit} disabled={isSaving} className="flex-1 sm:flex-none">
-                                                <X className="h-4 w-4 mr-2" />
-                                                Cancel
-                                            </Button>
-                                            <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-none">
-                                                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                                                Save Changes
-                                            </Button>
-                                        </>
-                                    ) : (
-                                        <Button variant="outline" onClick={toggleEdit} className="flex-1 sm:flex-none">
-                                            <Pencil className="h-4 w-4 mr-2" />
-                                            Edit Details
-                                        </Button>
+                                    {signup.accountInfo?.phone && (
+                                        <span className="flex items-center gap-1">
+                                            <Phone className="h-3.5 w-3.5" />
+                                            {signup.accountInfo.phone}
+                                        </span>
                                     )}
-                                </>
-                            )}
+                                    {signup.created_at && (
+                                        <span className="flex items-center gap-1">
+                                            <Clock className="h-3.5 w-3.5" />
+                                            {new Date(signup.created_at).toLocaleDateString()}
+                                        </span>
+                                    )}
+                                    {signup.is_updated && signup.updated_at && (
+                                        <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
+                                            <RotateCcw className="h-3 w-3" />
+                                            Edited {new Date(signup.updated_at).toLocaleString()}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Granular API status badges (Both type) */}
+                                {signup.marketingInfo?.applicationType === 'Both' && session?.user?.can_approve_signups && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        <Badge variant="outline" className={
+                                            signup.cake_api_status === 'APPROVED' ? "border-green-500 text-green-700 bg-green-50" :
+                                                signup.cake_api_status === 'REJECTED' ? "border-red-500 text-red-700 bg-red-50" :
+                                                    signup.cake_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
+                                                        "border-yellow-500 text-yellow-700 bg-yellow-50"
+                                        }>
+                                            Cake: {signup.cake_api_status === 'APPROVED' ? 'Approved' : signup.cake_api_status === 'REJECTED' ? 'Rejected' : signup.cake_api_status === 'FAILED' ? 'Failed' : 'Pending'}
+                                        </Badge>
+                                        <Badge variant="outline" className={
+                                            signup.ringba_api_status === 'APPROVED' ? "border-green-500 text-green-700 bg-green-50" :
+                                                signup.ringba_api_status === 'REJECTED' ? "border-red-500 text-red-700 bg-red-50" :
+                                                    signup.ringba_api_status === 'FAILED' ? "border-red-300 text-red-500 bg-red-50" :
+                                                        "border-yellow-500 text-yellow-700 bg-yellow-50"
+                                        }>
+                                            Ringba: {signup.ringba_api_status === 'APPROVED' ? 'Approved' : signup.ringba_api_status === 'REJECTED' ? 'Rejected' : signup.ringba_api_status === 'FAILED' ? 'Failed' : 'Pending'}
+                                        </Badge>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Action buttons — collapse to row on sm, wrap naturally */}
+                            <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:items-start">
+                                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) && (
+                                    <>
+                                        {isEditing ? (
+                                            <>
+                                                <Button variant="outline" onClick={toggleEdit} disabled={isSaving} className="flex-1 sm:flex-none">
+                                                    <X className="h-4 w-4 mr-2" />
+                                                    Cancel
+                                                </Button>
+                                                <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-none">
+                                                    {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                                    Save Changes
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button variant="outline" onClick={toggleEdit} className="flex-1 sm:flex-none">
+                                                <Pencil className="h-4 w-4 mr-2" />
+                                                Edit Details
+                                            </Button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Decision Cards - Granularity & Actions */}
             {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) && 
@@ -2383,88 +2290,16 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 {/* Notes Section */}
                 <Card className="md:col-span-2">
                     <CardHeader>
-                        <CardTitle>Internal Notes</CardTitle>
+                        <CardTitle>Internal Chat</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto mb-4 pr-1">
-                            {signup.notes && signup.notes.length > 0 ? (
-                                signup.notes.map((note: any, idx: number) => (
-                                    <div key={idx} className="bg-card border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow relative group">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                                    {note.author?.[0]?.toUpperCase() || 'A'}
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-semibold">{note.author}</p>
-                                                    <p className="text-[10px] text-muted-foreground">{new Date(note.created_at).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                            {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN' || session?.user?.name === note.author) && (
-                                                <div className="flex gap-1">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 w-7 p-0 border-gray-200 hover:border-primary hover:text-primary"
-                                                        onClick={() => {
-                                                            setEditingNoteId(note.id);
-                                                            setEditNoteContent(note.content);
-                                                        }}
-                                                    >
-                                                        <Pencil className="h-3 w-3" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 w-7 p-0 border-red-200 text-red-500 hover:bg-red-50 hover:border-red-400"
-                                                        onClick={() => handleDeleteNote(note.id)}
-                                                    >
-                                                        <Trash className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {editingNoteId === note.id ? (
-                                            <div className="mt-2 space-y-2">
-                                                <textarea
-                                                    className="w-full text-sm p-2 border rounded-md"
-                                                    value={editNoteContent}
-                                                    onChange={(e) => setEditNoteContent(e.target.value)}
-                                                />
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="ghost" size="sm" onClick={() => setEditingNoteId(null)} className="h-7">Cancel</Button>
-                                                    <Button size="sm" onClick={() => handleUpdateNote(note.id)} className="h-7">Save</Button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm whitespace-pre-wrap pl-8">{note.content}</p>
-                                        )}
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="flex flex-col items-center justify-center p-8 text-center border-2 border-dashed rounded-lg bg-muted/50">
-                                    <p className="text-sm text-muted-foreground">No notes found</p>
-                                    <p className="text-xs text-muted-foreground/80">Add internal notes for team collaboration</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-xl border border-border/60">
-                            <textarea
-                                className="flex-1 min-h-[60px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-                                placeholder="Type a new note..."
-                                value={noteContent}
-                                onChange={(e) => setNoteContent(e.target.value)}
-                            />
-                            <Button
-                                onClick={handleAddNote}
-                                disabled={isAddingNote || !noteContent.trim()}
-                                className="shrink-0 rounded-lg px-4 h-10 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-sm"
-                            >
-                                {isAddingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                                Post
-                            </Button>
-                        </div>
+                    <CardContent className="p-0">
+                        <InternalNotesChat 
+                            signupId={id as string}
+                            initialNotes={signup.notes || []}
+                            onNotesUpdate={(notes: any[]) => setSignup({...signup, notes})}
+                            className="border-none shadow-none rounded-none"
+                            maxHeight="500px"
+                        />
                     </CardContent>
                 </Card>
             </div>
