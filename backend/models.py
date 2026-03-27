@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, validator, AnyHttpUrl
 from typing import Optional, List, Dict, Any, Union
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 class SignupStatus(str, Enum):
@@ -72,13 +72,13 @@ class SignupDocument(BaseModel):
     filename: str
     path: str
     uploaded_by: str
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SignupNote(BaseModel):
     id: str = Field(default_factory=lambda: str(ObjectId()))
     content: str
     author: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None
 
 class QAFileResponse(BaseModel):
@@ -137,7 +137,7 @@ class SignupInDB(SignupCreate):
 
 class Tag(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserRole(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
@@ -230,8 +230,8 @@ class SMTPConfig(BaseModel):
     from_email: str
     reply_to_email: Optional[str] = None
     is_active: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True
@@ -312,8 +312,8 @@ class APIConnection(BaseModel):
     is_active: bool = False
     cake_details: Optional[CakeDetails] = None
     ringba_details: Optional[RingbaDetails] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True
@@ -375,7 +375,7 @@ class ActivityLog(BaseModel):
     details: str # Descriptive text or structured data
     api_type: Optional[str] = None # Web/Call if applicable
     target_id: Optional[str] = None # ID of the signup/form/user affected
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     ip_address: Optional[str] = None
 
     class Config:
@@ -406,8 +406,8 @@ class CallOffer(BaseModel):
     target_geo: str
     capping: str
     details: Optional[str] = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True

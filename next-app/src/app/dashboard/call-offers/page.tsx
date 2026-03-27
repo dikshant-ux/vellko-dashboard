@@ -45,6 +45,8 @@ import { CallOfferModal } from "@/components/CallOfferModal";
 import { CallOfferUploadModal } from "@/components/CallOfferUploadModal";
 import { ShareConfigurationModal } from "@/components/ShareConfigurationModal";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface CallOffer {
     id: string;
@@ -61,7 +63,22 @@ interface CallOffer {
 }
 
 export default function CallOffersPage() {
+    const { data: session, status } = useSession();
+    const router = useRouter();
     const authFetch = useAuthFetch();
+
+    useEffect(() => {
+        if (status === 'authenticated') {
+            const hasPermission = session?.user?.role === 'SUPER_ADMIN' || 
+                ['Call Traffic', 'Both'].includes(session?.user?.application_permission || '');
+            
+            if (!hasPermission) {
+                toast.error("You don't have permission to access call offers");
+                router.push('/dashboard/overview');
+            }
+        }
+    }, [session, status, router]);
+
     const [offers, setOffers] = useState<CallOffer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");

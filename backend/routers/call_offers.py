@@ -15,6 +15,18 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not authorized")
     return current_user
 
+async def check_call_permission(current_user: User = Depends(get_current_user)):
+    # Super Admin can see everything
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return current_user
+        
+    # Check application permissions for ADMIN and USER roles
+    allowed_permissions = ["Call Traffic", "Both"]
+    if current_user.application_permission not in allowed_permissions:
+        raise HTTPException(status_code=403, detail="Access denied: Call Traffic permission required")
+    
+    return current_user
+
 @router.post("", response_model=CallOffer)
 async def create_call_offer(offer: CallOfferCreate, user: User = Depends(get_current_admin)):
     offer_dict = offer.dict()
@@ -30,7 +42,8 @@ async def create_call_offer(offer: CallOfferCreate, user: User = Depends(get_cur
 async def get_call_offers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    user: User = Depends(check_call_permission)
 ):
     query = {}
     if search:
@@ -51,7 +64,7 @@ async def get_call_offers(
     return {"items": offers, "total": total}
 
 @router.get("/filters")
-async def get_call_offer_filters():
+async def get_call_offer_filters(user: User = Depends(check_call_permission)):
     # Get unique values for each field
     # For verticals, we need to split by comma and trim
     
@@ -94,7 +107,7 @@ async def get_call_offer_filters():
     }
 
 @router.get("/{id}", response_model=CallOffer)
-async def get_call_offer(id: str):
+async def get_call_offer(id: str, user: User = Depends(check_call_permission)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid ID")
     
@@ -224,42 +237,6 @@ async def upload_call_offers(file: UploadFile = File(...), user: User = Depends(
     result = await db.call_offers.insert_many(docs)
     return {"message": f"Successfully uploaded {len(result.inserted_ids)} offers", "count": len(result.inserted_ids)}
 
-@router.get("/filters")
-async def get_call_offer_filters():
-    # Get unique values for each field
-    # For verticals, we need to split by comma and trim
-    
-    # Simple values first
-    pipeline = [
-        {"$group": {
-            "_id": None,
-            "campaign_types": {"$addToSet": "$campaign_type"},
-            "traffic_allowed": {"$addToSet": "$traffic_allowed"},
-            "target_geos": {"$addToSet": "$target_geo"},
-            "verticals_raw": {"$addToSet": "$verticals"}
-        }}
-    ]
-    
-    result = await db.call_offers.aggregate(pipeline).to_list(length=1)
-    
-    if not result:
-        return {
-            "verticals": [],
-            "campaign_types": [],
-            "traffic_allowed": [],
-            "target_geos": []
-        }
-    
-    data = result[0]
-    
-    # Process verticals (split by comma, flatten, unique, non-empty)
-    verticals = set()
-    for v_str in data.get("verticals_raw", []):
-        if not v_str: continue
-        parts = [p.strip() for p in v_str.split(",") if p.strip()]
-        for p in parts:
-            verticals.add(p)
-    
     return {
         "verticals": sorted(list(verticals)),
         "campaign_types": sorted([v for v in data.get("campaign_types", []) if v]),

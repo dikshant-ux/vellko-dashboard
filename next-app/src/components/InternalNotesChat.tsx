@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { format } from 'date-fns';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send, Pencil, Trash } from "lucide-react";
@@ -208,7 +209,13 @@ export function InternalNotesChat({
                                         )}
                                     </div>
                                     <span className="text-[9px] text-slate-400 mt-0.5 px-1 font-medium">
-                                        {new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {(() => {
+                                            const dateStr = note.created_at;
+                                            const normalized = (dateStr.endsWith('Z') || dateStr.includes('+')) 
+                                                ? dateStr 
+                                                : `${dateStr}Z`;
+                                            return format(new Date(normalized), "d MMM, h:mm a");
+                                        })()}
                                         {note.updated_at && <span className="ml-1 opacity-70 italic">(edited)</span>}
                                     </span>
                                 </div>

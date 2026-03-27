@@ -66,6 +66,8 @@ export default function Sidebar() {
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ];
 
+    const showCallOffers = session?.user?.role === 'SUPER_ADMIN' || ['Call Traffic', 'Both'].includes(session?.user?.application_permission || '');
+
     return (
         <div
             className={cn(
@@ -163,17 +165,19 @@ export default function Sidebar() {
                                             >
                                                 <span>Web Offers</span>
                                             </Link>
-                                            <Link
-                                                href="/dashboard/call-offers"
-                                                className={cn(
-                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
-                                                    pathname === '/dashboard/call-offers'
-                                                        ? "text-red-700 bg-red-50/50"
-                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
-                                                )}
-                                            >
-                                                <span>Call Offers</span>
-                                            </Link>
+                                            {showCallOffers && (
+                                                <Link
+                                                    href="/dashboard/call-offers"
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/call-offers'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Call Offers</span>
+                                                </Link>
+                                            )}
                                             <Link
                                                 href="/dashboard/offers/shared"
                                                 className={cn(
