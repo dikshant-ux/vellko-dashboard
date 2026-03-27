@@ -1419,28 +1419,41 @@ async def add_signup_note(id: str, note: str = Body(..., embed=True), user: User
     try:
         from email_utils import send_internal_note_notification_email
         
-        # 1. Identify Target Audience
-        signup_app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+        recipient_emails = []
         
-        target_permissions = []
-        if signup_app_type == "Web Traffic":
-            target_permissions = ["Web Traffic", "Both"]
-        elif signup_app_type == "Call Traffic":
-            target_permissions = ["Call Traffic", "Both"]
-        elif signup_app_type == "Both":
-            target_permissions = ["Web Traffic", "Call Traffic", "Both"]
+        # 1. Branch Logic: Admin adds note vs Referrer adds note
+        if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            # Admin adding note -> Notify only the Referrer
+            referral_id = signup_data.get("companyInfo", {}).get("referral_id")
+            if referral_id:
+                try:
+                    referrer_user = await db.users.find_one({"_id": ObjectId(referral_id)})
+                    if referrer_user and referrer_user.get("email"):
+                        # Exclude self-notification
+                        if referrer_user.get("username") != user.username:
+                            recipient_emails = [referrer_user["email"]]
+                except Exception as ref_err:
+                    print(f"Error fetching referrer for note notification: {ref_err}")
+        else:
+            # Referrer (User) adding note -> Notify relevant Admins (Original Logic)
+            signup_app_type = signup_data.get("marketingInfo", {}).get("applicationType")
             
-        # 2. Fetch Users
-        # Find users who are ADMIN (NOT SUPER_ADMIN as per user request) with matching permission
-        # And exclude the author themselves
-        cursor = db.users.find({
-            "role": UserRole.ADMIN,
-            "application_permission": {"$in": target_permissions},
-            "username": {"$ne": user.username} # Exclude the person adding the note
-        })
-        
-        recipients = await cursor.to_list(length=100)
-        recipient_emails = [u["email"] for u in recipients if u.get("email")]
+            target_permissions = []
+            if signup_app_type == "Web Traffic":
+                target_permissions = ["Web Traffic", "Both"]
+            elif signup_app_type == "Call Traffic":
+                target_permissions = ["Call Traffic", "Both"]
+            elif signup_app_type == "Both":
+                target_permissions = ["Web Traffic", "Call Traffic", "Both"]
+                
+            cursor = db.users.find({
+                "role": UserRole.ADMIN,
+                "application_permission": {"$in": target_permissions},
+                "username": {"$ne": user.username} # Exclude the person adding the note
+            })
+            
+            recipients = await cursor.to_list(length=100)
+            recipient_emails = [u["email"] for u in recipients if u.get("email")]
         
         if recipient_emails:
             # Send notification (fire-and-forget background task to keep UI snappy)
