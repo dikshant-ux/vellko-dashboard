@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SettingsPage() {
-    const { data: session, update } = useSession();
+    const { data: session, status, update } = useSession();
     const authFetch = useAuthFetch();
     const [profile, setProfile] = useState({ full_name: '', email: '' });
     const [password, setPassword] = useState({ current: '', new: '', confirm: '' });

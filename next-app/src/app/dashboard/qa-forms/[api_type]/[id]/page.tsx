@@ -16,6 +16,7 @@ import {
     Loader2,
     FileCode2 as File
 } from 'lucide-react';
+import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export default function EditQAFormPage() {
     const { api_type, id } = useParams();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const authFetch = useAuthFetch();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -44,12 +46,8 @@ export default function EditQAFormPage() {
     useEffect(() => {
         const fetchForm = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}`, {
-                    headers: {
-                        Authorization: `Bearer ${session?.accessToken}`
-                    }
-                });
-                if (res.ok) {
+                const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}`);
+                if (res && res.ok) {
                     const data = await res.json();
                     setFormName(data.name);
                     setQuestions((data.questions || []).map((q: any) => ({
@@ -99,11 +97,10 @@ export default function EditQAFormPage() {
 
         setIsSaving(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}`, {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session?.accessToken}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     name: formName,
@@ -115,11 +112,11 @@ export default function EditQAFormPage() {
                 })
             });
 
-            if (res.ok) {
+            if (res && res.ok) {
                 router.push(`/dashboard/qa-forms/${api_type}`);
-            } else {
+            } else if (res) {
                 const err = await res.json();
-                alert(err.detail || "Failed to update form");
+                alert(err.detail || "Failed to save form");
             }
         } catch (error) {
             alert("Error updating form");

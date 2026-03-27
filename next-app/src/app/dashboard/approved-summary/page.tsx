@@ -46,7 +46,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from 'next/link';
 
 function ApprovedSummaryContent() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const authFetch = useAuthFetch();
 
     const [signups, setSignups] = useState<any[]>([]);

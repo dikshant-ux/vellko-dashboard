@@ -16,6 +16,7 @@ import {
     ChevronRight,
     HelpCircle
 } from 'lucide-react';
+import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,8 @@ import {
 
 export default function QAFormsPage() {
     const { api_type } = useParams();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const authFetch = useAuthFetch();
     const router = useRouter();
     const [forms, setForms] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -42,12 +44,8 @@ export default function QAFormsPage() {
     const fetchForms = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms`, {
-                headers: {
-                    Authorization: `Bearer ${session?.accessToken}`
-                }
-            });
-            if (res.ok) {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms`);
+            if (res && res.ok) {
                 const data = await res.json();
                 // Filter by type on client side if needed, or update API to accept type param
                 const filtered = data.filter((f: any) => f.api_type === internal_api_type);
@@ -64,19 +62,16 @@ export default function QAFormsPage() {
         if (status === 'authenticated' && session?.accessToken) {
             fetchForms();
         }
-    }, [status, api_type, session]);
+    }, [status, api_type, session, authFetch]);
 
     const handleActivate = async (id: string) => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}/activate`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${session?.accessToken}`
-                }
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}/activate`, {
+                method: 'POST'
             });
-            if (res.ok) {
+            if (res && res.ok) {
                 fetchForms();
-            } else {
+            } else if (res) {
                 const err = await res.json();
                 alert(err.detail || "Failed to activate form");
             }
@@ -88,13 +83,10 @@ export default function QAFormsPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this form?")) return;
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${session?.accessToken}`
-                }
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/qa-forms/${id}`, {
+                method: 'DELETE'
             });
-            if (res.ok) {
+            if (res && res.ok) {
                 fetchForms();
             }
         } catch (error) {

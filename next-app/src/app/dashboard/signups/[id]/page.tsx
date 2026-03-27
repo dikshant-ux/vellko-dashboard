@@ -122,7 +122,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 .then(data => setGlobalTags(Array.isArray(data) ? data : []))
                 .catch(err => console.error("Error fetching global tags:", err));
         }
-    }, [session, id]);
+    }, [session, id, status]);
 
     // Effect to set initial API selection based on permissions when dialog opens
     useEffect(() => {

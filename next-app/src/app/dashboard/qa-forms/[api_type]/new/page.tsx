@@ -32,7 +32,7 @@ import { Separator } from "@/components/ui/separator";
 
 export default function NewQAFormPage() {
     const { api_type } = useParams();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
