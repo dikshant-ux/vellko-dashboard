@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -34,7 +35,7 @@ import { use } from 'react';
 
 export default function SignupDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const [signup, setSignup] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     }, [signup, id, setLabel]);
 
     useEffect(() => {
-        if (session?.accessToken && id) {
+        if (status === 'authenticated' && session?.accessToken && id) {
             // First fetch the signup to get its application type
             fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}`, {
                 headers: { Authorization: `Bearer ${session.accessToken}` }

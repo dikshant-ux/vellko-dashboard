@@ -140,8 +140,8 @@ export function CSVMappingModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex-1 min-h-0 flex flex-col px-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 flex-1 min-h-0 max-h-[600px] overflow-hidden">
+                <div className="flex-1 min-h-0 flex flex-col px-6 overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 flex-1 min-h-0 overflow-hidden">
                         {/* Left: Mapping Controls */}
                         <div className="flex flex-col min-h-0 border-r pr-8 overflow-hidden h-full">
                             <div className="flex items-center gap-2 mb-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
@@ -149,7 +149,7 @@ export function CSVMappingModal({
                                 <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Column Mapping</span>
                             </div>
                             <div className="flex-1 overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                                <div className="space-y-6 pb-24"> {/* Increased bottom padding to prevent cut off */}
+                                <div className="space-y-6 pb-8"> 
                                     {REQUIRED_FIELDS.map((field) => (
                                         <div key={field.id} className="space-y-2">
                                             <div className="flex items-center justify-between px-1">
@@ -197,7 +197,8 @@ export function CSVMappingModal({
                                     Top {preview.length} Rows
                                 </div>
                             </div>
-                            <div className="flex-1 border rounded-xl bg-white shadow-inner overflow-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                            <div className="flex-1 border rounded-xl bg-white shadow-inner overflow-hidden flex flex-col">
+                                <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                                 <div className="min-w-[600px]">
                                     <Table>
                                         <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
@@ -236,6 +237,7 @@ export function CSVMappingModal({
                                     </Table>
                                 </div>
                             </div>
+                        </div>
                             <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100 flex items-start gap-3">
                                 <div className="p-1 rounded bg-white shadow-sm shrink-0">
                                     <CheckCircle2 className="h-3 w-3 text-red-600" />

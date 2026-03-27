@@ -72,16 +72,16 @@ function ApprovedSummaryContent() {
             .then(data => setReferrers(data))
             .catch(console.error);
 
-        if (session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken) {
             authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`)
                 .then(res => res ? res.json() : [])
                 .then(data => setTags(Array.isArray(data) ? data : []))
                 .catch(console.error);
         }
-    }, [session, authFetch]);
+    }, [status, session, authFetch]);
 
     useEffect(() => {
-        if (session?.user?.application_permission && filterAppType === "all") {
+        if (status === 'authenticated' && session?.user?.application_permission && filterAppType === "all") {
             const permission = session.user.application_permission as string;
             if (permission === 'Call Traffic') {
                 setFilterAppType('Call Traffic');
@@ -90,12 +90,12 @@ function ApprovedSummaryContent() {
             }
             // For 'Both' or SUPER_ADMIN, it stays 'all'
         }
-    }, [session, filterAppType]);
+    }, [status, session, filterAppType]);
 
     useEffect(() => {
         let isActive = true;
 
-        if (session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken) {
             setIsLoading(true);
             let url = `${process.env.NEXT_PUBLIC_API_URL}/admin/signups?status=APPROVED`;
             const params = new URLSearchParams();
@@ -138,7 +138,7 @@ function ApprovedSummaryContent() {
                 isActive = false;
             };
         }
-    }, [session, filterReferral, filterAppType, filterTag, currentPage, limit, sortBy, sortOrder, searchTerm, authFetch]);
+    }, [status, session, filterReferral, filterAppType, filterTag, currentPage, limit, sortBy, sortOrder, searchTerm, authFetch]);
 
     const handleSort = (field: string) => {
         if (sortBy === field) {

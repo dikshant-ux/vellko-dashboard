@@ -68,10 +68,10 @@ export default function EditQAFormPage() {
             }
         };
 
-        if (session && id) {
+        if (status === 'authenticated' && session?.accessToken && id) {
             fetchForm();
         }
-    }, [session, id, api_type]);
+    }, [status, session, id, api_type]);
 
     const addQuestion = () => {
         setQuestions([...questions, { text: "", field_type: "Text", required: true, options: "" }]);

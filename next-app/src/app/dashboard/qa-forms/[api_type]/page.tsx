@@ -61,10 +61,10 @@ export default function QAFormsPage() {
     };
 
     useEffect(() => {
-        if (session) {
+        if (status === 'authenticated' && session?.accessToken) {
             fetchForms();
         }
-    }, [session, api_type]);
+    }, [status, api_type, session]);
 
     const handleActivate = async (id: string) => {
         try {

@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function TagsPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const authFetch = useAuthFetch();
     const [tags, setTags] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -54,10 +54,10 @@ export default function TagsPage() {
     };
 
     useEffect(() => {
-        if (session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken) {
             fetchTags();
         }
-    }, [session, authFetch]);
+    }, [status, session, authFetch]);
 
     const handleCreateTag = async () => {
         const trimmedName = createTagName.trim();

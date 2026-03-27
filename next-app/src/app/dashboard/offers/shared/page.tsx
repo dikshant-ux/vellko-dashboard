@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import {
     Table,
@@ -42,6 +43,7 @@ interface SharedLink {
 
 export default function SharedLinksPage() {
     const authFetch = useAuthFetch();
+    const { data: session, status } = useSession();
     const [links, setLinks] = useState<SharedLink[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -66,8 +68,10 @@ export default function SharedLinksPage() {
     };
 
     useEffect(() => {
-        fetchLinks();
-    }, []);
+        if (status === 'authenticated' && session?.accessToken) {
+            fetchLinks();
+        }
+    }, [status, session]);
 
     const handleDelete = async (token: string) => {
         try {

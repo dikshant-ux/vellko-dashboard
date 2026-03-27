@@ -8,12 +8,12 @@ import { Users, CheckCircle2, XCircle, Clock, Activity, Trophy } from "lucide-re
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 
 export default function OverviewPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [stats, setStats] = useState<any>(null);
     const authFetch = useAuthFetch();
 
     useEffect(() => {
-        if (session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken) {
             authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`)
                 .then(res => res ? res.json() : null)
                 .then(data => {
@@ -21,7 +21,7 @@ export default function OverviewPage() {
                 })
                 .catch(console.error);
         }
-    }, [session, authFetch]);
+    }, [status, session, authFetch]);
 
     const StatCard = ({ title, value, icon: Icon, color, description, href }: any) => {
         const CardContentWrapper = () => (

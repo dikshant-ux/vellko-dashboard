@@ -35,7 +35,7 @@ import { MessageSquare } from "lucide-react";
 import { InternalNotesModal } from "@/components/InternalNotesModal";
 
 function SignupsContent() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
     const statusParam = searchParams.get('status');
@@ -68,16 +68,16 @@ function SignupsContent() {
             .then(data => setReferrers(data))
             .catch(console.error);
             
-        if (session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken) {
             authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`)
                 .then(res => res ? res.json() : [])
                 .then(data => setTags(Array.isArray(data) ? data : []))
                 .catch(console.error);
         }
-    }, [session, authFetch]);
+    }, [session, authFetch, status]);
 
     useEffect(() => {
-        if (session?.user?.application_permission && filterAppType === null) {
+        if (status === 'authenticated' && session?.user?.application_permission && filterAppType === null) {
             const permission = session.user.application_permission;
             if (permission === 'Call Traffic') {
                 setFilterAppType('Call Traffic');
@@ -86,13 +86,13 @@ function SignupsContent() {
                 setFilterAppType('Web Traffic');
             }
         }
-    }, [session, filterAppType]);
+    }, [session, filterAppType, status]);
 
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
 
-        if (session?.accessToken && filterAppType !== null) {
+        if (status === 'authenticated' && session?.accessToken && filterAppType !== null) {
             setIsLoading(true);
             let url = `${process.env.NEXT_PUBLIC_API_URL}/admin/signups`;
             const params = new URLSearchParams();

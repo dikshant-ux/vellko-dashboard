@@ -64,15 +64,14 @@ export default function SettingsPage() {
     });
 
     useEffect(() => {
-        if (session?.user?.name) {
+        if (status === 'authenticated' && session?.user?.name) {
             setProfile(p => ({ ...p, full_name: session.user.name || '' }));
         }
-        if (session?.user?.email) {
+        if (status === 'authenticated' && session?.user?.email) {
             setProfile(p => ({ ...p, email: session.user.email || '' }));
         }
 
-        if (session?.accessToken) {
-            // Fetch 2FA status
+        if (status === 'authenticated' && session?.accessToken) {
             // Fetch 2FA status
             authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
                 .then(res => res ? res.json() : null)
@@ -90,7 +89,7 @@ export default function SettingsPage() {
                 fetchApiConnections();
             }
         }
-    }, [session]);
+    }, [session, status]);
 
     const fetchSmtpConfigs = () => {
         authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/smtp`)

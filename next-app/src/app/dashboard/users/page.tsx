@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,8 +33,9 @@ const Switch = ({ checked, onChange, id, label }: { checked: boolean; onChange: 
 };
 
 export default function UsersPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const authFetch = useAuthFetch();
+    const router = useRouter();
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
@@ -46,7 +48,7 @@ export default function UsersPage() {
     const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
-        if (session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken) {
             setLoading(true);
             authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`)
                 .then(res => res ? res.json() : [])
@@ -63,8 +65,20 @@ export default function UsersPage() {
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, [session]);
+        if (status === 'authenticated' && session?.user) {
+            if (!session.user.role) return;
+
+            // Permission guard
+            if (!['ADMIN', 'SUPER_ADMIN'].includes(session.user.role)) {
+                router.push('/dashboard/overview');
+                return;
+            }
+
+            fetchUsers();
+        } else if (status === 'unauthenticated') {
+            router.push('/login');
+        }
+    }, [session, status, router]);
 
     const handleCreateUser = (e: React.FormEvent) => {
         e.preventDefault();

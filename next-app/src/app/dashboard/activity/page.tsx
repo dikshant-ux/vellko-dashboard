@@ -37,7 +37,7 @@ interface ActivityLog {
 }
 
 export default function ActivityLogPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +50,7 @@ export default function ActivityLogPage() {
     const limit = 50;
 
     const fetchLogs = async (page: number) => {
+        if (status !== 'authenticated') return;
         setIsLoading(true);
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/activity?page=${page}&limit=${limit}`, {
@@ -72,16 +73,21 @@ export default function ActivityLogPage() {
     };
 
     useEffect(() => {
-        // Double check permissions (frontend guard)
-        if (session && session.user.role !== 'SUPER_ADMIN') {
-            router.push('/dashboard/overview');
-            return;
-        }
+        if (status === 'authenticated' && session?.user) {
+            // Check if user has required properties before deciding on redirect
+            if (!session.user.role) return;
 
-        if (session) {
+            // Double check permissions (frontend guard)
+            if (session.user.role !== 'SUPER_ADMIN') {
+                router.push('/dashboard/overview');
+                return;
+            }
+
             fetchLogs(currentPage);
+        } else if (status === 'unauthenticated') {
+            router.push('/login');
         }
-    }, [session, router, currentPage]);
+    }, [session, status, router, currentPage]);
 
     const filteredLogs = logs.filter(log =>
         log.username.toLowerCase().includes(searchTerm.toLowerCase()) ||

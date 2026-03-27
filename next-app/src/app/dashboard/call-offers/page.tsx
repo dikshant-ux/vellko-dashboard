@@ -80,14 +80,21 @@ export default function CallOffersPage() {
     const authFetch = useAuthFetch();
 
     useEffect(() => {
-        if (status === 'authenticated') {
-            const hasPermission = session?.user?.role === 'SUPER_ADMIN' || 
-                ['Call Traffic', 'Both'].includes(session?.user?.application_permission || '');
+        // Only proceed if status is fully determined
+        if (status === 'authenticated' && session?.user) {
+            // Check if user has required properties before deciding on redirect
+            // If role is missing but we are authenticated, wait a bit for it to populate
+            if (!session.user.role) return;
+
+            const hasPermission = session.user.role === 'SUPER_ADMIN' || 
+                ['Call Traffic', 'Both'].includes(session.user.application_permission || '');
             
             if (!hasPermission) {
                 toast.error("You don't have permission to access call offers");
                 router.push('/dashboard/overview');
             }
+        } else if (status === 'unauthenticated') {
+            router.push('/login');
         }
     }, [session, status, router]);
 
@@ -125,10 +132,13 @@ export default function CallOffersPage() {
     }, [authFetch]);
 
     useEffect(() => {
-        fetchFilters();
-    }, [fetchFilters]);
+        if (status === 'authenticated' && session?.accessToken) {
+            fetchFilters();
+        }
+    }, [status, session, authFetch]);
 
     const fetchOffers = useCallback(async () => {
+        if (status !== 'authenticated' || !session?.accessToken) return;
         setIsLoading(true);
         try {
             const queryParams = new URLSearchParams({

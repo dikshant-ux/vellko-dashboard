@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import {
     Table,
@@ -44,6 +45,7 @@ interface Offer {
 }
 
 export default function OffersPage() {
+    const { data: session, status } = useSession();
     const authFetch = useAuthFetch();
     const [offers, setOffers] = useState<Offer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -115,6 +117,7 @@ export default function OffersPage() {
 
     useEffect(() => {
         const fetchFilters = async () => {
+            if (status !== 'authenticated' || !session?.accessToken) return;
             try {
                 const [mediaRes, statusRes, verticalRes] = await Promise.all([
                     authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/media-types`),
@@ -130,9 +133,10 @@ export default function OffersPage() {
             }
         };
         fetchFilters();
-    }, []);
+    }, [status]);
 
     const fetchOffers = async () => {
+        if (status !== 'authenticated' || !session?.accessToken) return;
         setIsLoading(true);
         try {
             const params = new URLSearchParams({
@@ -163,8 +167,10 @@ export default function OffersPage() {
     };
 
     useEffect(() => {
-        fetchOffers();
-    }, [page, limit, sortField, sortDesc, debouncedSearch, selectedMediaType, selectedStatus, selectedVertical]);
+        if (status === 'authenticated' && session?.accessToken) {
+            fetchOffers();
+        }
+    }, [page, limit, sortField, sortDesc, debouncedSearch, selectedMediaType, selectedStatus, selectedVertical, status, session]);
 
     // Prepare available columns for the modal
 

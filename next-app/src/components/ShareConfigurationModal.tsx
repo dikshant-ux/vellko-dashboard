@@ -2,6 +2,7 @@
 // Re-saving to trigger re-index
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,10 +59,14 @@ export function ShareConfigurationModal({
     onSuccess,
     offerType = "web"
 }: ShareModalProps) {
+    const { data: session, status } = useSession();
     const authFetch = useAuthFetch();
     const [internalOpen, setInternalOpen] = useState(false);
     const open = externalOpen !== undefined ? externalOpen : internalOpen;
-    const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
+    const setOpen = (val: boolean) => {
+        if (setExternalOpen) setExternalOpen(val);
+        setInternalOpen(val);
+    };
 
     const [isLoading, setIsLoading] = useState(false);
     const [duration, setDuration] = useState("24");
@@ -130,57 +135,61 @@ export function ShareConfigurationModal({
                 console.error("Failed to fetch filters", error);
             }
         };
-        fetchFilters();
-    }, [offerType]);
+
+        if (status === 'authenticated' && session?.accessToken) {
+            fetchFilters();
+        }
+    }, [offerType, status, session, authFetch]);
 
     useEffect(() => {
-        if (isEdit && open) {
-            const fetchConfig = async () => {
-                setIsLoading(true);
-                try {
-                    const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/share/${editToken}/config`);
-                    if (res && res.ok) {
-                        const data = await res.json();
-                        setLinkName(data.name || "");
-                        setDuration(data.duration_hours.toString());
-                        setAllowedEmails(data.allowed_emails.join(", "));
-                        setSelectedColumns(data.visible_columns || []);
-                        setEditFilters(data.filters);
-                        if (data.filters && data.filters.media_type_ids) {
-                            setSelectedMediaTypes(data.filters.media_type_ids);
-                        } else if (data.filters && data.filters.media_type_id) {
-                            setSelectedMediaTypes([data.filters.media_type_id]);
-                        }
-
-                        if (data.filters && data.filters.site_offer_status_ids) {
-                            setSelectedStatusIds(data.filters.site_offer_status_ids);
-                        } else if (data.filters && data.filters.site_offer_status_id) {
-                            setSelectedStatusIds([data.filters.site_offer_status_id]);
-                        }
-
-                        if (data.filters && data.filters.vertical_ids) {
-                            setSelectedVerticalIds(data.filters.vertical_ids);
-                        } else if (data.filters && data.filters.vertical_id) {
-                            setSelectedVerticalIds([data.filters.vertical_id]);
-                        }
-
-                        // Call specific filters
-                        if (data.filters && data.filters.call_verticals) setSelectedCallVerticals(data.filters.call_verticals);
-                        if (data.filters && data.filters.call_types) setSelectedCallTypes(data.filters.call_types);
-                        if (data.filters && data.filters.call_traffic) setSelectedCallTraffic(data.filters.call_traffic);
-                        if (data.filters && data.filters.call_geos) setSelectedCallGeos(data.filters.call_geos);
-                    } else {
-                        toast.error("Failed to load link configuration");
+        const fetchConfig = async () => {
+            setIsLoading(true);
+            try {
+                const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/share/${editToken}/config`);
+                if (res && res.ok) {
+                    const data = await res.json();
+                    setLinkName(data.name || "");
+                    setDuration(data.duration_hours.toString());
+                    setAllowedEmails(data.allowed_emails.join(", "));
+                    setSelectedColumns(data.visible_columns || []);
+                    setEditFilters(data.filters);
+                    if (data.filters && data.filters.media_type_ids) {
+                        setSelectedMediaTypes(data.filters.media_type_ids);
+                    } else if (data.filters && data.filters.media_type_id) {
+                        setSelectedMediaTypes([data.filters.media_type_id]);
                     }
-                } catch (error) {
-                    console.error("Failed to fetch link config", error);
-                } finally {
-                    setIsLoading(false);
+
+                    if (data.filters && data.filters.site_offer_status_ids) {
+                        setSelectedStatusIds(data.filters.site_offer_status_ids);
+                    } else if (data.filters && data.filters.site_offer_status_id) {
+                        setSelectedStatusIds([data.filters.site_offer_status_id]);
+                    }
+
+                    if (data.filters && data.filters.vertical_ids) {
+                        setSelectedVerticalIds(data.filters.vertical_ids);
+                    } else if (data.filters && data.filters.vertical_id) {
+                        setSelectedVerticalIds([data.filters.vertical_id]);
+                    }
+
+                    // Call specific filters
+                    if (data.filters && data.filters.call_verticals) setSelectedCallVerticals(data.filters.call_verticals);
+                    if (data.filters && data.filters.call_types) setSelectedCallTypes(data.filters.call_types);
+                    if (data.filters && data.filters.call_traffic) setSelectedCallTraffic(data.filters.call_traffic);
+                    if (data.filters && data.filters.call_geos) setSelectedCallGeos(data.filters.call_geos);
+                } else {
+                    toast.error("Failed to load link configuration");
                 }
-            };
+            } catch (error) {
+                console.error("Failed to fetch link config", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        if (isEdit && open && status === 'authenticated' && session?.accessToken) {
             fetchConfig();
         }
-    }, [isEdit, editToken, open]);
+    }, [isEdit, editToken, open, status, session, authFetch]);
 
     const handleCreateOrUpdateLink = async () => {
         setIsLoading(true);
