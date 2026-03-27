@@ -37,6 +37,7 @@ interface SharedLink {
     expires_at: string;
     active: boolean;
     views: number;
+    created_by: string;
 }
 
 export default function SharedLinksPage() {
@@ -114,7 +115,8 @@ export default function SharedLinksPage() {
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead>Name / Token</TableHead>
-                            <TableHead>Created</TableHead>
+                            <TableHead>Created By</TableHead>
+                            <TableHead>Created At</TableHead>
                             <TableHead>Expires</TableHead>
                             <TableHead>Views</TableHead>
                             <TableHead>Status</TableHead>
@@ -124,14 +126,14 @@ export default function SharedLinksPage() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
+                                <TableCell colSpan={7} className="h-24 text-center">
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                                     Loading...
                                 </TableCell>
                             </TableRow>
                         ) : links.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                     No shared links found.
                                 </TableCell>
                             </TableRow>
@@ -145,6 +147,11 @@ export default function SharedLinksPage() {
                                                 {link.token}
                                             </span>
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="secondary" className="font-mono text-[10px] uppercase">
+                                            {link.created_by || "admin"}
+                                        </Badge>
                                     </TableCell>
                                     <TableCell>{format(new Date(link.created_at), "MMM d, yyyy HH:mm")}</TableCell>
                                     <TableCell>{format(new Date(link.expires_at), "MMM d, yyyy HH:mm")}</TableCell>
@@ -259,6 +266,10 @@ export default function SharedLinksPage() {
                                         <div>
                                             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Views</p>
                                             <p className="mt-0.5 font-medium">{link.views}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Created By</p>
+                                            <p className="mt-0.5 font-medium text-xs">{link.created_by || "admin"}</p>
                                         </div>
                                     </div>
 

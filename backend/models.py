@@ -394,3 +394,45 @@ class PaginatedActivity(BaseModel):
     total: int
     page: int
     pages: int
+class CallOffer(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    verticals: str
+    campaign_id: str
+    campaign_name: str
+    campaign_type: str
+    payout_buffer_range: str
+    traffic_allowed: str
+    hours_of_operation: str
+    target_geo: str
+    capping: str
+    details: Optional[str] = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+class CallOfferCreate(BaseModel):
+    verticals: str
+    campaign_id: str
+    campaign_name: str
+    campaign_type: str
+    payout_buffer_range: str
+    traffic_allowed: str
+    hours_of_operation: str
+    target_geo: str
+    capping: str
+    details: Optional[str] = ""
+
+class CallOfferUpdate(BaseModel):
+    verticals: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    campaign_type: Optional[str] = None
+    payout_buffer_range: Optional[str] = None
+    traffic_allowed: Optional[str] = None
+    hours_of_operation: Optional[str] = None
+    target_geo: Optional[str] = None
+    capping: Optional[str] = None
+    details: Optional[str] = None

@@ -17,16 +17,28 @@ import {
 } from "lucide-react";
 
 interface Offer {
+    id: string; // Guaranteed unique MongoDB ID
+    // Shared fields
     site_offer_id: string;
     site_offer_name: string;
-    brand_advertiser_id: string;
-    brand_advertiser_name: string;
     vertical_name: string;
-    status: string;
-    hidden: boolean;
-    preview_link: string;
     payout: string;
     type: string;
+    
+    // Web specific
+    brand_advertiser_id?: string;
+    brand_advertiser_name?: string;
+    status?: string;
+    hidden?: boolean;
+    preview_link?: string;
+    
+    // Call specific
+    traffic_allowed?: string;
+    hours_of_operation?: string;
+    target_geo?: string;
+    capping?: string;
+    details?: string;
+    verticals?: string;
 }
 
 /* ─── Top branding bar (matches sidebar accent) ────────────────────── */
@@ -116,6 +128,7 @@ export default function SharePage() {
     const [totalRows, setTotalRows] = useState(0);
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [isFetching, setIsFetching] = useState(false);
+    const [offerType, setOfferType] = useState<"web" | "call">("web");
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search), 500);
@@ -166,11 +179,13 @@ export default function SharePage() {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/offers/share/${token}/data?${query}`);
             if (res.ok) {
                 const data = await res.json();
+                // Update all related state at once to avoid partial renders
                 setOffers(data.offers || []);
                 setVisibleColumns(data.visible_columns || []);
                 setLinkName(data.link_name || "Shared Offers");
                 setTotalRows(data.row_count || 0);
                 setTotalPages(data.total_pages || 1);
+                setOfferType(data.offer_type || "web");
                 setStep('view');
             } else if (res.status === 401) {
                 localStorage.removeItem(`share_token_${token}`);
@@ -269,8 +284,8 @@ export default function SharePage() {
                 {/* ── Page header ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{linkName || "Shared Offers"}</h1>
-                        <p className="text-gray-500 text-sm mt-0.5">Viewing offers shared via secure link</p>
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{linkName || (offerType === "web" ? "Web Offers" : "Call Offers")}</h1>
+                        <p className="text-gray-500 text-sm mt-0.5">Viewing {offerType} offers shared via secure link</p>
                     </div>
                     <Badge variant="secondary" className="flex items-center gap-1.5 w-fit text-xs px-3 py-1 h-auto">
                         <Shield className="h-3 w-3 text-primary" />
@@ -323,17 +338,21 @@ export default function SharePage() {
                         </div>
 
                         {/* Desktop Table */}
-                        <div className="hidden md:block">
+                        <div className="hidden md:block overflow-x-auto">
                             <Table>
                                 <TableHeader className="bg-gray-50">
                                     <TableRow>
                                         {isCol('id')       && <TableHead className="w-[80px] text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</TableHead>}
-                                        {isCol('name')     && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Offer Name</TableHead>}
+                                        {isCol('name')     && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">{offerType === "web" ? "Offer Name" : "Campaign Name"}</TableHead>}
                                         {isCol('vertical') && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vertical</TableHead>}
-                                        {isCol('status')   && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>}
+                                        {offerType === "web" && isCol('status') && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>}
                                         {isCol('type')     && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>}
-                                        {isCol('payout')   && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payout</TableHead>}
-                                        {isCol('preview')  && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Preview</TableHead>}
+                                        {isCol('payout')   && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{offerType === "web" ? "Payout" : "Payout / Buffer"}</TableHead>}
+                                        {offerType === "call" && isCol('traffic') && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Traffic Allowed</TableHead>}
+                                        {offerType === "call" && isCol('geo')     && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Geo</TableHead>}
+                                        {offerType === "call" && isCol('hours')   && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</TableHead>}
+                                        {offerType === "call" && isCol('capping') && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Capping</TableHead>}
+                                        {offerType === "web" && isCol('preview')  && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Preview</TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -343,15 +362,19 @@ export default function SharePage() {
                                                 {isCol('id')       && <TableCell><div className="h-4 w-10 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                                 {isCol('name')     && <TableCell><div className="h-4 w-48 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                                 {isCol('vertical') && <TableCell><div className="h-4 w-24 bg-gray-100 animate-pulse rounded" /></TableCell>}
-                                                {isCol('status')   && <TableCell><div className="h-5 w-16 bg-gray-100 animate-pulse rounded-full" /></TableCell>}
+                                                {offerType === "web" && isCol('status')   && <TableCell><div className="h-5 w-16 bg-gray-100 animate-pulse rounded-full" /></TableCell>}
                                                 {isCol('type')     && <TableCell><div className="h-5 w-16 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                                 {isCol('payout')   && <TableCell><div className="h-4 w-14 bg-gray-100 animate-pulse rounded" /></TableCell>}
-                                                {isCol('preview')  && <TableCell><div className="h-4 w-14 bg-gray-100 animate-pulse rounded" /></TableCell>}
+                                                {offerType === "call" && isCol('traffic') && <TableCell><div className="h-4 w-20 bg-gray-100 animate-pulse rounded" /></TableCell>}
+                                                {offerType === "call" && isCol('geo')     && <TableCell><div className="h-4 w-14 bg-gray-100 animate-pulse rounded" /></TableCell>}
+                                                {offerType === "call" && isCol('hours')   && <TableCell><div className="h-4 w-24 bg-gray-100 animate-pulse rounded" /></TableCell>}
+                                                {offerType === "call" && isCol('capping') && <TableCell><div className="h-4 w-16 bg-gray-100 animate-pulse rounded" /></TableCell>}
+                                                {offerType === "web" && isCol('preview')  && <TableCell><div className="h-4 w-14 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                             </TableRow>
                                         ))
                                     ) : offers.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-32 text-center text-gray-400">
+                                            <TableCell colSpan={20} className="h-32 text-center text-gray-400">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <Search className="h-7 w-7 opacity-30" />
                                                     <p className="text-sm">No offers found</p>
@@ -360,16 +383,20 @@ export default function SharePage() {
                                         </TableRow>
                                     ) : (
                                         offers.map((offer) => (
-                                            <TableRow key={offer.site_offer_id} className="hover:bg-gray-50/80">
+                                            <TableRow key={offer.id} className="hover:bg-gray-50/80">
                                                 {isCol('id')       && <TableCell className="text-gray-400 font-mono text-xs">{offer.site_offer_id}</TableCell>}
                                                 {isCol('name')     && <TableCell className="font-medium text-gray-900">{offer.site_offer_name}</TableCell>}
-                                                {isCol('vertical') && <TableCell className="text-gray-600 text-sm">{offer.vertical_name}</TableCell>}
-                                                {isCol('status')   && <TableCell><StatusBadge status={offer.status} /></TableCell>}
+                                                {isCol('vertical') && <TableCell className="text-gray-600 text-sm">{offer.vertical_name || offer.verticals}</TableCell>}
+                                                {offerType === "web" && isCol('status') && <TableCell><StatusBadge status={offer.status || ''} /></TableCell>}
                                                 {isCol('type')     && <TableCell>
                                                     <Badge variant="outline" className="text-xs font-normal">{offer.type || 'N/A'}</Badge>
                                                 </TableCell>}
                                                 {isCol('payout')   && <TableCell className="font-semibold text-green-600">{offer.payout}</TableCell>}
-                                                {isCol('preview')  && <TableCell>
+                                                {offerType === "call" && isCol('traffic') && <TableCell className="text-gray-600 text-sm">{offer.traffic_allowed}</TableCell>}
+                                                {offerType === "call" && isCol('geo')     && <TableCell className="text-gray-600 text-sm">{offer.target_geo}</TableCell>}
+                                                {offerType === "call" && isCol('hours')   && <TableCell className="text-gray-600 text-xs">{offer.hours_of_operation}</TableCell>}
+                                                {offerType === "call" && isCol('capping') && <TableCell className="text-gray-600 text-xs font-mono">{offer.capping}</TableCell>}
+                                                {offerType === "web" && isCol('preview')  && <TableCell>
                                                     {offer.preview_link
                                                         ? <a href={offer.preview_link} target="_blank" rel="noopener noreferrer"
                                                             className="inline-flex items-center gap-1 text-primary hover:underline text-sm">
@@ -403,20 +430,54 @@ export default function SharePage() {
                                     <p className="text-sm">No offers found</p>
                                 </div>
                             ) : (
-                                offers.map((offer) => (
-                                    <div key={offer.site_offer_id} className="p-4 hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                (offers as Offer[]).map((offer) => (
+                                    <div key={offer.id} className="p-4 hover:bg-gray-50 transition-colors space-y-3">
+                                        <div className="flex items-start justify-between gap-2">
                                             <div className="flex-1 min-w-0">
-                                                {isCol('name')     && <p className="font-medium text-gray-900 text-sm leading-snug">{offer.site_offer_name}</p>}
-                                                {isCol('vertical') && <p className="text-xs text-gray-500 mt-0.5">{offer.vertical_name}</p>}
+                                                {isCol('name')     && <p className="font-bold text-gray-900 text-sm leading-snug">{offer.site_offer_name}</p>}
+                                                {isCol('vertical') && <p className="text-xs text-primary font-medium mt-1">{offer.vertical_name || offer.verticals}</p>}
                                             </div>
-                                            {isCol('payout') && <span className="font-semibold text-green-600 text-sm shrink-0">{offer.payout}</span>}
+                                            {isCol('payout') && (
+                                                <div className="text-right shrink-0">
+                                                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Payout</p>
+                                                    <p className="font-bold text-green-600 text-sm">{offer.payout}</p>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex flex-wrap items-center gap-1.5">
+
+                                        {/* Core info grids */}
+                                        <div className="grid grid-cols-2 gap-3 text-[11px]">
+                                            {offerType === "call" && isCol('traffic') && (
+                                                <div>
+                                                    <p className="text-gray-400 font-semibold uppercase">Traffic</p>
+                                                    <p className="text-gray-700">{offer.traffic_allowed || 'All'}</p>
+                                                </div>
+                                            )}
+                                            {offerType === "call" && isCol('geo') && (
+                                                <div>
+                                                    <p className="text-gray-400 font-semibold uppercase">Geo</p>
+                                                    <p className="text-gray-700">{offer.target_geo || 'US'}</p>
+                                                </div>
+                                            )}
+                                            {offerType === "call" && isCol('hours') && (
+                                                <div>
+                                                    <p className="text-gray-400 font-semibold uppercase">Hours</p>
+                                                    <p className="text-gray-700">{offer.hours_of_operation || '24/7'}</p>
+                                                </div>
+                                            )}
+                                            {offerType === "call" && isCol('capping') && (
+                                                <div>
+                                                    <p className="text-gray-400 font-semibold uppercase">Capping</p>
+                                                    <p className="text-gray-700 font-mono">{offer.capping || 'None'}</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-gray-50">
                                             {isCol('id')     && <span className="text-[10px] font-mono text-gray-400">#{offer.site_offer_id}</span>}
-                                            {isCol('status') && <StatusBadge status={offer.status} />}
+                                            {offerType === "web" && isCol('status') && <StatusBadge status={offer.status || ''} />}
                                             {isCol('type')   && <Badge variant="outline" className="text-[10px] font-normal h-5 px-1.5">{offer.type || 'N/A'}</Badge>}
-                                            {isCol('preview') && offer.preview_link && (
+                                            {offerType === "web" && isCol('preview') && offer.preview_link && (
                                                 <a href={offer.preview_link} target="_blank" rel="noopener noreferrer"
                                                     className="ml-auto inline-flex items-center gap-1 text-xs text-primary hover:underline">
                                                     <ExternalLink className="h-3 w-3" />Preview

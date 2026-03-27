@@ -33,6 +33,7 @@ class ShareRequest(BaseModel):
     allowed_emails: List[str] = []
     visible_columns: List[str] = [] # List of column IDs
     name: Optional[str] = None # Optional name for the link
+    offer_type: str = "web" # "web" or "call"
 
 class ShareResponse(BaseModel):
     token: str
@@ -46,6 +47,7 @@ class SharedLinkItem(BaseModel):
     expires_at: datetime
     active: bool
     views: int = 0
+    created_by: Optional[str] = None
 
 class SharedLinkConfig(BaseModel):
     token: str
@@ -83,6 +85,7 @@ async def create_share_link(request: ShareRequest, current_user: dict = Depends(
         "duration_hours": request.duration_hours,
         "allowed_emails": [e.lower() for e in request.allowed_emails if e],
         "visible_columns": request.visible_columns,
+        "offer_type": request.offer_type,
         "created_at": datetime.now(timezone.utc),
         "expires_at": expires_at,
         "active": True,
@@ -115,7 +118,8 @@ async def list_shared_links(current_user = Depends(auth.get_current_active_user)
             "created_at": doc["created_at"],
             "expires_at": doc["expires_at"],
             "active": doc.get("active", True),
-            "views": doc.get("views", 0)
+            "views": doc.get("views", 0),
+            "created_by": doc.get("created_by", "admin")
         })
     return links
 
@@ -147,6 +151,7 @@ async def get_shared_link_config(token: str, current_user = Depends(auth.get_cur
         "duration_hours": doc.get("duration_hours", 24),
         "allowed_emails": doc.get("allowed_emails", []),
         "visible_columns": doc.get("visible_columns", []),
+        "offer_type": doc.get("offer_type", "web"),
         "created_at": doc["created_at"],
         "expires_at": doc["expires_at"],
         "active": doc.get("active", True),
@@ -168,6 +173,7 @@ async def update_shared_link(token: str, request: ShareRequest, current_user = D
         "allowed_emails": [e.lower() for e in request.allowed_emails if e],
         "visible_columns": request.visible_columns,
         "expires_at": expires_at,
+        "offer_type": request.offer_type,
         "active": True # Re-activate if it was expired? Or keep as is? User probably wants to extend it.
     }
     
@@ -305,7 +311,78 @@ async def get_shared_data(
     # Increment view count
     await db.shared_offers.update_one({"token": token}, {"$inc": {"views": 1}})
     
-    # Fetch Data from Cake
+    # Fetch Data
+    offer_type = doc.get("offer_type", "web")
+    
+    if offer_type == "call":
+        # Local Call Offers
+        query = {}
+        # Apply filters from shared config + runtime filters
+        search_term = search if search is not None else filters.get("search", "")
+        if search_term:
+            query["$or"] = [
+                {"campaign_name": {"$regex": search_term, "$options": "i"}},
+                {"campaign_id": {"$regex": search_term, "$options": "i"}},
+                {"verticals": {"$regex": search_term, "$options": "i"}}
+            ]
+        
+        # New call-specific filters
+        if filters.get("call_types"):
+            query["campaign_type"] = {"$in": filters["call_types"]}
+        
+        if filters.get("call_traffic"):
+            query["traffic_allowed"] = {"$in": filters["call_traffic"]}
+            
+        if filters.get("call_geos"):
+            query["target_geo"] = {"$in": filters["call_geos"]}
+            
+        if filters.get("call_verticals"):
+            # Since verticals can be comma separated, we use regex for each selected vertical
+            # or we can use $in if we assume exact match but that's risky with comma separation.
+            # Best is to use $or with regexes if we want to match any of the selected verticals
+            v_queries = []
+            for v in filters["call_verticals"]:
+                v_queries.append({"verticals": {"$regex": rf"\b{v}\b", "$options": "i"}})
+            if v_queries:
+                if "$and" not in query:
+                    query["$and"] = []
+                query["$and"].append({"$or": v_queries})
+        
+        # We can add more filters here if needed
+        total_count = await db.call_offers.count_documents(query)
+        cursor = db.call_offers.find(query).skip((page-1)*limit).limit(limit).sort("created_at", -1)
+        items = await cursor.to_list(length=limit)
+        
+        # Format for frontend consistency
+        processed_offers = []
+        for item in items:
+            item["id"] = str(item["_id"])
+            item["_id"] = str(item["_id"])
+            # Map for frontend consistency in shared view
+            item["site_offer_id"] = item.get("campaign_id", "")
+            item["site_offer_name"] = item.get("campaign_name", "")
+            item["vertical_name"] = item.get("verticals", "")
+            item["payout"] = item.get("payout_buffer_range", "")
+            item["type"] = item.get("campaign_type", "")
+            processed_offers.append(item)
+
+        result = {
+            "success": True,
+            "offers": processed_offers,
+            "row_count": total_count,
+            "filters_applied": filters,
+            "visible_columns": visible_columns,
+            "link_name": doc.get("name"),
+            "offer_type": offer_type,
+            "page": page,
+            "limit": limit,
+            "total_pages": math.ceil(total_count/limit) if limit > 0 else 0
+        }
+        _data_cache[cache_key] = {"data": result, "expiry": now + timedelta(seconds=DATA_CACHE_TTL)}
+        return result
+
+    # Standard Web (Cake) Logic
+
     start_at_row = (page - 1) * limit
     
     # Map filters to Cake params
@@ -464,6 +541,7 @@ async def get_shared_data(
             "filters_applied": filters,
             "visible_columns": visible_columns,
             "link_name": doc.get("name"),
+            "offer_type": offer_type,
             "page": page,
             "limit": limit,
             "total_pages": total_pages
