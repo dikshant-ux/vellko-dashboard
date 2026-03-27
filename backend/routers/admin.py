@@ -307,7 +307,7 @@ async def get_signups(
                 query["$or"] = [{"cake_api_status": "REJECTED"}, {"status": SignupStatus.REJECTED}]
             elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
                 query["requested_cake_approval"] = True
-                query["status"] = {"$ne": SignupStatus.REJECTED}
+                query["status"] = SignupStatus.REQUESTED_FOR_APPROVAL
             else:
                 query["status"] = status
         elif application_type == "Call Traffic":
@@ -321,7 +321,7 @@ async def get_signups(
                 query["$or"] = [{"ringba_api_status": "REJECTED"}, {"status": SignupStatus.REJECTED}]
             elif status == SignupStatus.REQUESTED_FOR_APPROVAL:
                 query["requested_ringba_approval"] = True
-                query["status"] = {"$ne": SignupStatus.REJECTED}
+                query["status"] = SignupStatus.REQUESTED_FOR_APPROVAL
             else:
                 query["status"] = status
         else:
@@ -946,6 +946,8 @@ async def approve_signup(id: str, request: Request, decision: SignupDecision = B
         "decision_reason": decision.reason,
         "processed_by": user.username,
         "processed_at": datetime.utcnow(),
+        "requested_cake_approval": False,
+        "requested_ringba_approval": False,
         **update_fields
     }
     
@@ -1032,7 +1034,9 @@ async def reject_signup(id: str, request: Request, decision: SignupDecision = Bo
     update_fields = {
         "decision_reason": decision.reason,
         "processed_by": user.username,
-        "processed_at": datetime.utcnow()
+        "processed_at": datetime.utcnow(),
+        "requested_cake_approval": False,
+        "requested_ringba_approval": False
     }
 
     # Granular Rejection Logic
