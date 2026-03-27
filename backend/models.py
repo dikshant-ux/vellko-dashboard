@@ -405,6 +405,7 @@ class CallOffer(BaseModel):
     hours_of_operation: str
     target_geo: str
     capping: str
+    coverage: Optional[str] = ""
     details: Optional[str] = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -423,6 +424,7 @@ class CallOfferCreate(BaseModel):
     hours_of_operation: str
     target_geo: str
     capping: str
+    coverage: Optional[str] = ""
     details: Optional[str] = ""
 
 class CallOfferUpdate(BaseModel):
@@ -435,4 +437,5 @@ class CallOfferUpdate(BaseModel):
     hours_of_operation: Optional[str] = None
     target_geo: Optional[str] = None
     capping: Optional[str] = None
+    coverage: Optional[str] = None
     details: Optional[str] = None

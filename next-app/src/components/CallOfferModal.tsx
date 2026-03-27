@@ -26,6 +26,7 @@ interface CallOffer {
     hours_of_operation: string;
     target_geo: string;
     capping: string;
+    coverage?: string;
     details: string;
 }
 
@@ -48,6 +49,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
         hours_of_operation: "",
         target_geo: "",
         capping: "",
+        coverage: "",
         details: "",
     });
 
@@ -67,6 +69,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                 hours_of_operation: "",
                 target_geo: "",
                 capping: "",
+                coverage: "",
                 details: "",
             });
         }
@@ -89,6 +92,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                 hours_of_operation: formData.hours_of_operation,
                 target_geo: formData.target_geo,
                 capping: formData.capping,
+                coverage: formData.coverage || "",
                 details: formData.details || "",
             };
 
@@ -109,18 +113,19 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
-            <div className="max-h-[min(90vh,800px)] overflow-y-auto p-6">
-                <DialogHeader className="mb-4">
-                    <DialogTitle>{offer ? 'Edit Call Offer' : 'Create New Call Offer'}</DialogTitle>
+            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden flex flex-col max-h-[95vh]">
+                <DialogHeader className="p-6 border-b shrink-0 bg-white">
+                    <DialogTitle className="text-xl font-bold">{offer ? 'Edit Call Offer' : 'Create New Call Offer'}</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-200">
+                    <div className="grid gap-6 py-2">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="campaign_id">Campaign ID</Label>
                             <Input
                                 id="campaign_id"
-                                value={formData.campaign_id}
+                                value={formData.campaign_id || ""}
                                 onChange={(e) => setFormData({ ...formData, campaign_id: e.target.value })}
                                 placeholder="e.g. C12345"
                             />
@@ -129,7 +134,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="campaign_name">Campaign Name</Label>
                             <Input
                                 id="campaign_name"
-                                value={formData.campaign_name}
+                                value={formData.campaign_name || ""}
                                 onChange={(e) => setFormData({ ...formData, campaign_name: e.target.value })}
                                 placeholder="e.g. Solar Leads IVR"
                             />
@@ -140,7 +145,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="verticals">Verticals</Label>
                             <Input
                                 id="verticals"
-                                value={formData.verticals}
+                                value={formData.verticals || ""}
                                 onChange={(e) => setFormData({ ...formData, verticals: e.target.value })}
                                 placeholder="e.g. Solar, Home Improvement"
                             />
@@ -149,7 +154,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="campaign_type">Campaign Type</Label>
                             <Input
                                 id="campaign_type"
-                                value={formData.campaign_type}
+                                value={formData.campaign_type || ""}
                                 onChange={(e) => setFormData({ ...formData, campaign_type: e.target.value })}
                                 placeholder="e.g. IVR, Warm Transfer"
                             />
@@ -160,7 +165,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="payout_buffer_range">Payout / Buffer Range</Label>
                             <Input
                                 id="payout_buffer_range"
-                                value={formData.payout_buffer_range}
+                                value={formData.payout_buffer_range || ""}
                                 onChange={(e) => setFormData({ ...formData, payout_buffer_range: e.target.value })}
                                 placeholder="e.g. $15 - $25 (120s)"
                             />
@@ -169,7 +174,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="traffic_allowed">Traffic Allowed</Label>
                             <Input
                                 id="traffic_allowed"
-                                value={formData.traffic_allowed}
+                                value={formData.traffic_allowed || ""}
                                 onChange={(e) => setFormData({ ...formData, traffic_allowed: e.target.value })}
                                 placeholder="e.g. Search, Social, PPC"
                             />
@@ -180,7 +185,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="hours_of_operation">Hours of Operation</Label>
                             <Input
                                 id="hours_of_operation"
-                                value={formData.hours_of_operation}
+                                value={formData.hours_of_operation || ""}
                                 onChange={(e) => setFormData({ ...formData, hours_of_operation: e.target.value })}
                                 placeholder="e.g. 9AM - 9PM EST Mon-Fri"
                             />
@@ -189,26 +194,37 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                             <Label htmlFor="target_geo">Target Geo</Label>
                             <Input
                                 id="target_geo"
-                                value={formData.target_geo}
+                                value={formData.target_geo || ""}
                                 onChange={(e) => setFormData({ ...formData, target_geo: e.target.value })}
                                 placeholder="e.g. USA (Nationwide)"
                             />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="capping">Capping</Label>
-                        <Input
-                            id="capping"
-                            value={formData.capping}
-                            onChange={(e) => setFormData({ ...formData, capping: e.target.value })}
-                            placeholder="e.g. 100/day per affiliate"
-                        />
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="capping">Capping</Label>
+                            <Input
+                                id="capping"
+                                value={formData.capping || ""}
+                                onChange={(e) => setFormData({ ...formData, capping: e.target.value })}
+                                placeholder="e.g. 100/day per affiliate"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="coverage">Coverage (Comma separated)</Label>
+                            <Input
+                                id="coverage"
+                                value={formData.coverage || ""}
+                                onChange={(e) => setFormData({ ...formData, coverage: e.target.value })}
+                                placeholder="e.g. CA, NY, TX, FL"
+                            />
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="details">Details</Label>
                         <Textarea
                             id="details"
-                            value={formData.details}
+                            value={formData.details || ""}
                             onChange={(e) => setFormData({ ...formData, details: e.target.value })}
                             placeholder="Additional details, restrictions, etc."
                             rows={3}
@@ -216,9 +232,20 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                     </div>
                 </div>
             </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={isSaving || !formData.campaign_name}>
+                <DialogFooter className="p-6 bg-slate-50 border-t flex items-center justify-end gap-3">
+                    <Button 
+                        variant="ghost" 
+                        onClick={() => setOpen(false)} 
+                        disabled={isSaving}
+                        className="rounded-xl font-bold h-11 px-6 hover:bg-slate-100 transition-colors"
+                    >
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={handleSave} 
+                        disabled={isSaving || !formData.campaign_name}
+                        className="rounded-xl font-bold h-11 px-8 shadow-lg shadow-primary/20"
+                    >
                         {isSaving ? "Saving..." : (offer ? "Update Offer" : "Create Offer")}
                     </Button>
                 </DialogFooter>

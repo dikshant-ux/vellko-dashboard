@@ -13,8 +13,9 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Loader2, AlertCircle, ChevronLeft, ChevronRight,
-    Search, Mail, Shield, ExternalLink, Tag, TrendingUp, Eye, Lock
+    Search, Mail, Shield, ExternalLink, Tag, TrendingUp, Eye, Lock, Globe
 } from "lucide-react";
+import { CoverageModal } from "@/components/CoverageModal";
 
 interface Offer {
     id: string; // Guaranteed unique MongoDB ID
@@ -39,6 +40,7 @@ interface Offer {
     capping?: string;
     details?: string;
     verticals?: string;
+    coverage?: string;
 }
 
 /* ─── Top branding bar (matches sidebar accent) ────────────────────── */
@@ -129,6 +131,10 @@ export default function SharePage() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [isFetching, setIsFetching] = useState(false);
     const [offerType, setOfferType] = useState<"web" | "call">("web");
+
+    // Coverage Modal state
+    const [selectedOfferForCoverage, setSelectedOfferForCoverage] = useState<Offer | null>(null);
+    const [isCoverageModalOpen, setIsCoverageModalOpen] = useState(false);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search), 500);
@@ -352,6 +358,7 @@ export default function SharePage() {
                                         {offerType === "call" && isCol('geo')     && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Geo</TableHead>}
                                         {offerType === "call" && isCol('hours')   && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</TableHead>}
                                         {offerType === "call" && isCol('capping') && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Capping</TableHead>}
+                                        {offerType === "call" && isCol('coverage') && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Coverage</TableHead>}
                                         {offerType === "web" && isCol('preview')  && <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Preview</TableHead>}
                                     </TableRow>
                                 </TableHeader>
@@ -369,6 +376,7 @@ export default function SharePage() {
                                                 {offerType === "call" && isCol('geo')     && <TableCell><div className="h-4 w-14 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                                 {offerType === "call" && isCol('hours')   && <TableCell><div className="h-4 w-24 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                                 {offerType === "call" && isCol('capping') && <TableCell><div className="h-4 w-16 bg-gray-100 animate-pulse rounded" /></TableCell>}
+                                                {offerType === "call" && isCol('coverage') && <TableCell><div className="h-8 w-14 bg-gray-100 animate-pulse rounded-lg" /></TableCell>}
                                                 {offerType === "web" && isCol('preview')  && <TableCell><div className="h-4 w-14 bg-gray-100 animate-pulse rounded" /></TableCell>}
                                             </TableRow>
                                         ))
@@ -396,6 +404,21 @@ export default function SharePage() {
                                                 {offerType === "call" && isCol('geo')     && <TableCell className="text-gray-600 text-sm">{offer.target_geo}</TableCell>}
                                                 {offerType === "call" && isCol('hours')   && <TableCell className="text-gray-600 text-xs">{offer.hours_of_operation}</TableCell>}
                                                 {offerType === "call" && isCol('capping') && <TableCell className="text-gray-600 text-xs font-mono">{offer.capping}</TableCell>}
+                                                {offerType === "call" && isCol('coverage') && (
+                                                    <TableCell>
+                                                        <Button 
+                                                            variant="secondary" 
+                                                            size="sm" 
+                                                            onClick={() => {
+                                                                setSelectedOfferForCoverage(offer);
+                                                                setIsCoverageModalOpen(true);
+                                                            }}
+                                                            className="h-8 text-[10px] font-bold uppercase rounded-lg border border-gray-100"
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    </TableCell>
+                                                )}
                                                 {offerType === "web" && isCol('preview')  && <TableCell>
                                                     {offer.preview_link
                                                         ? <a href={offer.preview_link} target="_blank" rel="noopener noreferrer"
@@ -471,6 +494,22 @@ export default function SharePage() {
                                                     <p className="text-gray-700 font-mono">{offer.capping || 'None'}</p>
                                                 </div>
                                             )}
+                                            {offerType === "call" && isCol('coverage') && (
+                                                <div>
+                                                    <p className="text-gray-400 font-semibold uppercase">Coverage</p>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        onClick={() => {
+                                                            setSelectedOfferForCoverage(offer);
+                                                            setIsCoverageModalOpen(true);
+                                                        }}
+                                                        className="h-6 text-[9px] font-bold uppercase rounded-md px-2 mt-1"
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-gray-50">
@@ -524,6 +563,18 @@ export default function SharePage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {selectedOfferForCoverage && (
+                <CoverageModal 
+                    open={isCoverageModalOpen}
+                    setOpen={setIsCoverageModalOpen}
+                    offerId={selectedOfferForCoverage.id}
+                    campaignName={selectedOfferForCoverage.site_offer_name}
+                    initialCoverage={selectedOfferForCoverage.coverage || ""}
+                    onSuccess={() => {}} // No success action needed for view-only
+                    readOnly={true}
+                />
+            )}
         </div>
     );
 }

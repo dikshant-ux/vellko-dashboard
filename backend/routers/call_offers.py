@@ -197,6 +197,7 @@ async def upload_call_offers(file: UploadFile = File(...), user: User = Depends(
         "hours_of_operation": ["hours of operation", "hours", "operation hours", "operating hours"],
         "target_geo": ["target geo", "geo", "target", "geography"],
         "capping": ["caping", "capping", "cap", "limit"],
+        "coverage": ["coverage", "states", "area", "region", "regions"],
         "details": ["details", "description", "note", "notes"]
     }
 
@@ -220,6 +221,7 @@ async def upload_call_offers(file: UploadFile = File(...), user: User = Depends(
                 "hours_of_operation": find_val(row, mapping["hours_of_operation"]),
                 "target_geo": find_val(row, mapping["target_geo"]),
                 "capping": find_val(row, mapping["capping"]),
+                "coverage": find_val(row, mapping["coverage"]),
                 "details": find_val(row, mapping["details"]),
                 "created_at": now,
                 "updated_at": now,

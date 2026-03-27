@@ -44,6 +44,7 @@ import { useAuthFetch } from "@/hooks/useAuthFetch";
 import { CallOfferModal } from "@/components/CallOfferModal";
 import { CallOfferUploadModal } from "@/components/CallOfferUploadModal";
 import { ShareConfigurationModal } from "@/components/ShareConfigurationModal";
+import { CoverageModal } from "@/components/CoverageModal";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -59,6 +60,7 @@ interface CallOffer {
     hours_of_operation: string;
     target_geo: string;
     capping: string;
+    coverage?: string;
     details: string;
 }
 
@@ -91,6 +93,10 @@ export default function CallOffersPage() {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [editingOffer, setEditingOffer] = useState<CallOffer | null>(null);
+    
+    // Coverage
+    const [selectedOfferForCoverage, setSelectedOfferForCoverage] = useState<CallOffer | null>(null);
+    const [isCoverageModalOpen, setIsCoverageModalOpen] = useState(false);
 
     const fetchOffers = useCallback(async () => {
         setIsLoading(true);
@@ -196,6 +202,7 @@ export default function CallOffersPage() {
                                     <TableHead>Geo</TableHead>
                                     <TableHead>Hours</TableHead>
                                     <TableHead>Capping</TableHead>
+                                    <TableHead>Coverage</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -229,6 +236,19 @@ export default function CallOffersPage() {
                                             <TableCell>{offer.target_geo}</TableCell>
                                             <TableCell className="text-xs">{offer.hours_of_operation}</TableCell>
                                             <TableCell className="text-xs font-mono">{offer.capping}</TableCell>
+                                            <TableCell>
+                                                <Button 
+                                                    variant="secondary" 
+                                                    size="sm" 
+                                                    onClick={() => {
+                                                        setSelectedOfferForCoverage(offer);
+                                                        setIsCoverageModalOpen(true);
+                                                    }}
+                                                    className="h-8 text-[10px] font-bold uppercase rounded-lg shadow-sm border border-slate-200"
+                                                >
+                                                    View
+                                                </Button>
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -343,6 +363,20 @@ export default function CallOffersPage() {
                                                 <span className="font-medium">Capping:</span>
                                                 <span className="text-gray-900 font-mono text-right">{offer.capping}</span>
                                             </div>
+                                            <div className="flex justify-between items-center pt-2">
+                                                <span className="font-medium">Coverage:</span>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    onClick={() => {
+                                                        setSelectedOfferForCoverage(offer);
+                                                        setIsCoverageModalOpen(true);
+                                                    }}
+                                                    className="h-7 text-[10px] font-bold uppercase rounded-lg px-3"
+                                                >
+                                                    View / Manage
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </Card>
@@ -436,10 +470,22 @@ export default function CallOffersPage() {
                     { id: 'geo', label: 'Geo' },
                     { id: 'hours', label: 'Hours' },
                     { id: 'traffic', label: 'Traffic Allowed' },
-                    { id: 'capping', label: 'Capping' }
+                    { id: 'capping', label: 'Capping' },
+                    { id: 'coverage', label: 'Coverage' }
                 ]}
-                currentVisibleColumns={['id', 'name', 'vertical', 'type', 'payout', 'geo', 'hours', 'traffic', 'capping']}
+                currentVisibleColumns={['id', 'name', 'vertical', 'type', 'payout', 'geo', 'hours', 'traffic', 'capping', 'coverage']}
             />
+
+            {selectedOfferForCoverage && (
+                <CoverageModal 
+                    open={isCoverageModalOpen}
+                    setOpen={setIsCoverageModalOpen}
+                    offerId={selectedOfferForCoverage.id}
+                    campaignName={selectedOfferForCoverage.campaign_name}
+                    initialCoverage={selectedOfferForCoverage.coverage || ""}
+                    onSuccess={fetchOffers}
+                />
+            )}
         </div>
     );
 }
