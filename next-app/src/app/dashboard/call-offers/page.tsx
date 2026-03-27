@@ -11,8 +11,18 @@ import {
     Trash2, 
     ChevronLeft, 
     ChevronRight,
-    Loader2
+    Loader2,
+    Globe,
+    Check,
+    ChevronsUpDown
 } from "lucide-react";
+import { 
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -97,6 +107,26 @@ export default function CallOffersPage() {
     // Coverage
     const [selectedOfferForCoverage, setSelectedOfferForCoverage] = useState<CallOffer | null>(null);
     const [isCoverageModalOpen, setIsCoverageModalOpen] = useState(false);
+    const [coverageOptions, setCoverageOptions] = useState<string[]>([]);
+    const [selectedCoverage, setSelectedCoverage] = useState<string>("all");
+    const [coverageSearch, setCoverageSearch] = useState("");
+    const [isCoverageFilterOpen, setIsCoverageFilterOpen] = useState(false);
+
+    const fetchFilters = useCallback(async () => {
+        try {
+            const response = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/call-offers/filters`);
+            if (response && response.ok) {
+                const data = await response.json();
+                setCoverageOptions(data.coverage || []);
+            }
+        } catch (error) {
+            console.error("Error fetching filters:", error);
+        }
+    }, [authFetch]);
+
+    useEffect(() => {
+        fetchFilters();
+    }, [fetchFilters]);
 
     const fetchOffers = useCallback(async () => {
         setIsLoading(true);
@@ -104,7 +134,8 @@ export default function CallOffersPage() {
             const queryParams = new URLSearchParams({
                 skip: ((page - 1) * pageSize).toString(),
                 limit: pageSize.toString(),
-                ...(search && { search })
+                ...(search && { search }),
+                ...(selectedCoverage !== "all" && { coverage: selectedCoverage })
             });
 
             const response = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/call-offers?${queryParams.toString()}`);
@@ -118,7 +149,7 @@ export default function CallOffersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [authFetch, page, search, pageSize]);
+    }, [authFetch, page, search, pageSize, selectedCoverage]);
 
     useEffect(() => {
         fetchOffers();
@@ -186,6 +217,96 @@ export default function CallOffersPage() {
                                 onChange={handleSearch}
                                 className="pl-8"
                             />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Coverage:</span>
+                            <Popover open={isCoverageFilterOpen} onOpenChange={setIsCoverageFilterOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={isCoverageFilterOpen}
+                                        className="w-[180px] justify-between h-10 rounded-lg shadow-sm"
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Globe className="h-4 w-4 text-slate-400" />
+                                            {selectedCoverage === "all" ? "All Coverage" : selectedCoverage}
+                                        </div>
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[220px] p-0" align="start">
+                                    <div className="p-2 border-b">
+                                        <div className="relative">
+                                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search region..."
+                                                value={coverageSearch}
+                                                onChange={(e) => setCoverageSearch(e.target.value)}
+                                                className="pl-8 h-9 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <ScrollArea className="h-[250px]">
+                                        <div className="p-1">
+                                            <button
+                                                key="all"
+                                                onClick={() => {
+                                                    setSelectedCoverage("all");
+                                                    setIsCoverageFilterOpen(false);
+                                                    setPage(1);
+                                                }}
+                                                className={cn(
+                                                    "flex w-full items-center justify-between rounded-md px-2 py-2 text-sm transition-colors hover:bg-slate-100",
+                                                    selectedCoverage === "all" ? "bg-slate-50 font-semibold text-primary" : "text-slate-600"
+                                                )}
+                                            >
+                                                <span>All Coverage</span>
+                                                {selectedCoverage === "all" && <Check className="h-4 w-4" />}
+                                            </button>
+                                            
+                                            {coverageOptions
+                                                .filter(opt => opt.toLowerCase().includes(coverageSearch.toLowerCase()))
+                                                .map((opt) => (
+                                                    <button
+                                                        key={opt}
+                                                        onClick={() => {
+                                                            setSelectedCoverage(opt);
+                                                            setIsCoverageFilterOpen(false);
+                                                            setPage(1);
+                                                        }}
+                                                        className={cn(
+                                                            "flex w-full items-center justify-between rounded-md px-2 py-2 text-sm transition-colors hover:bg-slate-100",
+                                                            selectedCoverage === opt ? "bg-slate-50 font-semibold text-primary" : "text-slate-600"
+                                                        )}
+                                                    >
+                                                        <span>{opt}</span>
+                                                        {selectedCoverage === opt && <Check className="h-4 w-4" />}
+                                                    </button>
+                                                ))
+                                            }
+                                            
+                                            {coverageOptions.filter(opt => opt.toLowerCase().includes(coverageSearch.toLowerCase())).length === 0 && (
+                                                <div className="py-4 text-center text-xs text-muted-foreground">
+                                                    No regions found.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                </PopoverContent>
+                            </Popover>
+                            
+                            {selectedCoverage !== "all" && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => setSelectedCoverage("all")}
+                                    className="h-8 text-xs text-slate-400 hover:text-slate-600 px-2"
+                                >
+                                    Clear
+                                </Button>
+                            )}
                         </div>
                     </div>
 

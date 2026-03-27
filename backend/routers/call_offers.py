@@ -43,6 +43,7 @@ async def get_call_offers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     search: Optional[str] = None,
+    coverage: Optional[str] = None,
     user: User = Depends(check_call_permission)
 ):
     query = {}
@@ -52,6 +53,9 @@ async def get_call_offers(
             {"campaign_id": {"$regex": search, "$options": "i"}},
             {"verticals": {"$regex": search, "$options": "i"}}
         ]
+    
+    if coverage:
+        query["coverage"] = {"$regex": f"\\b{coverage}\\b", "$options": "i"} # Match whole word for state codes
     
     total = await db.call_offers.count_documents(query)
     cursor = db.call_offers.find(query).skip(skip).limit(limit).sort("created_at", -1)
@@ -75,7 +79,8 @@ async def get_call_offer_filters(user: User = Depends(check_call_permission)):
             "campaign_types": {"$addToSet": "$campaign_type"},
             "traffic_allowed": {"$addToSet": "$traffic_allowed"},
             "target_geos": {"$addToSet": "$target_geo"},
-            "verticals_raw": {"$addToSet": "$verticals"}
+            "verticals_raw": {"$addToSet": "$verticals"},
+            "coverage_raw": {"$addToSet": "$coverage"}
         }}
     ]
     
@@ -86,7 +91,8 @@ async def get_call_offer_filters(user: User = Depends(check_call_permission)):
             "verticals": [],
             "campaign_types": [],
             "traffic_allowed": [],
-            "target_geos": []
+            "target_geos": [],
+            "coverage": []
         }
     
     data = result[0]
@@ -98,12 +104,21 @@ async def get_call_offer_filters(user: User = Depends(check_call_permission)):
         parts = [p.strip() for p in v_str.split(",") if p.strip()]
         for p in parts:
             verticals.add(p)
-    
+            
+    # Process coverage (split by comma, flatten, unique, non-empty)
+    coverage = set()
+    for c_str in data.get("coverage_raw", []):
+        if not c_str: continue
+        parts = [p.strip() for p in c_str.split(",") if p.strip()]
+        for p in parts:
+            coverage.add(p)
+            
     return {
         "verticals": sorted(list(verticals)),
         "campaign_types": sorted([v for v in data.get("campaign_types", []) if v]),
         "traffic_allowed": sorted([v for v in data.get("traffic_allowed", []) if v]),
-        "target_geos": sorted([v for v in data.get("target_geos", []) if v])
+        "target_geos": sorted([v for v in data.get("target_geos", []) if v]),
+        "coverage": sorted(list(coverage))
     }
 
 @router.get("/{id}", response_model=CallOffer)
@@ -239,9 +254,3 @@ async def upload_call_offers(file: UploadFile = File(...), user: User = Depends(
     result = await db.call_offers.insert_many(docs)
     return {"message": f"Successfully uploaded {len(result.inserted_ids)} offers", "count": len(result.inserted_ids)}
 
-    return {
-        "verticals": sorted(list(verticals)),
-        "campaign_types": sorted([v for v in data.get("campaign_types", []) if v]),
-        "traffic_allowed": sorted([v for v in data.get("traffic_allowed", []) if v]),
-        "target_geos": sorted([v for v in data.get("target_geos", []) if v])
-    }
