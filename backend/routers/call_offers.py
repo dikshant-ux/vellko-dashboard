@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, File, UploadFile, Form
 from typing import List, Optional, Dict, Any
 from database import db
 from models import CallOffer, CallOfferCreate, CallOfferUpdate, User, UserRole
@@ -7,6 +7,7 @@ from bson import ObjectId
 from datetime import datetime
 import csv
 import io
+import json
 
 router = APIRouter(prefix="/call-offers", tags=["call-offers"])
 
@@ -179,8 +180,57 @@ async def batch_create_call_offers(offers: List[CallOfferCreate], user: User = D
     result = await db.call_offers.insert_many(docs)
     return {"message": f"Successfully created {len(result.inserted_ids)} offers", "count": len(result.inserted_ids)}
 
+@router.post("/analyze")
+async def analyze_call_offers_csv(file: UploadFile = File(...), user: User = Depends(get_current_admin)):
+    print(f"DEBUG: analyze_call_offers_csv called for file: {file.filename}")
+    if not file.filename.lower().endswith('.csv'):
+        print(f"DEBUG: File rejected (not .csv): {file.filename}")
+        raise HTTPException(status_code=400, detail="Only CSV files are supported")
+    
+    content = await file.read()
+    print(f"DEBUG: File read bytes: {len(content)}")
+    try:
+        decoded = content.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        decoded = content.decode('latin1')
+        
+    # Detect delimiter more robustly
+    sample = decoded[:1024]
+    delimiters = [',', ';', '\t', '|']
+    dialect = 'excel' # Default
+    
+    try:
+        sniffer = csv.Sniffer()
+        if any(d in sample for d in delimiters):
+            dialect = sniffer.sniff(sample, delimiters=delimiters)
+    except csv.Error:
+        pass
+        
+    reader = csv.reader(io.StringIO(decoded), dialect=dialect)
+    rows = list(reader)
+    if not rows:
+        print("DEBUG: CSV rows empty after parsing")
+        raise HTTPException(status_code=400, detail="Empty CSV file")
+        
+    # Clean headers (remove BOM residues if any, though utf-8-sig should handle it)
+    headers = [h.strip().strip('"').strip("'") for h in rows[0]]
+    print(f"DEBUG: Parsed headers: {headers}")
+    preview = []
+    for row in rows[1:4]: # Get first 3 rows as preview
+        preview.append([str(cell).strip() for cell in row])
+        
+    return {
+        "headers": headers,
+        "preview": preview,
+        "filename": file.filename
+    }
+
 @router.post("/upload")
-async def upload_call_offers(file: UploadFile = File(...), user: User = Depends(get_current_admin)):
+async def upload_call_offers(
+    file: UploadFile = File(...), 
+    mapping_json: Optional[str] = Form(None),
+    user: User = Depends(get_current_admin)
+):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
     
@@ -190,67 +240,116 @@ async def upload_call_offers(file: UploadFile = File(...), user: User = Depends(
     except UnicodeDecodeError:
         decoded = content.decode('latin1') # Fallback
         
-    # Detect delimiter
+    # Detect delimiter more robustly
     sample = decoded[:1024]
-    try:
-        dialect = csv.Sniffer().sniff(sample)
-    except csv.Error:
-        dialect = 'excel' # Default
-        
-    reader = csv.DictReader(io.StringIO(decoded), dialect=dialect)
+    delimiters = [',', ';', '\t', '|']
+    dialect = 'excel' # Default
     
-    # Expected headers: 
-    # Verticals, Campaign ID, Campaign Name, Campaign Type, Payout Range, Traffic Allowed, Hours, Target Geo, Capping, Details
-    # Mapping CSV headers to model fields (case-insensitive and handling spaces)
-    mapping = {
-        "verticals": ["verticals", "vertical", "category", "vertical / category", "verticals/category"],
-        "campaign_id": ["campaign id", "campaignid", "id", "campaign"],
-        "campaign_name": ["campaign name", "campaignname", "name", "offer name", "offer"],
-        "campaign_type": ["campaign type", "campaigntype", "type"],
-        "payout_range": ["payout / buffer range", "payout range", "payout", "buffer range", "payout/buffer"],
-        "traffic_allowed": ["traffic allowed", "traffic", "allowed traffic"],
-        "hours_of_operation": ["hours of operation", "hours", "operation hours", "operating hours"],
-        "target_geo": ["target geo", "geo", "target", "geography"],
-        "capping": ["caping", "capping", "cap", "limit"],
-        "coverage": ["coverage", "states", "area", "region", "regions"],
-        "details": ["details", "description", "note", "notes"]
-    }
+    try:
+        sniffer = csv.Sniffer()
+        if any(d in sample for d in delimiters):
+            dialect = sniffer.sniff(sample, delimiters=delimiters)
+    except csv.Error:
+        pass
+        
+    reader_raw = csv.reader(io.StringIO(decoded), dialect=dialect)
+    rows = list(reader_raw)
+    if not rows:
+        raise HTTPException(status_code=400, detail="Empty CSV")
+    
+    raw_headers = rows[0]
+    data_rows = rows[1:]
 
-    def find_val(row, field_mapping):
-        for header, value in row.items():
-            if header and header.lower().strip() in field_mapping:
-                return str(value).strip()
+    # Final Mapping
+    field_to_idx = {}
+    
+    # Check if we have an explicit mapping from the frontend
+    explicit_mapping = None
+    if mapping_json:
+        try:
+            explicit_mapping = json.loads(mapping_json)
+            # mapping_json expected format: {"verticals": 0, "campaign_id": 1, ...}
+            for field, idx in explicit_mapping.items():
+                if idx is not None and isinstance(idx, int):
+                    field_to_idx[field] = idx
+        except Exception as e:
+            print(f"Error parsing mapping_json: {e}")
+
+    # Fallback to intelligent automatic mapping if explicit mapping is missing or incomplete
+    if not explicit_mapping:
+        mapping_aliases = {
+            "verticals": ["verticals", "vertical", "category", "vertical / category", "verticals/category"],
+            "campaign_id": ["campaign id", "campaignid", "id", "campaign"],
+            "campaign_name": ["campaign name", "campaignname", "name", "offer name", "offer", "campaign"],
+            "campaign_type": ["campaign type", "campaigntype", "type", "campaign"],
+            "payout_range": ["payout / buffer range", "payout range", "payout", "buffer range", "payout/buffer", "payout / b", "payout / b,"],
+            "traffic_allowed": ["traffic allowed", "traffic", "allowed traffic", "traffic allo"],
+            "hours_of_operation": ["hours of operation", "hours", "operation hours", "operating hours", "hours of c"],
+            "target_geo": ["target geo", "geo", "target", "geography"],
+            "capping": ["caping", "capping", "cap", "limit", "aping"],
+            "coverage": ["coverage", "states", "area", "region", "regions"],
+            "details": ["details", "description", "note", "notes"]
+        }
+
+        campaign_count = 0
+        for idx, h in enumerate(raw_headers):
+            if not h: continue
+            h_clean = h.lower().strip()
+            
+            # Special handling for ambiguous "Campaign" duplicates
+            if h_clean == "campaign":
+                campaign_count += 1
+                if campaign_count == 1:
+                    if "campaign_id" not in field_to_idx: field_to_idx["campaign_id"] = idx
+                elif campaign_count == 2:
+                    if "campaign_name" not in field_to_idx: field_to_idx["campaign_name"] = idx
+                elif campaign_count == 3:
+                    if "campaign_type" not in field_to_idx: field_to_idx["campaign_type"] = idx
+                continue
+
+            # Normal fuzzy matching
+            for field, aliases in mapping_aliases.items():
+                if any(alias == h_clean for alias in aliases) or any(h_clean.startswith(alias) for alias in aliases):
+                    if field not in field_to_idx:
+                        field_to_idx[field] = idx
+                        break
+        
+    def get_val(row, field):
+        idx = field_to_idx.get(field)
+        if idx is not None and idx < len(row):
+            return str(row[idx]).strip()
         return ""
 
     docs = []
     now = datetime.utcnow()
-    for row in reader:
+    for row in data_rows:
+        if not any(row): continue # Skip empty rows
         try:
             doc = {
-                "verticals": find_val(row, mapping["verticals"]),
-                "campaign_id": find_val(row, mapping["campaign_id"]),
-                "campaign_name": find_val(row, mapping["campaign_name"]),
-                "campaign_type": find_val(row, mapping["campaign_type"]),
-                "payout_buffer_range": find_val(row, mapping["payout_range"]),
-                "traffic_allowed": find_val(row, mapping["traffic_allowed"]),
-                "hours_of_operation": find_val(row, mapping["hours_of_operation"]),
-                "target_geo": find_val(row, mapping["target_geo"]),
-                "capping": find_val(row, mapping["capping"]),
-                "coverage": find_val(row, mapping["coverage"]),
-                "details": find_val(row, mapping["details"]),
+                "verticals": get_val(row, "verticals"),
+                "campaign_id": get_val(row, "campaign_id"),
+                "campaign_name": get_val(row, "campaign_name"),
+                "campaign_type": get_val(row, "campaign_type"),
+                "payout_buffer_range": get_val(row, "payout_range"),
+                "traffic_allowed": get_val(row, "traffic_allowed"),
+                "hours_of_operation": get_val(row, "hours_of_operation"),
+                "target_geo": get_val(row, "target_geo"),
+                "capping": get_val(row, "capping"),
+                "coverage": get_val(row, "coverage"),
+                "details": get_val(row, "details"),
                 "created_at": now,
                 "updated_at": now,
                 "created_by": user.username
             }
-            # Basic validation: must have at least a name
-            if doc["campaign_name"]:
+            # Basic validation
+            if doc["campaign_name"] or doc["campaign_id"]:
                 docs.append(doc)
         except Exception:
             continue
             
     if not docs:
-        raise HTTPException(status_code=400, detail="No valid offers found in CSV")
+        raise HTTPException(status_code=400, detail="No valid offers found in CSV. Please check your headers.")
         
     result = await db.call_offers.insert_many(docs)
-    return {"message": f"Successfully uploaded {len(result.inserted_ids)} offers", "count": len(result.inserted_ids)}
+    return {"message": f"Successfully imported {len(result.inserted_ids)} offers", "count": len(result.inserted_ids)}
 
