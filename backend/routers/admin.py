@@ -1521,7 +1521,7 @@ async def update_tags(id: str, tags: List[str] = Body(..., embed=True), user: Us
     
     return {"message": "Tags updated", "tags": tags}
 
-@router.get("/tags", response_model=List[str])
+@router.get("/tags", response_model=List[Tag])
 async def get_all_tags(user: User = Depends(get_current_admin)):
     if user.role == UserRole.ANALYTIC:
         raise HTTPException(status_code=403, detail="Analytic users cannot view tags")
@@ -1530,12 +1530,27 @@ async def get_all_tags(user: User = Depends(get_current_admin)):
     signup_tags = await db.signups.distinct("tags")
     
     # Get standalone tags from the tags collection
-    standalone_tags_cursor = db.tags.find({}, {"name": 1})
-    standalone_tags = [t["name"] async for t in standalone_tags_cursor]
+    standalone_tags_cursor = db.tags.find({}, {"name": 1, "color": 1, "created_at": 1})
+    standalone_tags_dict = {t["name"]: t async for t in standalone_tags_cursor}
     
     # Merge and unique
-    all_tags = set(signup_tags + standalone_tags)
-    return sorted([t for t in all_tags if t and isinstance(t, str)])
+    all_tag_names = set(signup_tags + list(standalone_tags_dict.keys()))
+    
+    results = []
+    for name in all_tag_names:
+        if not name or not isinstance(name, str):
+            continue
+        if name in standalone_tags_dict:
+            tag_data = standalone_tags_dict[name]
+            results.append(Tag(
+                name=tag_data["name"],
+                color=tag_data.get("color"),
+                created_at=tag_data.get("created_at") or datetime.now(timezone.utc)
+            ))
+        else:
+            results.append(Tag(name=name))
+            
+    return sorted(results, key=lambda x: x.name)
 
 @router.post("/tags", response_model=Tag)
 async def create_standalone_tag(tag: Tag, user: User = Depends(get_current_admin)):
@@ -1545,9 +1560,14 @@ async def create_standalone_tag(tag: Tag, user: User = Depends(get_current_admin
     # Check if tag already exists in the standalone collection
     existing = await db.tags.find_one({"name": tag.name})
     if existing:
-        return existing
+        # Update existing tag's color if provided
+        if tag.color:
+            await db.tags.update_one({"name": tag.name}, {"$set": {"color": tag.color}})
+            existing["color"] = tag.color
+        return Tag(**existing)
         
-    await db.tags.insert_one(tag.dict())
+    tag_dict = tag.dict()
+    await db.tags.insert_one(tag_dict)
     return tag
 
 @router.delete("/tags/{tag_name}")
@@ -1567,20 +1587,35 @@ async def delete_tag(tag_name: str, user: User = Depends(get_current_admin)):
     return {"message": f"Tag '{tag_name}' removed from {result.modified_count} applications and global registry"}
 
 @router.put("/tags/{tag_name}")
-async def rename_tag(tag_name: str, new_name: str = Body(..., embed=True), user: User = Depends(get_current_admin)):
+async def update_tag(tag_name: str, payload: dict = Body(...), user: User = Depends(get_current_admin)):
     if user.role == UserRole.ANALYTIC:
         raise HTTPException(status_code=403, detail="Analytic users cannot edit tags")
     
+    new_name = payload.get("new_name")
+    new_color = payload.get("new_color")
+    
+    update_fields = {}
+    if new_name:
+        update_fields["name"] = new_name
+    if new_color is not None: # Allow empty string to clear color
+        update_fields["color"] = new_color
+        
+    if not update_fields:
+        return {"message": "No changes provided"}
+        
     # Update standalone collection
-    await db.tags.update_many({"name": tag_name}, {"$set": {"name": new_name}})
+    await db.tags.update_many({"name": tag_name}, {"$set": update_fields})
     
-    # Update all signups that have the old tag
-    result = await db.signups.update_many(
-        {"tags": tag_name},
-        {"$set": {"tags.$": new_name}}
-    )
+    # If name changed, update all signups
+    modified_count = 0
+    if new_name and new_name != tag_name:
+        result = await db.signups.update_many(
+            {"tags": tag_name},
+            {"$set": {"tags.$": new_name}}
+        )
+        modified_count = result.modified_count
     
-    return {"message": f"Tag '{tag_name}' renamed to '{new_name}' in {result.modified_count} applications"}
+    return {"message": f"Tag '{tag_name}' updated", "modified_applications": modified_count}
 
 @router.delete("/signups/{id}/notes/{note_id}")
 async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_current_admin)):

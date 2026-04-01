@@ -1,5 +1,10 @@
 'use client';
 
+interface Tag {
+    name: string;
+    color?: string;
+}
+
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
@@ -58,7 +63,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [apiSelection, setApiSelection] = useState({ cake: true, ringba: true });
     const [tagInput, setTagInput] = useState("");
     const [isSavingTag, setIsSavingTag] = useState(false);
-    const [globalTags, setGlobalTags] = useState<string[]>([]);
+    const [globalTags, setGlobalTags] = useState<Tag[]>([]);
     const [showApiSelection, setShowApiSelection] = useState(false);
 
     // Q/A Forms States
@@ -114,7 +119,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     setLoading(false);
                 });
 
-            // Fetch global tags for suggestions
             fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`, {
                 headers: { Authorization: `Bearer ${session.accessToken}` }
             })
@@ -753,8 +757,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 setSignup((prev: any) => ({ ...prev, tags: updatedTags }));
                 setTagInput("");
                 // Add to global suggests if not there
-                if (!globalTags.includes(newTag)) {
-                    setGlobalTags(prev => [...prev, newTag].sort());
+                if (!globalTags.some(t => t.name === newTag)) {
+                    setGlobalTags(prev => [...prev, { name: newTag }].sort((a, b) => a.name.localeCompare(b.name)));
                 }
             } else {
                 const err = await res.json();
@@ -800,6 +804,42 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 [field]: value
             }
         }));
+    };
+
+    const TagBadge = ({ name, showRemove = false }: { name: string, showRemove?: boolean }) => {
+        const tagData = globalTags.find(t => t.name === name);
+        const color = tagData?.color;
+        
+        const style = color ? {
+            backgroundColor: `${color}15`,
+            color: color,
+            borderColor: `${color}30`,
+        } : {
+            backgroundColor: '#fdf2f8', // bg-pink-50
+            color: '#be185d', // text-pink-700
+            borderColor: '#fbcfe8', // border-pink-200
+        };
+
+        return (
+            <Badge 
+                variant="outline" 
+                className="px-2.5 py-1 text-[10px] font-bold shadow-sm uppercase flex items-center gap-1.5"
+                style={style}
+            >
+                {name}
+                {showRemove && (
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveTag(name);
+                        }}
+                        className="hover:text-red-500 rounded-full focus:outline-none transition-colors ml-0.5"
+                    >
+                        <X className="h-3 w-3" />
+                    </button>
+                )}
+            </Badge>
+        );
     };
 
     const handleSave = async () => {
@@ -2160,17 +2200,11 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         <div className="flex flex-wrap gap-2 min-h-[28px]">
                             {signup.tags && signup.tags.length > 0 ? (
                                 signup.tags.map((tag: string, idx: number) => (
-                                    <Badge key={idx} variant="secondary" className="px-2.5 py-1 text-xs bg-muted/50 border-border/50 text-foreground flex items-center gap-1.5">
-                                        {tag}
-                                        {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
-                                            <button 
-                                                onClick={() => handleRemoveTag(tag)}
-                                                className="text-muted-foreground hover:text-red-500 rounded-full focus:outline-none transition-colors"
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        )}
-                                    </Badge>
+                                    <TagBadge 
+                                        key={idx} 
+                                        name={tag} 
+                                        showRemove={(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN')} 
+                                    />
                                 ))
                             ) : (
                                 <span className="text-sm text-muted-foreground italic mt-1">No tags assigned.</span>
@@ -2194,7 +2228,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 />
                                 <datalist id="global-tags">
                                     {globalTags.map((tag) => (
-                                        <option key={tag} value={tag} />
+                                        <option key={tag.name} value={tag.name} />
                                     ))}
                                 </datalist>
                                 <Button 
