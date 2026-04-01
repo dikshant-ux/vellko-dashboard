@@ -1603,8 +1603,8 @@ async def update_tag(tag_name: str, payload: dict = Body(...), user: User = Depe
     if not update_fields:
         return {"message": "No changes provided"}
         
-    # Update standalone collection
-    await db.tags.update_many({"name": tag_name}, {"$set": update_fields})
+    # Update standalone collection - use upsert=True to ensure it's created if it only existed in signups
+    await db.tags.update_one({"name": tag_name}, {"$set": update_fields}, upsert=True)
     
     # If name changed, update all signups
     modified_count = 0
