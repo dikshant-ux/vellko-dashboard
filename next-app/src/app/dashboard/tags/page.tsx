@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Trash, Tag as TagIcon, RefreshCcw, Pencil, Plus, Check } from "lucide-react";
+import { Loader2, Trash, Tag, RefreshCcw, Pencil, Plus } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -26,41 +26,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface Tag {
-    name: string;
-    color?: string;
-    created_at?: string;
-}
-
-const PREDEFINED_COLORS = [
-    { name: 'Red', value: '#ef4444' },
-    { name: 'Orange', value: '#f97316' },
-    { name: 'Amber', value: '#f59e0b' },
-    { name: 'Green', value: '#22c55e' },
-    { name: 'Emerald', value: '#10b981' },
-    { name: 'Teal', value: '#14b8a6' },
-    { name: 'Sky', value: '#0ea5e9' },
-    { name: 'Blue', value: '#3b82f6' },
-    { name: 'Indigo', value: '#6366f1' },
-    { name: 'Violet', value: '#8b5cf6' },
-    { name: 'Purple', value: '#a855f7' },
-    { name: 'Pink', value: '#ec4899' },
-    { name: 'Rose', value: '#f43f5e' },
-    { name: 'Gray', value: '#6b7280' },
-];
-
 export default function TagsPage() {
     const { data: session, status } = useSession();
     const authFetch = useAuthFetch();
-    const [tags, setTags] = useState<Tag[]>([]);
+    const [tags, setTags] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
-    const [editingTag, setEditingTag] = useState<Tag | null>(null);
+    const [editingTag, setEditingTag] = useState<string | null>(null);
     const [newTagName, setNewTagName] = useState("");
-    const [newTagColor, setNewTagColor] = useState("");
-    const [isUpdating, setIsUpdating] = useState(false);
+    const [isRenaming, setIsRenaming] = useState(false);
     const [createTagName, setCreateTagName] = useState("");
-    const [createTagColor, setCreateTagColor] = useState("#ec4899"); // Default pink
     const [isCreating, setIsCreating] = useState(false);
 
     const fetchTags = async () => {
@@ -87,19 +62,18 @@ export default function TagsPage() {
     const handleCreateTag = async () => {
         const trimmedName = createTagName.trim();
         if (!trimmedName) return;
-        
+
         setIsCreating(true);
         try {
             const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: trimmedName, color: createTagColor })
+                body: JSON.stringify({ name: trimmedName })
             });
 
-            if (res && (res.ok || res.status === 200)) {
+            if (res && res.ok) {
                 setCreateTagName("");
-                setCreateTagColor("#ec4899");
-                fetchTags();
+                fetchTags(); // Refresh to include new standalone tag
             } else {
                 const errorData = await res?.json();
                 alert(errorData?.detail || "Failed to create tag.");
@@ -112,43 +86,37 @@ export default function TagsPage() {
         }
     };
 
-    const handleUpdateTag = async () => {
-        if (!editingTag || (!newTagName.trim() && !newTagColor)) {
+    const handleRenameTag = async () => {
+        if (!editingTag || !newTagName.trim() || editingTag === newTagName.trim()) {
             setEditingTag(null);
             return;
         }
 
-        const nameToUse = newTagName.trim() || editingTag.name;
-        
-        setIsUpdating(true);
+        setIsRenaming(true);
         try {
-            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags/${encodeURIComponent(editingTag.name)}`, {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags/${encodeURIComponent(editingTag)}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    new_name: nameToUse !== editingTag.name ? nameToUse : undefined,
-                    new_color: newTagColor !== editingTag.color ? newTagColor : undefined
-                })
+                body: JSON.stringify({ new_name: newTagName.trim() })
             });
 
             if (res && res.ok) {
-                setTags(prev => prev.map(t => t.name === editingTag.name ? { ...t, name: nameToUse, color: newTagColor } : t).sort((a, b) => a.name.localeCompare(b.name)));
+                setTags(prev => prev.map(t => t === editingTag ? newTagName.trim() : t).sort());
                 setEditingTag(null);
             } else {
-                const errorData = await res?.json();
-                alert(errorData?.detail || "Failed to update tag.");
+                alert("Failed to rename tag.");
             }
         } catch (error) {
-            console.error("Error updating tag:", error);
-            alert("An error occurred while updating the tag.");
+            console.error("Error renaming tag:", error);
+            alert("An error occurred while renaming the tag.");
         } finally {
-            setIsUpdating(false);
+            setIsRenaming(false);
         }
     };
 
     const handleDeleteTag = async (tagName: string) => {
         if (!confirm(`Are you sure you want to delete the tag "${tagName}" from ALL applications? This action cannot be undone.`)) return;
-        
+
         setIsDeleting(tagName);
         try {
             const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags/${encodeURIComponent(tagName)}`, {
@@ -156,7 +124,7 @@ export default function TagsPage() {
             });
 
             if (res && res.ok) {
-                setTags(prev => prev.filter(t => t.name !== tagName));
+                setTags(prev => prev.filter(t => t !== tagName));
             } else {
                 alert("Failed to delete tag.");
             }
@@ -166,24 +134,6 @@ export default function TagsPage() {
         } finally {
             setIsDeleting(null);
         }
-    };
-
-    const TagBadge = ({ name, color }: { name: string, color?: string }) => {
-        const style = color ? {
-            backgroundColor: `${color}15`, // 15 is hex for ~8% opacity
-            color: color,
-            borderColor: `${color}30`,
-        } : {};
-
-        return (
-            <Badge 
-                variant="outline" 
-                className="font-semibold px-3 py-1 shadow-sm uppercase text-[10px]"
-                style={style}
-            >
-                {name}
-            </Badge>
-        );
     };
 
     return (
@@ -201,66 +151,29 @@ export default function TagsPage() {
 
             <Card className="border-none shadow-sm bg-white overflow-hidden mb-6">
                 <CardContent className="p-4 sm:p-6">
-                    <div className="flex flex-col xl:flex-row items-start gap-6">
-                        <div className="flex-1 w-full space-y-4">
-                            <div>
-                                <Label htmlFor="createTag" className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-                                    Tag Name
-                                </Label>
-                                <div className="relative">
-                                    <TagIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="createTag"
-                                        placeholder="Enter tag name (e.g. High Priority)"
-                                        value={createTagName}
-                                        onChange={(e) => setCreateTagName(e.target.value)}
-                                        className="pl-10 h-11 border-gray-200 focus:border-red-500 focus:ring-red-500"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleCreateTag();
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-                                    Pick a Color
-                                </Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {PREDEFINED_COLORS.map((c) => (
-                                        <button
-                                            key={c.value}
-                                            onClick={() => setCreateTagColor(c.value)}
-                                            className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${createTagColor === c.value ? 'border-gray-900 scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                                            style={{ backgroundColor: c.value }}
-                                            title={c.name}
-                                        >
-                                            {createTagColor === c.value && <Check className="h-4 w-4 text-white drop-shadow-sm" />}
-                                        </button>
-                                    ))}
-                                    <div className="flex items-center gap-2 ml-2">
-                                        <div className="w-8 h-8 rounded-full border border-gray-200 overflow-hidden relative">
-                                            <input 
-                                                type="color" 
-                                                value={createTagColor} 
-                                                onChange={(e) => setCreateTagColor(e.target.value)}
-                                                className="absolute inset-0 w-[150%] h-[150%] -translate-x-[20%] -translate-y-[20%] cursor-pointer"
-                                            />
-                                        </div>
-                                        <Input 
-                                            value={createTagColor} 
-                                            onChange={(e) => setCreateTagColor(e.target.value)}
-                                            className="h-8 w-24 text-xs font-mono"
-                                            placeholder="#HEX"
-                                        />
-                                    </div>
-                                </div>
+                    <div className="flex flex-col sm:flex-row items-end gap-4">
+                        <div className="flex-1 w-full">
+                            <Label htmlFor="createTag" className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                                Create New Global Tag
+                            </Label>
+                            <div className="relative">
+                                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    id="createTag"
+                                    placeholder="Enter tag name (e.g. High Priority)"
+                                    value={createTagName}
+                                    onChange={(e) => setCreateTagName(e.target.value)}
+                                    className="pl-10 h-11 border-gray-200 focus:border-red-500 focus:ring-red-500"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleCreateTag();
+                                    }}
+                                />
                             </div>
                         </div>
-                        <Button 
-                            onClick={handleCreateTag} 
+                        <Button
+                            onClick={handleCreateTag}
                             disabled={isCreating || !createTagName.trim()}
-                            className="h-11 px-8 bg-red-600 hover:bg-red-700 text-white font-bold w-full xl:w-auto xl:mt-6"
+                            className="h-11 px-8 bg-red-600 hover:bg-red-700 text-white font-bold w-full sm:w-auto"
                         >
                             {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                             Create Tag
@@ -272,11 +185,11 @@ export default function TagsPage() {
             <Card className="border-none shadow-md bg-white overflow-hidden">
                 <CardHeader className="pb-3 border-b border-gray-50 px-4 sm:px-6">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        <TagIcon className="h-5 w-5 text-red-600" />
+                        <Tag className="h-5 w-5 text-red-600" />
                         Available Tags
                     </CardTitle>
                     <CardDescription>
-                        Updating or deleting a tag here will update all associated applications globally.
+                        Renaming or deleting a tag here will update all associated applications globally.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -302,16 +215,18 @@ export default function TagsPage() {
                                     <TableRow>
                                         <TableCell colSpan={2} className="h-64 text-center">
                                             <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                                <TagIcon className="h-10 w-10 text-gray-200" />
+                                                <Tag className="h-10 w-10 text-gray-200" />
                                                 <p className="font-medium">No tags found.</p>
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     tags.map((tag) => (
-                                        <TableRow key={tag.name} className="hover:bg-gray-50/50 transition-colors">
+                                        <TableRow key={tag} className="hover:bg-gray-50/50 transition-colors">
                                             <TableCell className="px-4 sm:px-6">
-                                                <TagBadge name={tag.name} color={tag.color} />
+                                                <Badge variant="outline" className="bg-pink-50 text-pink-700 border-pink-200 font-semibold px-3 py-1 shadow-sm">
+                                                    {tag}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell className="text-right px-4 sm:px-6">
                                                 <div className="flex items-center justify-end gap-2">
@@ -321,8 +236,7 @@ export default function TagsPage() {
                                                         className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 font-bold rounded-lg h-9"
                                                         onClick={() => {
                                                             setEditingTag(tag);
-                                                            setNewTagName(tag.name);
-                                                            setNewTagColor(tag.color || "#ec4899");
+                                                            setNewTagName(tag);
                                                         }}
                                                     >
                                                         <Pencil className="h-4 w-4 mr-2" />
@@ -332,10 +246,10 @@ export default function TagsPage() {
                                                         variant="ghost"
                                                         size="sm"
                                                         className="text-red-500 hover:text-red-700 hover:bg-red-50 font-bold rounded-lg h-9"
-                                                        onClick={() => handleDeleteTag(tag.name)}
-                                                        disabled={isDeleting === tag.name}
+                                                        onClick={() => handleDeleteTag(tag)}
+                                                        disabled={isDeleting === tag}
                                                     >
-                                                        {isDeleting === tag.name ? (
+                                                        {isDeleting === tag ? (
                                                             <Loader2 className="h-4 w-4 animate-spin" />
                                                         ) : (
                                                             <>
@@ -359,68 +273,38 @@ export default function TagsPage() {
             <Dialog open={!!editingTag} onOpenChange={(open) => !open && setEditingTag(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Edit Tag</DialogTitle>
+                        <DialogTitle>Rename Tag</DialogTitle>
                         <DialogDescription>
-                            Update the name or color for the tag "{editingTag?.name}". This will affect all associated applications.
+                            Enter a new name for the tag "{editingTag}". This will update all applications using this tag.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-6 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="tagName">Tag Name</Label>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="tagName" className="text-right">
+                                New Name
+                            </Label>
                             <Input
                                 id="tagName"
                                 value={newTagName}
                                 onChange={(e) => setNewTagName(e.target.value)}
-                                className="w-full"
+                                className="col-span-3"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
-                                        handleUpdateTag();
+                                        handleRenameTag();
                                     }
                                 }}
                             />
                         </div>
-                        
-                        <div className="grid gap-2">
-                            <Label>Tag Color</Label>
-                            <div className="flex flex-wrap gap-2">
-                                {PREDEFINED_COLORS.map((c) => (
-                                    <button
-                                        key={c.value}
-                                        onClick={() => setNewTagColor(c.value)}
-                                        className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${newTagColor === c.value ? 'border-gray-900 scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                                        style={{ backgroundColor: c.value }}
-                                        title={c.name}
-                                    >
-                                        {newTagColor === c.value && <Check className="h-4 w-4 text-white drop-shadow-sm" />}
-                                    </button>
-                                ))}
-                                <div className="flex items-center gap-2 ml-2">
-                                    <div className="w-8 h-8 rounded-full border border-gray-200 overflow-hidden relative">
-                                        <input 
-                                            type="color" 
-                                            value={newTagColor} 
-                                            onChange={(e) => setNewTagColor(e.target.value)}
-                                            className="absolute inset-0 w-[150%] h-[150%] -translate-x-[20%] -translate-y-[20%] cursor-pointer"
-                                        />
-                                    </div>
-                                    <Input 
-                                        value={newTagColor} 
-                                        onChange={(e) => setNewTagColor(e.target.value)}
-                                        className="h-8 w-24 text-xs font-mono"
-                                    />
-                                </div>
-                            </div>
-                        </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditingTag(null)} disabled={isUpdating}>
+                        <Button variant="outline" onClick={() => setEditingTag(null)} disabled={isRenaming}>
                             Cancel
                         </Button>
-                        <Button onClick={handleUpdateTag} disabled={isUpdating || !newTagName.trim() || (newTagName === editingTag?.name && newTagColor === editingTag?.color)}>
-                            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
-                            Update Tag
+                        <Button onClick={handleRenameTag} disabled={isRenaming || !newTagName.trim() || newTagName === editingTag}>
+                            {isRenaming ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
+                            Rename Tag
                         </Button>
                     </DialogFooter>
                 </DialogContent>

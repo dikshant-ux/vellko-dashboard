@@ -1,10 +1,5 @@
 'use client';
 
-interface Tag {
-    name: string;
-    color?: string;
-}
-
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
@@ -63,7 +58,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [apiSelection, setApiSelection] = useState({ cake: true, ringba: true });
     const [tagInput, setTagInput] = useState("");
     const [isSavingTag, setIsSavingTag] = useState(false);
-    const [globalTags, setGlobalTags] = useState<Tag[]>([]);
+    const [globalTags, setGlobalTags] = useState<string[]>([]);
     const [showApiSelection, setShowApiSelection] = useState(false);
 
     // Q/A Forms States
@@ -119,6 +114,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     setLoading(false);
                 });
 
+            // Fetch global tags for suggestions
             fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`, {
                 headers: { Authorization: `Bearer ${session.accessToken}` }
             })
@@ -504,8 +500,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     // Initialize responses
                     const initial: any = {};
                     data.questions.forEach((q: any) => {
-                         // Check for existing response in signup object
-                         const existing = signup.ringba_qa_responses?.find((r: any) => r.question_text === q.text);
+                        // Check for existing response in signup object
+                        const existing = signup.ringba_qa_responses?.find((r: any) => r.question_text === q.text);
 
                         if (q.field_type === 'File' && q.file_tags && q.file_tags.length > 0) {
                             const filesObj: any = {};
@@ -739,10 +735,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             setTagInput("");
             return; // Already exists
         }
-        
+
         setIsSavingTag(true);
         const updatedTags = [...currentTags, newTag];
-        
+
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/tags`, {
                 method: 'PUT',
@@ -757,8 +753,8 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 setSignup((prev: any) => ({ ...prev, tags: updatedTags }));
                 setTagInput("");
                 // Add to global suggests if not there
-                if (!globalTags.some(t => t.name === newTag)) {
-                    setGlobalTags(prev => [...prev, { name: newTag }].sort((a, b) => a.name.localeCompare(b.name)));
+                if (!globalTags.includes(newTag)) {
+                    setGlobalTags(prev => [...prev, newTag].sort());
                 }
             } else {
                 const err = await res.json();
@@ -775,7 +771,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const handleRemoveTag = async (tagToRemove: string) => {
         const currentTags = signup.tags || [];
         const updatedTags = currentTags.filter((t: string) => t !== tagToRemove);
-        
+
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${id}/tags`, {
                 method: 'PUT',
@@ -804,42 +800,6 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 [field]: value
             }
         }));
-    };
-
-    const TagBadge = ({ name, showRemove = false }: { name: string, showRemove?: boolean }) => {
-        const tagData = globalTags.find(t => t.name === name);
-        const color = tagData?.color;
-        
-        const style = color ? {
-            backgroundColor: `${color}15`,
-            color: color,
-            borderColor: `${color}30`,
-        } : {
-            backgroundColor: '#fdf2f8', // bg-pink-50
-            color: '#be185d', // text-pink-700
-            borderColor: '#fbcfe8', // border-pink-200
-        };
-
-        return (
-            <Badge 
-                variant="outline" 
-                className="px-2.5 py-1 text-[10px] font-bold shadow-sm uppercase flex items-center gap-1.5"
-                style={style}
-            >
-                {name}
-                {showRemove && (
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveTag(name);
-                        }}
-                        className="hover:text-red-500 rounded-full focus:outline-none transition-colors ml-0.5"
-                    >
-                        <X className="h-3 w-3" />
-                    </button>
-                )}
-            </Badge>
-        );
     };
 
     const handleSave = async () => {
@@ -1065,230 +1025,230 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             )}
 
             {/* Decision Cards - Granularity & Actions */}
-            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) && 
-             (signup.status === 'PENDING' || signup.status === 'APPROVED' || signup.status === 'PARTIALLY APPROVED' || signup.status === 'APPROVED (PARTIAL)' || signup.status === 'REQUESTED_FOR_APPROVAL') && (
-                <div className="space-y-6">
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {/* Cake Card */}
-                        {(signup.marketingInfo?.applicationType === 'Both' || signup.marketingInfo?.applicationType === 'Web Traffic') && (
-                            <Card className={`border-l-4 ${signup.cake_api_status === true ? 'border-l-green-500' : signup.cake_api_status === false ? 'border-l-red-500' : 'border-l-yellow-500'} shadow-sm`}>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-lg font-semibold flex items-center justify-between">
-                                        <span>Cake (Web Traffic)</span>
-                                        <Badge variant="outline" className={
-                                            signup.cake_api_status === 'APPROVED' ? "text-green-600 bg-green-50 border-green-200" :
-                                                signup.cake_api_status === 'REJECTED' ? "text-red-700 bg-red-50 border-red-200" :
-                                                    signup.cake_api_status === 'FAILED' ? "text-red-500 bg-red-50 border-red-100" :
-                                                        "text-yellow-600 bg-yellow-50 border-yellow-200"
-                                        }>
-                                            {signup.cake_api_status === 'APPROVED' ? 'Approved' : signup.cake_api_status === 'REJECTED' ? 'Rejected' : signup.cake_api_status === 'FAILED' ? 'Failed' : 'Pending'}
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-sm text-muted-foreground">
-                                                {signup.cake_affiliate_id ? (
-                                                    <span className="font-mono bg-muted px-2 py-1 rounded">ID: {signup.cake_affiliate_id}</span>
-                                                ) : (
-                                                    <span>No Affiliate ID yet</span>
-                                                )}
-                                            </div>
-                                            <div className="flex gap-2">
-                                                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_request_cake) &&
-                                                    (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
-                                                        <>
-                                                            {!signup.cake_affiliate_id && (
-                                                                <>
-                                                                    <Button
-                                                                        variant="destructive"
-                                                                        size="sm"
-                                                                        onClick={() => initiateAction('reject', 'cake')}
-                                                                        disabled={!!actionLoading}
-                                                                    >
-                                                                        Reject
-                                                                    </Button>
-                                                                    {session?.user?.can_approve_cake ? (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="bg-green-600 hover:bg-green-700"
-                                                                            onClick={() => initiateAction('approve', 'cake')}
-                                                                            disabled={!!actionLoading}
-                                                                        >
-                                                                            {signup.cake_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
-                                                                        </Button>
-                                                                    ) : (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="bg-blue-600 hover:bg-blue-700"
-                                                                            onClick={() => initiateAction('request_approval', 'cake')}
-                                                                            disabled={!!actionLoading}
-                                                                        >
-                                                                            Process & Request
-                                                                        </Button>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </>
-                                                    )
-                                                }
-                                            </div>
-                                        </div>
-
-                                        {(signup.cake_decision_reason || signup.cake_processed_by) && (
-                                            <div className="space-y-3">
-                                                <div className="flex items-start gap-2">
-                                                    <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                                                    <div className="text-sm">
-                                                        <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Decision Reason</p>
-                                                        <p className="mt-0.5">{signup.cake_decision_reason || 'No reason provided'}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <User className="h-4 w-4 text-muted-foreground" />
-                                                        <div className="text-xs">
-                                                            <p className="text-muted-foreground uppercase tracking-wider">Processed By</p>
-                                                            <p className="font-medium">{signup.cake_processed_by || 'System'}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                        <div className="text-xs">
-                                                            <p className="text-muted-foreground uppercase tracking-wider">Date</p>
-                                                            <p className="font-medium">{signup.cake_processed_at ? new Date(signup.cake_processed_at).toLocaleDateString() : 'N/A'}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Ringba Card */}
-                        {(signup.marketingInfo?.applicationType === 'Both' || signup.marketingInfo?.applicationType === 'Call Traffic') && (
-                            <Card className={`border-l-4 ${signup.ringba_api_status === true ? 'border-l-green-500' : signup.ringba_api_status === false ? 'border-l-red-500' : 'border-l-yellow-500'} shadow-sm`}>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-lg font-semibold flex items-center justify-between">
-                                        <span>Ringba (Call Traffic)</span>
-                                        <Badge variant="outline" className={
-                                            signup.ringba_api_status === 'APPROVED' ? "text-green-600 bg-green-50 border-green-200" :
-                                                signup.ringba_api_status === 'REJECTED' ? "text-red-700 bg-red-50 border-red-200" :
-                                                    signup.ringba_api_status === 'FAILED' ? "text-red-500 bg-red-50 border-red-100" :
-                                                        "text-yellow-600 bg-yellow-50 border-yellow-200"
-                                        }>
-                                            {signup.ringba_api_status === 'APPROVED' ? 'Approved' : signup.ringba_api_status === 'REJECTED' ? 'Rejected' : signup.ringba_api_status === 'FAILED' ? 'Failed' : 'Pending'}
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-sm">
-                                                <div className="flex flex-col gap-2">
-                                                    {signup.ringba_affiliate_id ? (
-                                                        <span className="font-mono bg-muted px-2 py-1 rounded w-fit text-xs">ID: {signup.ringba_affiliate_id}</span>
+            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_approve_ringba || session?.user?.can_request_cake || session?.user?.can_request_ringba) &&
+                (signup.status === 'PENDING' || signup.status === 'APPROVED' || signup.status === 'PARTIALLY APPROVED' || signup.status === 'APPROVED (PARTIAL)' || signup.status === 'REQUESTED_FOR_APPROVAL') && (
+                    <div className="space-y-6">
+                        <div className="grid gap-6 md:grid-cols-2">
+                            {/* Cake Card */}
+                            {(signup.marketingInfo?.applicationType === 'Both' || signup.marketingInfo?.applicationType === 'Web Traffic') && (
+                                <Card className={`border-l-4 ${signup.cake_api_status === true ? 'border-l-green-500' : signup.cake_api_status === false ? 'border-l-red-500' : 'border-l-yellow-500'} shadow-sm`}>
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                            <span>Cake (Web Traffic)</span>
+                                            <Badge variant="outline" className={
+                                                signup.cake_api_status === 'APPROVED' ? "text-green-600 bg-green-50 border-green-200" :
+                                                    signup.cake_api_status === 'REJECTED' ? "text-red-700 bg-red-50 border-red-200" :
+                                                        signup.cake_api_status === 'FAILED' ? "text-red-500 bg-red-50 border-red-100" :
+                                                            "text-yellow-600 bg-yellow-50 border-yellow-200"
+                                            }>
+                                                {signup.cake_api_status === 'APPROVED' ? 'Approved' : signup.cake_api_status === 'REJECTED' ? 'Rejected' : signup.cake_api_status === 'FAILED' ? 'Failed' : 'Pending'}
+                                            </Badge>
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-sm text-muted-foreground">
+                                                    {signup.cake_affiliate_id ? (
+                                                        <span className="font-mono bg-muted px-2 py-1 rounded">ID: {signup.cake_affiliate_id}</span>
                                                     ) : (
-                                                        <span className="text-muted-foreground italic text-xs">No Affiliate ID yet</span>
-                                                    )}
-
-                                                    {signup.ringba_assigned_name && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Name</span>
-                                                            <span className="font-bold text-red-700 bg-red-50 px-2 py-1 rounded text-sm border border-red-100 shadow-sm">
-                                                                {signup.ringba_assigned_name}
-                                                            </span>
-                                                        </div>
-                                                    )}
-
-                                                    {signup.ringba_sub_id && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Sub ID</span>
-                                                            <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
-                                                                {signup.ringba_sub_id}
-                                                            </span>
-                                                        </div>
+                                                        <span>No Affiliate ID yet</span>
                                                     )}
                                                 </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_ringba || session?.user?.can_request_ringba) &&
-                                                    (['Call Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
-                                                        <>
-                                                            {!signup.ringba_affiliate_id && (
-                                                                <>
-                                                                    <Button
-                                                                        variant="destructive"
-                                                                        size="sm"
-                                                                        onClick={() => initiateAction('reject', 'ringba')}
-                                                                        disabled={!!actionLoading}
-                                                                    >
-                                                                        Reject
-                                                                    </Button>
-                                                                    {session?.user?.can_approve_ringba ? (
+                                                <div className="flex gap-2">
+                                                    {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_cake || session?.user?.can_request_cake) &&
+                                                        (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
+                                                            <>
+                                                                {!signup.cake_affiliate_id && (
+                                                                    <>
                                                                         <Button
+                                                                            variant="destructive"
                                                                             size="sm"
-                                                                            className="bg-green-600 hover:bg-green-700"
-                                                                            onClick={() => initiateAction('approve', 'ringba')}
+                                                                            onClick={() => initiateAction('reject', 'cake')}
                                                                             disabled={!!actionLoading}
                                                                         >
-                                                                            {signup.ringba_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
+                                                                            Reject
                                                                         </Button>
-                                                                    ) : (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="bg-blue-600 hover:bg-blue-700"
-                                                                            onClick={() => initiateAction('request_approval', 'ringba')}
-                                                                            disabled={!!actionLoading}
-                                                                        >
-                                                                            Process & Request
-                                                                        </Button>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </>
-                                                    )
-                                                }
+                                                                        {session?.user?.can_approve_cake ? (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="bg-green-600 hover:bg-green-700"
+                                                                                onClick={() => initiateAction('approve', 'cake')}
+                                                                                disabled={!!actionLoading}
+                                                                            >
+                                                                                {signup.cake_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="bg-blue-600 hover:bg-blue-700"
+                                                                                onClick={() => initiateAction('request_approval', 'cake')}
+                                                                                disabled={!!actionLoading}
+                                                                            >
+                                                                                Process & Request
+                                                                            </Button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    }
+                                                </div>
                                             </div>
+
+                                            {(signup.cake_decision_reason || signup.cake_processed_by) && (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-start gap-2">
+                                                        <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                                                        <div className="text-sm">
+                                                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Decision Reason</p>
+                                                            <p className="mt-0.5">{signup.cake_decision_reason || 'No reason provided'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <User className="h-4 w-4 text-muted-foreground" />
+                                                            <div className="text-xs">
+                                                                <p className="text-muted-foreground uppercase tracking-wider">Processed By</p>
+                                                                <p className="font-medium">{signup.cake_processed_by || 'System'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                            <div className="text-xs">
+                                                                <p className="text-muted-foreground uppercase tracking-wider">Date</p>
+                                                                <p className="font-medium">{signup.cake_processed_at ? new Date(signup.cake_processed_at).toLocaleDateString() : 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
+                                    </CardContent>
+                                </Card>
+                            )}
 
-                                        {(signup.ringba_decision_reason || signup.ringba_processed_by) && (
-                                            <div className="space-y-3">
-                                                <div className="flex items-start gap-2">
-                                                    <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                                                    <div className="text-sm">
-                                                        <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Decision Reason</p>
-                                                        <p className="mt-0.5">{signup.ringba_decision_reason || 'No reason provided'}</p>
+                            {/* Ringba Card */}
+                            {(signup.marketingInfo?.applicationType === 'Both' || signup.marketingInfo?.applicationType === 'Call Traffic') && (
+                                <Card className={`border-l-4 ${signup.ringba_api_status === true ? 'border-l-green-500' : signup.ringba_api_status === false ? 'border-l-red-500' : 'border-l-yellow-500'} shadow-sm`}>
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                            <span>Ringba (Call Traffic)</span>
+                                            <Badge variant="outline" className={
+                                                signup.ringba_api_status === 'APPROVED' ? "text-green-600 bg-green-50 border-green-200" :
+                                                    signup.ringba_api_status === 'REJECTED' ? "text-red-700 bg-red-50 border-red-200" :
+                                                        signup.ringba_api_status === 'FAILED' ? "text-red-500 bg-red-50 border-red-100" :
+                                                            "text-yellow-600 bg-yellow-50 border-yellow-200"
+                                            }>
+                                                {signup.ringba_api_status === 'APPROVED' ? 'Approved' : signup.ringba_api_status === 'REJECTED' ? 'Rejected' : signup.ringba_api_status === 'FAILED' ? 'Failed' : 'Pending'}
+                                            </Badge>
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-sm">
+                                                    <div className="flex flex-col gap-2">
+                                                        {signup.ringba_affiliate_id ? (
+                                                            <span className="font-mono bg-muted px-2 py-1 rounded w-fit text-xs">ID: {signup.ringba_affiliate_id}</span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground italic text-xs">No Affiliate ID yet</span>
+                                                        )}
+
+                                                        {signup.ringba_assigned_name && (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Name</span>
+                                                                <span className="font-bold text-red-700 bg-red-50 px-2 py-1 rounded text-sm border border-red-100 shadow-sm">
+                                                                    {signup.ringba_assigned_name}
+                                                                </span>
+                                                            </div>
+                                                        )}
+
+                                                        {signup.ringba_sub_id && (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Sub ID</span>
+                                                                <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                                                    {signup.ringba_sub_id}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <User className="h-4 w-4 text-muted-foreground" />
-                                                        <div className="text-xs">
-                                                            <p className="text-muted-foreground uppercase tracking-wider">Processed By</p>
-                                                            <p className="font-medium">{signup.ringba_processed_by || 'System'}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                        <div className="text-xs">
-                                                            <p className="text-muted-foreground uppercase tracking-wider">Date</p>
-                                                            <p className="font-medium">{signup.ringba_processed_at ? new Date(signup.ringba_processed_at).toLocaleDateString() : 'N/A'}</p>
-                                                        </div>
-                                                    </div>
+                                                <div className="flex gap-2">
+                                                    {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN' || session?.user?.can_approve_ringba || session?.user?.can_request_ringba) &&
+                                                        (['Call Traffic', 'Both'].includes(session?.user?.application_permission || '')) && (
+                                                            <>
+                                                                {!signup.ringba_affiliate_id && (
+                                                                    <>
+                                                                        <Button
+                                                                            variant="destructive"
+                                                                            size="sm"
+                                                                            onClick={() => initiateAction('reject', 'ringba')}
+                                                                            disabled={!!actionLoading}
+                                                                        >
+                                                                            Reject
+                                                                        </Button>
+                                                                        {session?.user?.can_approve_ringba ? (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="bg-green-600 hover:bg-green-700"
+                                                                                onClick={() => initiateAction('approve', 'ringba')}
+                                                                                disabled={!!actionLoading}
+                                                                            >
+                                                                                {signup.ringba_api_status === 'FAILED' ? 'Retry Approval' : 'Approve'}
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="bg-blue-600 hover:bg-blue-700"
+                                                                                onClick={() => initiateAction('request_approval', 'ringba')}
+                                                                                disabled={!!actionLoading}
+                                                                            >
+                                                                                Process & Request
+                                                                            </Button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    }
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+
+                                            {(signup.ringba_decision_reason || signup.ringba_processed_by) && (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-start gap-2">
+                                                        <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                                                        <div className="text-sm">
+                                                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Decision Reason</p>
+                                                            <p className="mt-0.5">{signup.ringba_decision_reason || 'No reason provided'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <User className="h-4 w-4 text-muted-foreground" />
+                                                            <div className="text-xs">
+                                                                <p className="text-muted-foreground uppercase tracking-wider">Processed By</p>
+                                                                <p className="font-medium">{signup.ringba_processed_by || 'System'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                            <div className="text-xs">
+                                                                <p className="text-muted-foreground uppercase tracking-wider">Date</p>
+                                                                <p className="font-medium">{signup.ringba_processed_at ? new Date(signup.ringba_processed_at).toLocaleDateString() : 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
             {signup.status === 'REJECTED' && (
                 <div className="flex gap-2 justify-end">
@@ -2200,22 +2160,28 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         <div className="flex flex-wrap gap-2 min-h-[28px]">
                             {signup.tags && signup.tags.length > 0 ? (
                                 signup.tags.map((tag: string, idx: number) => (
-                                    <TagBadge 
-                                        key={idx} 
-                                        name={tag} 
-                                        showRemove={(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN')} 
-                                    />
+                                    <Badge key={idx} variant="secondary" className="px-2.5 py-1 text-xs bg-muted/50 border-border/50 text-foreground flex items-center gap-1.5">
+                                        {tag}
+                                        {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                            <button
+                                                onClick={() => handleRemoveTag(tag)}
+                                                className="text-muted-foreground hover:text-red-500 rounded-full focus:outline-none transition-colors"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </Badge>
                                 ))
                             ) : (
                                 <span className="text-sm text-muted-foreground italic mt-1">No tags assigned.</span>
                             )}
                         </div>
-                        
+
                         {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
                             <div className="flex items-center gap-2 pt-2 border-t border-dashed">
-                                <Input 
-                                    className="h-8 text-xs flex-1 border-border/50 bg-muted/20" 
-                                    placeholder="Add new tag..." 
+                                <Input
+                                    className="h-8 text-xs flex-1 border-border/50 bg-muted/20"
+                                    placeholder="Add new tag..."
                                     value={tagInput}
                                     list="global-tags"
                                     onChange={(e) => setTagInput(e.target.value)}
@@ -2228,12 +2194,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 />
                                 <datalist id="global-tags">
                                     {globalTags.map((tag) => (
-                                        <option key={tag.name} value={tag.name} />
+                                        <option key={tag} value={tag} />
                                     ))}
                                 </datalist>
-                                <Button 
-                                    size="sm" 
-                                    className="h-8 px-3" 
+                                <Button
+                                    size="sm"
+                                    className="h-8 px-3"
                                     onClick={handleAddTag}
                                     disabled={!tagInput.trim() || isSavingTag}
                                 >
@@ -2328,10 +2294,10 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                         <CardTitle>Internal Chat</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <InternalNotesChat 
+                        <InternalNotesChat
                             signupId={id as string}
                             initialNotes={signup.notes || []}
-                            onNotesUpdate={(notes: any[]) => setSignup({...signup, notes})}
+                            onNotesUpdate={(notes: any[]) => setSignup({ ...signup, notes })}
                             className="border-none shadow-none rounded-none"
                             maxHeight="500px"
                         />

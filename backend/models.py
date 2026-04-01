@@ -137,7 +137,6 @@ class SignupInDB(SignupCreate):
 
 class Tag(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
-    color: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserRole(str, Enum):

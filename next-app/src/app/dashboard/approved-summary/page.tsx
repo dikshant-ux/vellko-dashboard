@@ -1,10 +1,5 @@
 'use client';
 
-interface Tag {
-    name: string;
-    color?: string;
-}
-
 import { useEffect, useState, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
@@ -60,7 +55,7 @@ function ApprovedSummaryContent() {
     const [filterAppType, setFilterAppType] = useState<string>("all");
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("all");
-    const [tags, setTags] = useState<Tag[]>([]);
+    const [tags, setTags] = useState<string[]>([]);
     const [filterTag, setFilterTag] = useState<string>("all");
 
     // Sorting and Pagination State
@@ -138,7 +133,7 @@ function ApprovedSummaryContent() {
                     console.error(err);
                     setIsLoading(false);
                 });
-                
+
             return () => {
                 isActive = false;
             };
@@ -158,31 +153,6 @@ function ApprovedSummaryContent() {
     const SortIcon = ({ field }: { field: string }) => {
         if (sortBy !== field) return null;
         return sortOrder === 1 ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
-    };
-
-    const TagBadge = ({ name }: { name: string }) => {
-        const tagData = tags.find(t => t.name === name);
-        const color = tagData?.color;
-        
-        const style = color ? {
-            backgroundColor: `${color}15`,
-            color: color,
-            borderColor: `${color}30`,
-        } : {
-            backgroundColor: '#fdf2f8', // bg-pink-50
-            color: '#be185d', // text-pink-700
-            borderColor: '#fbcfe8', // border-pink-200
-        };
-
-        return (
-            <Badge 
-                variant="outline" 
-                className="text-[10px] px-2 py-0.5 h-5 font-semibold shadow-sm truncate max-w-full uppercase"
-                style={style}
-            >
-                {name}
-            </Badge>
-        );
     };
 
     const filteredSignups = signups;
@@ -290,7 +260,7 @@ function ApprovedSummaryContent() {
                                     <SelectContent>
                                         <SelectItem value="all">All Tags</SelectItem>
                                         {tags.map((t) => (
-                                            <SelectItem key={t.name} value={t.name}>{t.name}</SelectItem>
+                                            <SelectItem key={t} value={t}>{t}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -410,7 +380,9 @@ function ApprovedSummaryContent() {
                                                 {signup.tags && signup.tags.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1 max-w-[150px]">
                                                         {signup.tags.map((tag: string, idx: number) => (
-                                                            <TagBadge key={idx} name={tag} />
+                                                            <Badge key={idx} variant="outline" className="text-[10px] px-2 py-0.5 h-5 bg-pink-50 text-pink-700 border-pink-200 font-semibold shadow-sm truncate max-w-full">
+                                                                {tag}
+                                                            </Badge>
                                                         ))}
                                                     </div>
                                                 ) : (

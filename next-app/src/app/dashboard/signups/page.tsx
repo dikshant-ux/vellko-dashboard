@@ -1,10 +1,5 @@
 'use client';
 
-interface Tag {
-    name: string;
-    color?: string;
-}
-
 import { useEffect, useState, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -53,7 +48,7 @@ function SignupsContent() {
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("all");
     const [filterAppType, setFilterAppType] = useState<string | null>(null);
-    const [tags, setTags] = useState<Tag[]>([]);
+    const [tags, setTags] = useState<string[]>([]);
     const [filterTag, setFilterTag] = useState<string>("all");
 
     // Pagination State
@@ -72,7 +67,7 @@ function SignupsContent() {
             .then(res => res.json())
             .then(data => setReferrers(data))
             .catch(console.error);
-            
+
         if (status === 'authenticated' && session?.accessToken) {
             authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/tags`)
                 .then(res => res ? res.json() : [])
@@ -139,7 +134,7 @@ function SignupsContent() {
                     console.error(err);
                     setIsLoading(false);
                 });
-                
+
             return () => {
                 isActive = false;
                 controller.abort();
@@ -245,31 +240,6 @@ function SignupsContent() {
         return <Badge variant="outline" className={`${variants[status] || variants[signup.status] || ""} border font-medium whitespace-nowrap`}>{status}</Badge>;
     };
 
-    const TagBadge = ({ name }: { name: string }) => {
-        const tagData = tags.find(t => t.name === name);
-        const color = tagData?.color;
-        
-        const style = color ? {
-            backgroundColor: `${color}15`,
-            color: color,
-            borderColor: `${color}30`,
-        } : {
-            backgroundColor: '#fdf2f8', // bg-pink-50
-            color: '#be185d', // text-pink-700
-            borderColor: '#fbcfe8', // border-pink-200
-        };
-
-        return (
-            <Badge 
-                variant="outline" 
-                className="text-[10px] px-2 py-0.5 h-5 font-semibold shadow-sm truncate max-w-full uppercase"
-                style={style}
-            >
-                {name}
-            </Badge>
-        );
-    };
-
     const handleDelete = async (signupId: string, companyName: string) => {
         if (!confirm(`Are you sure you want to permanently delete the signup for "${companyName}"? This action cannot be undone.`)) return;
 
@@ -370,7 +340,7 @@ function SignupsContent() {
                                     <SelectContent>
                                         <SelectItem value="all">All Tags</SelectItem>
                                         {tags.map((t) => (
-                                            <SelectItem key={t.name} value={t.name}>{t.name}</SelectItem>
+                                            <SelectItem key={t} value={t}>{t}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -467,7 +437,9 @@ function SignupsContent() {
                                                 {signup.tags && signup.tags.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1 max-w-[150px]">
                                                         {signup.tags.map((tag: string, idx: number) => (
-                                                            <TagBadge key={idx} name={tag} />
+                                                            <Badge key={idx} variant="outline" className="text-[10px] px-2 py-0.5 h-5 bg-pink-50 text-pink-700 border-pink-200 font-semibold shadow-sm truncate max-w-full">
+                                                                {tag}
+                                                            </Badge>
                                                         ))}
                                                     </div>
                                                 ) : (
@@ -571,7 +543,9 @@ function SignupsContent() {
                                                     {signup.tags && signup.tags.length > 0 && (
                                                         <div className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-4">
                                                             {signup.tags.map((tag: string, idx: number) => (
-                                                                <TagBadge key={idx} name={tag} />
+                                                                <Badge key={idx} variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-pink-50 text-pink-700 border-pink-200 font-medium whitespace-nowrap shadow-sm">
+                                                                    {tag}
+                                                                </Badge>
                                                             ))}
                                                         </div>
                                                     )}
@@ -617,9 +591,9 @@ function SignupsContent() {
                                                         <Trash className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                     </Button>
                                                 )}
-                                                <Button 
-                                                    size="icon" 
-                                                    variant="ghost" 
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
                                                     className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-primary"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -710,7 +684,7 @@ function SignupsContent() {
                     companyName={selectedSignupForNotes.companyInfo?.companyName || 'Affiliate'}
                     initialNotes={selectedSignupForNotes.notes || []}
                     onNotesUpdate={(updatedNotes) => {
-                        setSignups(prev => prev.map(s => 
+                        setSignups(prev => prev.map(s =>
                             s._id === selectedSignupForNotes._id ? { ...s, notes: updatedNotes } : s
                         ));
                     }}
