@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronRight, Loader2, FileText, Calendar, Building2, User, ChevronLeft, Trash, Smartphone } from "lucide-react";
+import { Search, ChevronRight, Loader2, FileText, Calendar, Building2, User, ChevronLeft, Trash, Smartphone, Tag, X, Plus } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -31,6 +31,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { MessageSquare } from "lucide-react";
 import { InternalNotesModal } from "@/components/InternalNotesModal";
 
@@ -60,6 +65,11 @@ function SignupsContent() {
     // Notes Modal State
     const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
     const [selectedSignupForNotes, setSelectedSignupForNotes] = useState<any>(null);
+
+    // Inline Tag Popover State
+    const [tagPopoverOpen, setTagPopoverOpen] = useState<string | null>(null); // signup._id
+    const [tagInputValue, setTagInputValue] = useState('');
+    const [isSavingTag, setIsSavingTag] = useState(false);
 
     useEffect(() => {
         // referrers is public or requires auth? Public router has /referrers
@@ -265,6 +275,52 @@ function SignupsContent() {
         }
     };
 
+    const handleAddTagInline = async (signupId: string, newTag: string) => {
+        if (!newTag.trim()) return;
+        const signup = signups.find(s => s._id === signupId);
+        if (!signup) return;
+        const currentTags: string[] = signup.tags || [];
+        if (currentTags.includes(newTag.trim())) {
+            setTagInputValue('');
+            return;
+        }
+        const updatedTags = [...currentTags, newTag.trim()];
+        setIsSavingTag(true);
+        try {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${signupId}/tags`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: updatedTags })
+            });
+            if (res?.ok) {
+                setSignups(prev => prev.map(s => s._id === signupId ? { ...s, tags: updatedTags } : s));
+                setTagInputValue('');
+            }
+        } catch (err) {
+            console.error('Failed to add tag', err);
+        } finally {
+            setIsSavingTag(false);
+        }
+    };
+
+    const handleRemoveTagInline = async (signupId: string, tagToRemove: string) => {
+        const signup = signups.find(s => s._id === signupId);
+        if (!signup) return;
+        const updatedTags = (signup.tags || []).filter((t: string) => t !== tagToRemove);
+        try {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/signups/${signupId}/tags`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: updatedTags })
+            });
+            if (res?.ok) {
+                setSignups(prev => prev.map(s => s._id === signupId ? { ...s, tags: updatedTags } : s));
+            }
+        } catch (err) {
+            console.error('Failed to remove tag', err);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -439,30 +495,121 @@ function SignupsContent() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {signup.tags && signup.tags.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                                         {signup.tags.map((tag: string, idx: number) => {
-                                                                const tagDef = tags.find(t => t.name === tag);
-                                                                const tagColor = tagDef?.color || '#EF4444';
-                                                                return (
-                                                                    <Badge 
-                                                                        key={idx} 
-                                                                        variant="outline" 
-                                                                        className="text-[10px] px-2 py-0.5 h-5 font-semibold shadow-sm truncate max-w-full border-transparent"
-                                                                        style={{ 
-                                                                            backgroundColor: `${tagColor}15`, 
-                                                                            color: tagColor,
-                                                                            borderColor: `${tagColor}40`
-                                                                        }}
+                                                <div className="flex flex-wrap gap-1 max-w-[180px] items-center">
+                                                    {signup.tags && signup.tags.length > 0 && signup.tags.map((tag: string, idx: number) => {
+                                                        const tagDef = tags.find(t => t.name === tag);
+                                                        const tagColor = tagDef?.color || '#EF4444';
+                                                        return (
+                                                            <Badge
+                                                                key={idx}
+                                                                variant="outline"
+                                                                className="text-[10px] px-1.5 py-0.5 h-5 font-semibold shadow-sm border-transparent flex items-center gap-1 group"
+                                                                style={{
+                                                                    backgroundColor: `${tagColor}15`,
+                                                                    color: tagColor,
+                                                                    borderColor: `${tagColor}40`
+                                                                }}
+                                                            >
+                                                                {tag}
+                                                                {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleRemoveTagInline(signup._id, tag); }}
+                                                                        className="ml-0.5 opacity-0 group-hover:opacity-70 hover:!opacity-100 rounded-full focus:outline-none transition-opacity"
                                                                     >
-                                                                        {tag}
-                                                                    </Badge>
-                                                                );
-                                                            })}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400 italic">No tags</span>
-                                                )}
+                                                                        <X className="h-2.5 w-2.5" />
+                                                                    </button>
+                                                                )}
+                                                            </Badge>
+                                                        );
+                                                    })}
+                                                    {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                                        <Popover
+                                                            open={tagPopoverOpen === signup._id}
+                                                            onOpenChange={(open) => {
+                                                                setTagPopoverOpen(open ? signup._id : null);
+                                                                if (!open) setTagInputValue('');
+                                                            }}
+                                                        >
+                                                            <PopoverTrigger asChild>
+                                                                <button
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="flex items-center justify-center h-5 w-5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-primary hover:text-primary transition-colors"
+                                                                    title="Add tag"
+                                                                >
+                                                                    <Plus className="h-3 w-3" />
+                                                                </button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent
+                                                                className="w-64 p-3 shadow-xl"
+                                                                align="start"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Manage Tags</p>
+                                                                {/* Existing tags on this signup */}
+                                                                {signup.tags && signup.tags.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1.5 mb-3">
+                                                                        {signup.tags.map((tag: string, idx: number) => {
+                                                                            const tagDef = tags.find(t => t.name === tag);
+                                                                            const tagColor = tagDef?.color || '#EF4444';
+                                                                            return (
+                                                                                <span
+                                                                                    key={idx}
+                                                                                    className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                                                                    style={{ backgroundColor: `${tagColor}15`, color: tagColor }}
+                                                                                >
+                                                                                    {tag}
+                                                                                    <button onClick={() => handleRemoveTagInline(signup._id, tag)} className="hover:opacity-70">
+                                                                                        <X className="h-2.5 w-2.5" />
+                                                                                    </button>
+                                                                                </span>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                                {/* Available global tags to add */}
+                                                                <div className="space-y-1 max-h-32 overflow-y-auto mb-3">
+                                                                    {tags.filter(t => !(signup.tags || []).includes(t.name)).map(t => (
+                                                                        <button
+                                                                            key={t.name}
+                                                                            onClick={() => handleAddTagInline(signup._id, t.name)}
+                                                                            disabled={isSavingTag}
+                                                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-gray-50 transition-colors text-left"
+                                                                        >
+                                                                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                                                                            <span className="font-medium">{t.name}</span>
+                                                                        </button>
+                                                                    ))}
+                                                                    {tags.filter(t => !(signup.tags || []).includes(t.name)).length === 0 && (
+                                                                        <p className="text-xs text-gray-400 italic px-2">All tags applied</p>
+                                                                    )}
+                                                                </div>
+                                                                {/* Custom tag input */}
+                                                                <div className="flex items-center gap-1.5 border-t pt-2">
+                                                                    <Input
+                                                                        className="h-7 text-xs flex-1"
+                                                                        placeholder="New tag name..."
+                                                                        value={tagInputValue}
+                                                                        onChange={(e) => setTagInputValue(e.target.value)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') handleAddTagInline(signup._id, tagInputValue);
+                                                                        }}
+                                                                    />
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="h-7 px-2"
+                                                                        disabled={isSavingTag || !tagInputValue.trim()}
+                                                                        onClick={() => handleAddTagInline(signup._id, tagInputValue)}
+                                                                    >
+                                                                        {isSavingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                                                                    </Button>
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    )}
+                                                    {(!signup.tags || signup.tags.length === 0) && !(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                                        <span className="text-xs text-gray-400 italic">No tags</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <StatusBadge signup={signup} />
@@ -558,15 +705,69 @@ function SignupsContent() {
                                                         <Calendar className="h-3 w-3 flex-shrink-0" />
                                                         {new Date(signup.created_at).toLocaleDateString()}
                                                     </div>
-                                                    {signup.tags && signup.tags.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-4">
-                                                            {signup.tags.map((tag: string, idx: number) => (
-                                                                <Badge key={idx} variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-pink-50 text-pink-700 border-pink-200 font-medium whitespace-nowrap shadow-sm">
+                                                    <div className="flex flex-wrap gap-1 mt-1.5 items-center">
+                                                        {signup.tags && signup.tags.map((tag: string, idx: number) => {
+                                                            const tagDef = tags.find(t => t.name === tag);
+                                                            const tagColor = tagDef?.color || '#EF4444';
+                                                            return (
+                                                                <Badge key={idx} variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-medium whitespace-nowrap shadow-sm border-transparent flex items-center gap-1" style={{ backgroundColor: `${tagColor}15`, color: tagColor }}>
                                                                     {tag}
                                                                 </Badge>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                            );
+                                                        })}
+                                                        {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                                            <Popover
+                                                                open={tagPopoverOpen === `mobile-${signup._id}`}
+                                                                onOpenChange={(open) => {
+                                                                    setTagPopoverOpen(open ? `mobile-${signup._id}` : null);
+                                                                    if (!open) setTagInputValue('');
+                                                                }}
+                                                            >
+                                                                <PopoverTrigger asChild>
+                                                                    <button
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="flex items-center justify-center h-4 w-4 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-primary hover:text-primary transition-colors"
+                                                                    >
+                                                                        <Plus className="h-2.5 w-2.5" />
+                                                                    </button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-64 p-3 shadow-xl" align="start" onClick={(e) => e.stopPropagation()}>
+                                                                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Manage Tags</p>
+                                                                    {signup.tags && signup.tags.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                                                            {signup.tags.map((tag: string, idx: number) => {
+                                                                                const tagDef = tags.find(t => t.name === tag);
+                                                                                const tagColor = tagDef?.color || '#EF4444';
+                                                                                return (
+                                                                                    <span key={idx} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: `${tagColor}15`, color: tagColor }}>
+                                                                                        {tag}
+                                                                                        <button onClick={() => handleRemoveTagInline(signup._id, tag)} className="hover:opacity-70"><X className="h-2.5 w-2.5" /></button>
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="space-y-1 max-h-32 overflow-y-auto mb-3">
+                                                                        {tags.filter(t => !(signup.tags || []).includes(t.name)).map(t => (
+                                                                            <button key={t.name} onClick={() => handleAddTagInline(signup._id, t.name)} disabled={isSavingTag} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-gray-50 transition-colors text-left">
+                                                                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                                                                                <span className="font-medium">{t.name}</span>
+                                                                            </button>
+                                                                        ))}
+                                                                        {tags.filter(t => !(signup.tags || []).includes(t.name)).length === 0 && (
+                                                                            <p className="text-xs text-gray-400 italic px-2">All tags applied</p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 border-t pt-2">
+                                                                        <Input className="h-7 text-xs flex-1" placeholder="New tag name..." value={tagInputValue} onChange={(e) => setTagInputValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddTagInline(signup._id, tagInputValue); }} />
+                                                                        <Button size="sm" className="h-7 px-2" disabled={isSavingTag || !tagInputValue.trim()} onClick={() => handleAddTagInline(signup._id, tagInputValue)}>
+                                                                            {isSavingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                                                                        </Button>
+                                                                    </div>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="flex-shrink-0">
