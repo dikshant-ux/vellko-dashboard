@@ -1587,6 +1587,13 @@ async def update_tag(tag_name: str, update: TagUpdate, user: User = Depends(get_
     if user.role == UserRole.ANALYTIC:
         raise HTTPException(status_code=403, detail="Analytic users cannot edit tags")
     
+    # 1. Validation: If renaming, check if new name already exists
+    if update.new_name and update.new_name != tag_name:
+        existing = await db.tags.find_one({"name": update.new_name})
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Tag name '{update.new_name}' already exists.")
+
+    # 2. Update/Create registry entry
     update_doc = {}
     if update.new_name:
         update_doc["name"] = update.new_name
@@ -1596,18 +1603,18 @@ async def update_tag(tag_name: str, update: TagUpdate, user: User = Depends(get_
     if not update_doc:
         return {"message": "No changes made"}
         
-    # Update standalone collection
-    await db.tags.update_many({"name": tag_name}, {"$set": update_doc})
+    # Use update_one with upsert=True to ensure the tag exists in the registry
+    await db.tags.update_one({"name": tag_name}, {"$set": update_doc}, upsert=True)
     
-    # If name changed, update all signups that have the old tag
+    # 3. Rename in signups if name changed
     if update.new_name and update.new_name != tag_name:
         result = await db.signups.update_many(
             {"tags": tag_name},
             {"$set": {"tags.$": update.new_name}}
         )
-        return {"message": f"Tag renamed/updated. Applied to {result.modified_count} applications."}
+        return {"message": f"Tag renamed globally. Updated {result.modified_count} applications."}
     
-    return {"message": "Tag updated successfully."}
+    return {"message": "Tag color/name updated successfully."}
 
 @router.delete("/signups/{id}/notes/{note_id}")
 async def delete_signup_note(id: str, note_id: str, user: User = Depends(get_current_admin)):
