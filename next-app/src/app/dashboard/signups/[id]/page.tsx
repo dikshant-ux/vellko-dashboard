@@ -58,7 +58,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
     const [apiSelection, setApiSelection] = useState({ cake: true, ringba: true });
     const [tagInput, setTagInput] = useState("");
     const [isSavingTag, setIsSavingTag] = useState(false);
-    const [globalTags, setGlobalTags] = useState<string[]>([]);
+    const [globalTags, setGlobalTags] = useState<{name: string, color: string}[]>([]);
     const [showApiSelection, setShowApiSelection] = useState(false);
 
     // Q/A Forms States
@@ -748,13 +748,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                 },
                 body: JSON.stringify({ tags: updatedTags })
             });
-
             if (res.ok) {
                 setSignup((prev: any) => ({ ...prev, tags: updatedTags }));
                 setTagInput("");
                 // Add to global suggests if not there
-                if (!globalTags.includes(newTag)) {
-                    setGlobalTags(prev => [...prev, newTag].sort());
+                if (!globalTags.find(t => t.name === newTag)) {
+                    setGlobalTags(prev => [...prev, { name: newTag, color: "#EF4444" }].sort((a, b) => a.name.localeCompare(b.name)));
                 }
             } else {
                 const err = await res.json();
@@ -2159,19 +2158,33 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                     <CardContent className="text-sm px-4 sm:px-6 pt-4 pb-4 space-y-4">
                         <div className="flex flex-wrap gap-2 min-h-[28px]">
                             {signup.tags && signup.tags.length > 0 ? (
-                                signup.tags.map((tag: string, idx: number) => (
-                                    <Badge key={idx} variant="secondary" className="px-2.5 py-1 text-xs bg-muted/50 border-border/50 text-foreground flex items-center gap-1.5">
-                                        {tag}
-                                        {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
-                                            <button
-                                                onClick={() => handleRemoveTag(tag)}
-                                                className="text-muted-foreground hover:text-red-500 rounded-full focus:outline-none transition-colors"
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        )}
-                                    </Badge>
-                                ))
+                                signup.tags.map((tag: string, idx: number) => {
+                                    const tagDef = globalTags.find(t => t.name === tag);
+                                    const tagColor = tagDef?.color || '#EF4444';
+                                    return (
+                                        <Badge 
+                                            key={idx} 
+                                            variant="outline" 
+                                            className="px-2.5 py-1 text-xs font-semibold shadow-sm border-transparent flex items-center gap-1.5"
+                                            style={{ 
+                                                backgroundColor: `${tagColor}15`, 
+                                                color: tagColor,
+                                                borderColor: `${tagColor}40`
+                                            }}
+                                        >
+                                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tagColor }} />
+                                            {tag}
+                                            {(session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
+                                                <button
+                                                    onClick={() => handleRemoveTag(tag)}
+                                                    className="ml-0.5 hover:opacity-70 rounded-full focus:outline-none transition-opacity"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </Badge>
+                                    );
+                                })
                             ) : (
                                 <span className="text-sm text-muted-foreground italic mt-1">No tags assigned.</span>
                             )}
@@ -2194,7 +2207,7 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
                                 />
                                 <datalist id="global-tags">
                                     {globalTags.map((tag) => (
-                                        <option key={tag} value={tag} />
+                                        <option key={tag.name} value={tag.name} />
                                     ))}
                                 </datalist>
                                 <Button

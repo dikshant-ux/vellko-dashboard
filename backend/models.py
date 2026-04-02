@@ -137,6 +137,7 @@ class SignupInDB(SignupCreate):
 
 class Tag(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
+    color: str = Field(default="#EF4444")  # Default to Red-500
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserRole(str, Enum):

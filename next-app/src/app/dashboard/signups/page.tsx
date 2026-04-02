@@ -48,7 +48,7 @@ function SignupsContent() {
     const [referrers, setReferrers] = useState<{ id: string, name: string }[]>([]);
     const [filterReferral, setFilterReferral] = useState("all");
     const [filterAppType, setFilterAppType] = useState<string | null>(null);
-    const [tags, setTags] = useState<string[]>([]);
+    const [tags, setTags] = useState<{name: string, color: string}[]>([]);
     const [filterTag, setFilterTag] = useState<string>("all");
 
     // Pagination State
@@ -340,7 +340,12 @@ function SignupsContent() {
                                     <SelectContent>
                                         <SelectItem value="all">All Tags</SelectItem>
                                         {tags.map((t) => (
-                                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                                            <SelectItem key={t.name} value={t.name}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+                                                    {t.name}
+                                                </div>
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -436,11 +441,24 @@ function SignupsContent() {
                                             <TableCell>
                                                 {signup.tags && signup.tags.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                                        {signup.tags.map((tag: string, idx: number) => (
-                                                            <Badge key={idx} variant="outline" className="text-[10px] px-2 py-0.5 h-5 bg-pink-50 text-pink-700 border-pink-200 font-semibold shadow-sm truncate max-w-full">
-                                                                {tag}
-                                                            </Badge>
-                                                        ))}
+                                                         {signup.tags.map((tag: string, idx: number) => {
+                                                                const tagDef = tags.find(t => t.name === tag);
+                                                                const tagColor = tagDef?.color || '#EF4444';
+                                                                return (
+                                                                    <Badge 
+                                                                        key={idx} 
+                                                                        variant="outline" 
+                                                                        className="text-[10px] px-2 py-0.5 h-5 font-semibold shadow-sm truncate max-w-full border-transparent"
+                                                                        style={{ 
+                                                                            backgroundColor: `${tagColor}15`, 
+                                                                            color: tagColor,
+                                                                            borderColor: `${tagColor}40`
+                                                                        }}
+                                                                    >
+                                                                        {tag}
+                                                                    </Badge>
+                                                                );
+                                                            })}
                                                     </div>
                                                 ) : (
                                                     <span className="text-xs text-gray-400 italic">No tags</span>
