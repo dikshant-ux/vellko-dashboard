@@ -39,6 +39,11 @@ export function CallOfferUploadModal({ open, setOpen, onSuccess }: CallOfferUplo
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
             if (selectedFile.name.endsWith('.csv')) {
+                const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10MB
+                if (selectedFile.size > MAX_CSV_SIZE) {
+                    toast.error("CSV file is too large. Maximum size allowed is 10MB.");
+                    return;
+                }
                 setFile(selectedFile);
             } else {
                 toast.error("Please select a CSV file");

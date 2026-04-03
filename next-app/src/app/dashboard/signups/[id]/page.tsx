@@ -160,6 +160,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
             return;
         }
 
+        const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+        if (uploadFile.size > MAX_SIZE) {
+            alert(`File is too large. Maximum size allowed is 50MB.`);
+            return;
+        }
+
         setIsUploading(true);
         const formData = new FormData();
         formData.append("file", uploadFile);
@@ -201,6 +207,12 @@ export default function SignupDetailPage({ params }: { params: Promise<{ id: str
         const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
         if (!allowedExtensions.includes(fileExt)) {
             alert(`File type not allowed. Supported types: ${allowedExtensions.join(', ')}`);
+            return;
+        }
+
+        const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+        if (file.size > MAX_SIZE) {
+            alert(`File is too large. Maximum size allowed for QA files is 50MB.`);
             return;
         }
 
