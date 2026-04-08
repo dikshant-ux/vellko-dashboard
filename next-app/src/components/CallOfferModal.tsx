@@ -28,6 +28,7 @@ interface CallOffer {
     capping: string;
     coverage?: string;
     details: string;
+    status: string;
 }
 
 interface CallOfferModalProps {
@@ -36,6 +37,14 @@ interface CallOfferModalProps {
     onSuccess: () => void;
     offer?: CallOffer | null;
 }
+
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferModalProps) {
     const authFetch = useAuthFetch();
@@ -51,6 +60,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
         capping: "",
         coverage: "",
         details: "",
+        status: "Active",
     });
 
     const [isSaving, setIsSaving] = useState(false);
@@ -71,6 +81,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                 capping: "",
                 coverage: "",
                 details: "",
+                status: "Active",
             });
         }
     }, [offer, open]);
@@ -94,6 +105,7 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                 capping: formData.capping,
                 coverage: formData.coverage || "",
                 details: formData.details || "",
+                status: formData.status || "Active",
             };
 
             const res = await authFetch(url, {
@@ -130,6 +142,8 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                                 placeholder="e.g. C12345"
                             />
                         </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="campaign_name">Campaign Name</Label>
                             <Input
@@ -138,6 +152,22 @@ export function CallOfferModal({ open, setOpen, onSuccess, offer }: CallOfferMod
                                 onChange={(e) => setFormData({ ...formData, campaign_name: e.target.value })}
                                 placeholder="e.g. Solar Leads IVR"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="status">Status</Label>
+                            <Select 
+                                value={formData.status || "Active"} 
+                                onValueChange={(val) => setFormData({ ...formData, status: val })}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Active">Active</SelectItem>
+                                    <SelectItem value="Pause/ Hold">Pause/ Hold</SelectItem>
+                                    <SelectItem value="Closed">Closed</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

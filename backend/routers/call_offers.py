@@ -45,6 +45,7 @@ async def get_call_offers(
     limit: int = Query(100, ge=1, le=500),
     search: Optional[str] = None,
     coverage: Optional[str] = None,
+    status: Optional[str] = None,
     user: User = Depends(check_call_permission)
 ):
     query = {}
@@ -57,6 +58,12 @@ async def get_call_offers(
     
     if coverage:
         query["coverage"] = {"$regex": f"\\b{coverage}\\b", "$options": "i"} # Match whole word for state codes
+    
+    if status:
+        query["status"] = status
+    elif user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        # For non-admins, only show Active offers by default
+        query["status"] = "Active"
     
     total = await db.call_offers.count_documents(query)
     cursor = db.call_offers.find(query).skip(skip).limit(limit).sort("created_at", -1)
@@ -288,7 +295,8 @@ async def upload_call_offers(
             "target_geo": ["target geo", "geo", "target", "geography"],
             "capping": ["caping", "capping", "cap", "limit", "aping"],
             "coverage": ["coverage", "states", "area", "region", "regions"],
-            "details": ["details", "description", "note", "notes"]
+            "details": ["details", "description", "note", "notes"],
+            "status": ["status"]
         }
 
         campaign_count = 0
@@ -337,6 +345,7 @@ async def upload_call_offers(
                 "capping": get_val(row, "capping"),
                 "coverage": get_val(row, "coverage"),
                 "details": get_val(row, "details"),
+                "status": get_val(row, "status") or "Active",
                 "created_at": now,
                 "updated_at": now,
                 "created_by": user.username

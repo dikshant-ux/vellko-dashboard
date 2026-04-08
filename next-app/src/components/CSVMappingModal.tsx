@@ -44,6 +44,7 @@ const REQUIRED_FIELDS = [
     { id: "capping", label: "Capping" },
     { id: "coverage", label: "Coverage" },
     { id: "details", label: "Details / Notes" },
+    { id: "status", label: "Status" },
 ];
 
 export function CSVMappingModal({ 
@@ -74,7 +75,8 @@ export function CSVMappingModal({
                 target_geo: ["geo", "target", "geography"],
                 capping: ["capping", "caping", "cap", "aping"],
                 coverage: ["coverage", "states", "region"],
-                details: ["details", "notes", "description"]
+                details: ["details", "notes", "description"],
+                status: ["status"]
             };
 
             // Intelligent positional handling for "Campaign" headers if duplicates exist

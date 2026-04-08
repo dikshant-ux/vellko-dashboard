@@ -14,6 +14,11 @@ class APIConnectionType(str, Enum):
     CAKE = "CAKE"
     RINGBA = "RINGBA"
 
+class CallOfferStatus(str, Enum):
+    ACTIVE = "Active"
+    PAUSED = "Pause/ Hold"
+    CLOSED = "Closed"
+
 class CompanyInfo(BaseModel):
     companyName: str
     address: str
@@ -408,6 +413,7 @@ class CallOffer(BaseModel):
     capping: str
     coverage: Optional[str] = ""
     details: Optional[str] = ""
+    status: CallOfferStatus = CallOfferStatus.ACTIVE
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -427,6 +433,8 @@ class CallOfferCreate(BaseModel):
     capping: str
     coverage: Optional[str] = ""
     details: Optional[str] = ""
+    status: CallOfferStatus = CallOfferStatus.ACTIVE
+
 
 class CallOfferUpdate(BaseModel):
     verticals: Optional[str] = None
@@ -440,3 +448,4 @@ class CallOfferUpdate(BaseModel):
     capping: Optional[str] = None
     coverage: Optional[str] = None
     details: Optional[str] = None
+    status: Optional[CallOfferStatus] = None

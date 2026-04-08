@@ -72,6 +72,7 @@ interface CallOffer {
     capping: string;
     coverage?: string;
     details: string;
+    status: string;
 }
 
 export default function CallOffersPage() {
@@ -116,6 +117,7 @@ export default function CallOffersPage() {
     const [isCoverageModalOpen, setIsCoverageModalOpen] = useState(false);
     const [coverageOptions, setCoverageOptions] = useState<string[]>([]);
     const [selectedCoverage, setSelectedCoverage] = useState<string>("all");
+    const [selectedStatus, setSelectedStatus] = useState<string>("all");
     const [coverageSearch, setCoverageSearch] = useState("");
     const [isCoverageFilterOpen, setIsCoverageFilterOpen] = useState(false);
 
@@ -145,7 +147,8 @@ export default function CallOffersPage() {
                 skip: ((page - 1) * pageSize).toString(),
                 limit: pageSize.toString(),
                 ...(search && { search }),
-                ...(selectedCoverage !== "all" && { coverage: selectedCoverage })
+                ...(selectedCoverage !== "all" && { coverage: selectedCoverage }),
+                ...(selectedStatus !== "all" && { status: selectedStatus })
             });
 
             const response = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/call-offers?${queryParams.toString()}`);
@@ -159,7 +162,7 @@ export default function CallOffersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [authFetch, page, search, pageSize, selectedCoverage]);
+    }, [authFetch, page, search, pageSize, selectedCoverage, selectedStatus]);
 
     useEffect(() => {
         fetchOffers();
@@ -229,7 +232,27 @@ export default function CallOffersPage() {
                             />
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Status:</span>
+                                <Select
+                                    value={selectedStatus}
+                                    onValueChange={(val) => {
+                                        setSelectedStatus(val);
+                                        setPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="w-[140px] h-10 rounded-lg shadow-sm">
+                                        <SelectValue placeholder="All Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                        <SelectItem value="Active">Active</SelectItem>
+                                        <SelectItem value="Pause/ Hold">Pause/ Hold</SelectItem>
+                                        <SelectItem value="Closed">Closed</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Coverage:</span>
                             <Popover open={isCoverageFilterOpen} onOpenChange={setIsCoverageFilterOpen}>
                                 <PopoverTrigger asChild>
@@ -324,6 +347,7 @@ export default function CallOffersPage() {
                         <Table>
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
+                                    <TableHead>Status</TableHead>
                                     <TableHead>Verticals</TableHead>
                                     <TableHead>ID</TableHead>
                                     <TableHead className="min-w-[200px]">Campaign Name</TableHead>
@@ -340,7 +364,7 @@ export default function CallOffersPage() {
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="h-24 text-center">
+                                        <TableCell colSpan={11} className="h-24 text-center">
                                             <div className="flex items-center justify-center">
                                                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
                                                 Loading offers...
@@ -349,13 +373,56 @@ export default function CallOffersPage() {
                                     </TableRow>
                                 ) : offers.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="h-24 text-center">
+                                        <TableCell colSpan={11} className="h-24 text-center">
                                             No call offers found.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     offers.map((offer) => (
                                         <TableRow key={offer.id}>
+                                            <TableCell>
+                                                <Select
+                                                    value={offer.status || "Active"}
+                                                    onValueChange={async (newStatus) => {
+                                                        try {
+                                                            const response = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/call-offers/${offer.id}`, {
+                                                                method: "PUT",
+                                                                headers: { "Content-Type": "application/json" },
+                                                                body: JSON.stringify({ status: newStatus })
+                                                            });
+                                                            if (response && response.ok) {
+                                                                toast.success("Status updated");
+                                                                fetchOffers();
+                                                            }
+                                                        } catch (err) {
+                                                            console.error("Failed to update status", err);
+                                                            toast.error("Failed to update status");
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger className={cn(
+                                                        "h-7 w-[120px] text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all duration-200 focus:ring-0 px-3",
+                                                        offer.status === "Active" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50 hover:bg-emerald-100/80 hover:border-emerald-300" :
+                                                        offer.status === "Pause/ Hold" ? "bg-amber-50 text-amber-700 border-amber-200/50 hover:bg-amber-100/80 hover:border-amber-300" :
+                                                        "bg-rose-50 text-rose-700 border-rose-200/50 hover:bg-rose-100/80 hover:border-rose-300"
+                                                    )}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn(
+                                                                "h-1.5 w-1.5 rounded-full animate-pulse",
+                                                                offer.status === "Active" ? "bg-emerald-500" :
+                                                                offer.status === "Pause/ Hold" ? "bg-amber-500" :
+                                                                "bg-rose-500"
+                                                            )} />
+                                                            <SelectValue />
+                                                        </div>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Active" className="text-[10px] font-bold uppercase">Active</SelectItem>
+                                                        <SelectItem value="Pause/ Hold" className="text-[10px] font-bold uppercase">Pause/ Hold</SelectItem>
+                                                        <SelectItem value="Closed" className="text-[10px] font-bold uppercase text-red-600">Closed</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
                                             <TableCell>
                                                 <Badge variant="secondary" className="whitespace-nowrap">{offer.verticals}</Badge>
                                             </TableCell>
@@ -432,6 +499,47 @@ export default function CallOffersPage() {
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
+                                                    <Select
+                                                        value={offer.status || "Active"}
+                                                        onValueChange={async (newStatus) => {
+                                                            try {
+                                                                const response = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/call-offers/${offer.id}`, {
+                                                                    method: "PUT",
+                                                                    headers: { "Content-Type": "application/json" },
+                                                                    body: JSON.stringify({ status: newStatus })
+                                                                });
+                                                                if (response && response.ok) {
+                                                                    toast.success("Status updated");
+                                                                    fetchOffers();
+                                                                }
+                                                            } catch (err) {
+                                                                console.error("Failed to update status", err);
+                                                                toast.error("Failed to update status");
+                                                            }
+                                                        }}
+                                                    >
+                                                    <SelectTrigger className={cn(
+                                                        "h-6 w-[110px] text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all duration-200 focus:ring-0 px-2.5",
+                                                        offer.status === "Active" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50 hover:bg-emerald-100/80 hover:border-emerald-300" :
+                                                        offer.status === "Pause/ Hold" ? "bg-amber-50 text-amber-700 border-amber-200/50 hover:bg-amber-100/80 hover:border-amber-300" :
+                                                        "bg-rose-50 text-rose-700 border-rose-200/50 hover:bg-rose-100/80 hover:border-rose-300"
+                                                    )}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn(
+                                                                "h-1.5 w-1.5 rounded-full animate-pulse",
+                                                                offer.status === "Active" ? "bg-emerald-500" :
+                                                                offer.status === "Pause/ Hold" ? "bg-amber-500" :
+                                                                "bg-rose-500"
+                                                            )} />
+                                                            <SelectValue />
+                                                        </div>
+                                                    </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="Active" className="text-[10px] font-bold uppercase">Active</SelectItem>
+                                                            <SelectItem value="Pause/ Hold" className="text-[10px] font-bold uppercase">Pause/ Hold</SelectItem>
+                                                            <SelectItem value="Closed" className="text-[10px] font-bold uppercase text-red-600">Closed</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                     <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider">
                                                         {offer.verticals}
                                                     </Badge>

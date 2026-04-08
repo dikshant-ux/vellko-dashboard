@@ -98,17 +98,20 @@ export function ShareConfigurationModal({
         verticals: string[],
         campaign_types: string[],
         traffic_allowed: string[],
-        target_geos: string[]
+        target_geos: string[],
+        statuses: string[]
     }>({
         verticals: [],
         campaign_types: [],
         traffic_allowed: [],
-        target_geos: []
+        target_geos: [],
+        statuses: []
     });
     const [selectedCallVerticals, setSelectedCallVerticals] = useState<string[]>([]);
     const [selectedCallTypes, setSelectedCallTypes] = useState<string[]>([]);
     const [selectedCallTraffic, setSelectedCallTraffic] = useState<string[]>([]);
     const [selectedCallGeos, setSelectedCallGeos] = useState<string[]>([]);
+    const [selectedCallStatuses, setSelectedCallStatuses] = useState<string[]>([]);
 
     const isEdit = !!editToken;
 
@@ -128,6 +131,8 @@ export function ShareConfigurationModal({
                     const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/call-offers/filters`);
                     if (res?.ok) {
                         const data = await res.json();
+                        // Add hardcoded statuses since they might not be in DB yet or we want them explicit
+                        data.statuses = ["Active", "Pause/ Hold", "Closed"];
                         setCallFilterOptions(data);
                     }
                 }
@@ -176,6 +181,7 @@ export function ShareConfigurationModal({
                     if (data.filters && data.filters.call_types) setSelectedCallTypes(data.filters.call_types);
                     if (data.filters && data.filters.call_traffic) setSelectedCallTraffic(data.filters.call_traffic);
                     if (data.filters && data.filters.call_geos) setSelectedCallGeos(data.filters.call_geos);
+                    if (data.filters && data.filters.call_statuses) setSelectedCallStatuses(data.filters.call_statuses);
                 } else {
                     toast.error("Failed to load link configuration");
                 }
@@ -214,7 +220,8 @@ export function ShareConfigurationModal({
                     call_verticals: selectedCallVerticals,
                     call_types: selectedCallTypes,
                     call_traffic: selectedCallTraffic,
-                    call_geos: selectedCallGeos
+                    call_geos: selectedCallGeos,
+                    call_statuses: selectedCallStatuses
                 }
                 : {
                     ...currentFilters,
@@ -224,7 +231,8 @@ export function ShareConfigurationModal({
                     call_verticals: selectedCallVerticals,
                     call_types: selectedCallTypes,
                     call_traffic: selectedCallTraffic,
-                    call_geos: selectedCallGeos
+                    call_geos: selectedCallGeos,
+                    call_statuses: selectedCallStatuses
                 };
 
             // Remove old singular fields if they exist
@@ -295,6 +303,7 @@ export function ShareConfigurationModal({
         setSelectedCallTypes([]);
         setSelectedCallTraffic([]);
         setSelectedCallGeos([]);
+        setSelectedCallStatuses([]);
         setEditFilters(null);
     };
 
@@ -639,6 +648,32 @@ export function ShareConfigurationModal({
                                                             <div key={v} className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
                                                                 onClick={() => setSelectedCallGeos(prev => prev.includes(v) ? prev.filter(i => i !== v) : [...prev, v])}>
                                                                 <Checkbox checked={selectedCallGeos.includes(v)} />
+                                                                <Label className="text-sm cursor-pointer flex-1">{v}</Label>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Statuses</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between font-normal text-xs md:text-sm">
+                                                    {selectedCallStatuses.length === 0 ? "All Statuses" :
+                                                        selectedCallStatuses.length === 1 ? selectedCallStatuses[0] :
+                                                            `${selectedCallStatuses.length} Selected`}
+                                                    <Plus className="ml-2 h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[200px] p-0" align="start">
+                                                <div className="h-[200px] overflow-y-auto">
+                                                    <div className="p-2 space-y-1">
+                                                        {(callFilterOptions.statuses || ["Active", "Pause/ Hold", "Closed"]).map((v) => (
+                                                            <div key={v} className="flex items-center space-x-2 p-1 hover:bg-muted rounded-sm cursor-pointer"
+                                                                onClick={() => setSelectedCallStatuses(prev => prev.includes(v) ? prev.filter(i => i !== v) : [...prev, v])}>
+                                                                <Checkbox checked={selectedCallStatuses.includes(v)} />
                                                                 <Label className="text-sm cursor-pointer flex-1">{v}</Label>
                                                             </div>
                                                         ))}
