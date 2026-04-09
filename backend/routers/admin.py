@@ -1425,39 +1425,45 @@ async def add_signup_note(id: str, note: str = Body(..., embed=True), user: User
         
         recipient_emails = []
         
-        # 1. Branch Logic: Admin adds note vs Referrer adds note
+        # Determine target people with Super Admin as baseline
+        signup_app_type = signup_data.get("marketingInfo", {}).get("applicationType")
+        target_permissions = []
+        if signup_app_type == "Web Traffic":
+            target_permissions = ["Web Traffic", "Both"]
+        elif signup_app_type == "Call Traffic":
+            target_permissions = ["Call Traffic", "Both"]
+        else: # Both or All
+            target_permissions = ["Web Traffic", "Call Traffic", "Both"]
+
+        # Build query for recipients
+        recipients_query = {
+            "$and": [
+                {"username": {"$ne": user.username}}, # Exclude the author
+                {"$or": [
+                    {"role": UserRole.SUPER_ADMIN}, # Always include Super Admins
+                ]}
+            ]
+        }
+
+        # 1. If an Admin or Super Admin is posting, add the Referrer to notifications
         if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-            # Admin adding note -> Notify only the Referrer
             referral_id = signup_data.get("companyInfo", {}).get("referral_id")
             if referral_id:
                 try:
-                    referrer_user = await db.users.find_one({"_id": ObjectId(referral_id)})
-                    if referrer_user and referrer_user.get("email"):
-                        # Exclude self-notification
-                        if referrer_user.get("username") != user.username:
-                            recipient_emails = [referrer_user["email"]]
-                except Exception as ref_err:
-                    print(f"Error fetching referrer for note notification: {ref_err}")
+                    recipients_query["$and"][1]["$or"].append({"_id": ObjectId(referral_id)})
+                except:
+                    pass
+        
+        # 2. If a Referrer (User) is posting, add relevant Admins to notifications
         else:
-            # Referrer (User) adding note -> Notify relevant Admins (Original Logic)
-            signup_app_type = signup_data.get("marketingInfo", {}).get("applicationType")
-            
-            target_permissions = []
-            if signup_app_type == "Web Traffic":
-                target_permissions = ["Web Traffic", "Both"]
-            elif signup_app_type == "Call Traffic":
-                target_permissions = ["Call Traffic", "Both"]
-            elif signup_app_type == "Both":
-                target_permissions = ["Web Traffic", "Call Traffic", "Both"]
-                
-            cursor = db.users.find({
+            recipients_query["$and"][1]["$or"].append({
                 "role": UserRole.ADMIN,
-                "application_permission": {"$in": target_permissions},
-                "username": {"$ne": user.username} # Exclude the person adding the note
+                "application_permission": {"$in": target_permissions}
             })
-            
-            recipients = await cursor.to_list(length=100)
-            recipient_emails = [u["email"] for u in recipients if u.get("email")]
+
+        cursor = db.users.find(recipients_query)
+        recipients = await cursor.to_list(length=100)
+        recipient_emails = [u["email"] for u in recipients if u.get("email")]
         
         if recipient_emails:
             # Send notification (fire-and-forget background task to keep UI snappy)
