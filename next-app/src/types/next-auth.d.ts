@@ -15,6 +15,7 @@ declare module "next-auth" {
             can_request_cake?: boolean
             can_request_ringba?: boolean
             can_view_reports?: boolean
+            can_manage_advertisers?: boolean
         }
     }
 }

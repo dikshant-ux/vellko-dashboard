@@ -39,12 +39,12 @@ export default function UsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, cake_account_manager_id: '' });
+    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, can_manage_advertisers: true, cake_account_manager_id: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
-    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, cake_account_manager_id: '' });
+    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, can_manage_advertisers: true, cake_account_manager_id: '' });
     const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
@@ -93,7 +93,7 @@ export default function UsersPage() {
             .then(async res => {
                 if (res && res.ok) {
                     setOpen(false);
-                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, cake_account_manager_id: '' });
+                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, can_manage_advertisers: true, cake_account_manager_id: '' });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
@@ -187,6 +187,7 @@ export default function UsersPage() {
             can_request_cake: user.can_request_cake ?? false,
             can_request_ringba: user.can_request_ringba ?? false,
             can_view_reports: user.can_view_reports ?? true,
+            can_manage_advertisers: user.can_manage_advertisers ?? true,
             password: '', // Leave empty
             cake_account_manager_id: user.cake_account_manager_id || ''
         });
@@ -207,6 +208,7 @@ export default function UsersPage() {
         if (editForm.can_request_cake !== editingUser.can_request_cake) updateData.can_request_cake = editForm.can_request_cake;
         if (editForm.can_request_ringba !== editingUser.can_request_ringba) updateData.can_request_ringba = editForm.can_request_ringba;
         if (editForm.can_view_reports !== editingUser.can_view_reports) updateData.can_view_reports = editForm.can_view_reports;
+        if (editForm.can_manage_advertisers !== editingUser.can_manage_advertisers) updateData.can_manage_advertisers = editForm.can_manage_advertisers;
         if (editForm.cake_account_manager_id !== editingUser.cake_account_manager_id) updateData.cake_account_manager_id = editForm.cake_account_manager_id;
         if (editForm.password) updateData.password = editForm.password; // Only send if changed
 
@@ -245,157 +247,167 @@ export default function UsersPage() {
                             <Plus className="mr-2 h-4 w-4" /> Add User
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
+                    <DialogContent className="max-h-[90vh] flex flex-col p-0 overflow-hidden">
+                        <DialogHeader className="p-6 pb-4 border-b shrink-0">
                             <DialogTitle>Add New User</DialogTitle>
                         </DialogHeader>
-                        <form onSubmit={handleCreateUser} className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Username</Label>
-                                <Input required value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} placeholder="jdoe" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Full Name</Label>
-                                <Input required value={newUser.full_name} onChange={e => setNewUser({ ...newUser, full_name: e.target.value })} placeholder="John Doe" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Email</Label>
-                                <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="john@example.com" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        value={newUser.password}
-                                        onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                                        className="pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                                    >
-                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                        <form onSubmit={handleCreateUser} className="flex flex-col flex-1 overflow-hidden">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
                                 <div className="space-y-2">
-                                    <Label>Role</Label>
-                                    <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v })}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="USER">User</SelectItem>
-                                            <SelectItem value="ANALYTIC">Analytic</SelectItem>
-                                            <SelectItem value="ADMIN">Admin</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Label>Username</Label>
+                                    <Input required value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} placeholder="jdoe" />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Application Permission</Label>
-                                    <Select value={newUser.application_permission} onValueChange={v => setNewUser({ ...newUser, application_permission: v })}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {/* Super admin and Both permission admin can create any user */}
-                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
-                                                <>
+                                    <Label>Full Name</Label>
+                                    <Input required value={newUser.full_name} onChange={e => setNewUser({ ...newUser, full_name: e.target.value })} placeholder="John Doe" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Email</Label>
+                                    <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="john@example.com" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Password</Label>
+                                    <div className="relative">
+                                        <Input
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={newUser.password}
+                                            onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                                            className="pr-10"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Role</Label>
+                                        <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v })}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="USER">User</SelectItem>
+                                                <SelectItem value="ANALYTIC">Analytic</SelectItem>
+                                                <SelectItem value="ADMIN">Admin</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Application Permission</Label>
+                                        <Select value={newUser.application_permission} onValueChange={v => setNewUser({ ...newUser, application_permission: v })}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {/* Super admin and Both permission admin can create any user */}
+                                                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
+                                                    <>
+                                                        <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                                        <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                                        <SelectItem value="Both">Both</SelectItem>
+                                                    </>
+                                                )}
+                                                {/* Web admin can only create Web users */}
+                                                {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
                                                     <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                                )}
+                                                {/* Call admin can only create Call users */}
+                                                {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
                                                     <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                                    <SelectItem value="Both">Both</SelectItem>
-                                                </>
-                                            )}
-                                            {/* Web admin can only create Web users */}
-                                            {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
-                                                <SelectItem value="Web Traffic">Web Traffic</SelectItem>
-                                            )}
-                                            {/* Call admin can only create Call users */}
-                                            {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
-                                                <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Cake Account Manager ID</Label>
-                                <Input value={newUser.cake_account_manager_id} onChange={e => setNewUser({ ...newUser, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 border p-3 rounded-md">
+                                <div className="space-y-2">
+                                    <Label>Cake Account Manager ID</Label>
+                                    <Input value={newUser.cake_account_manager_id} onChange={e => setNewUser({ ...newUser, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 border p-3 rounded-md">
+                                    <div className="space-y-3">
+                                        <Label className="text-sm font-semibold">Cake Permissions</Label>
+                                        <div className="flex flex-col gap-2">
+                                        <Switch
+                                            id="new_can_request_cake"
+                                            label="Can Request"
+                                            checked={newUser.can_request_cake}
+                                            onChange={(checked) => {
+                                                setNewUser({ 
+                                                    ...newUser, 
+                                                    can_request_cake: checked,
+                                                    can_approve_cake: checked ? false : newUser.can_approve_cake
+                                                });
+                                            }}
+                                        />
+                                        <Switch
+                                            id="new_can_approve_cake"
+                                            label="Can Approve"
+                                            checked={newUser.can_approve_cake}
+                                            onChange={(checked) => {
+                                                setNewUser({ 
+                                                    ...newUser, 
+                                                    can_approve_cake: checked,
+                                                    can_request_cake: checked ? false : newUser.can_request_cake
+                                                });
+                                            }}
+                                        />
+                                    </div>
+                                </div>
                                 <div className="space-y-3">
-                                    <Label className="text-sm font-semibold">Cake Permissions</Label>
-                                    <div className="flex flex-col gap-2">
-                                    <Switch
-                                        id="new_can_request_cake"
-                                        label="Can Request"
-                                        checked={newUser.can_request_cake}
-                                        onChange={(checked) => {
-                                            setNewUser({ 
-                                                ...newUser, 
-                                                can_request_cake: checked,
-                                                can_approve_cake: checked ? false : newUser.can_approve_cake
-                                            });
-                                        }}
-                                    />
-                                    <Switch
-                                        id="new_can_approve_cake"
-                                        label="Can Approve"
-                                        checked={newUser.can_approve_cake}
-                                        onChange={(checked) => {
-                                            setNewUser({ 
-                                                ...newUser, 
-                                                can_approve_cake: checked,
-                                                can_request_cake: checked ? false : newUser.can_request_cake
-                                            });
-                                        }}
-                                    />
+                                    <Label className="text-sm font-semibold">Ringba Permissions</Label>
+                                    <div className="flex flex-col gap-1">
+                                        <Switch
+                                            id="new_can_request_ringba"
+                                            label="Can Request"
+                                            checked={newUser.can_request_ringba}
+                                            onChange={(checked) => {
+                                                setNewUser({ 
+                                                    ...newUser, 
+                                                    can_request_ringba: checked,
+                                                    can_approve_ringba: checked ? false : newUser.can_approve_ringba
+                                                });
+                                            }}
+                                        />
+                                        <Switch
+                                            id="new_can_approve_ringba"
+                                            label="Can Approve"
+                                            checked={newUser.can_approve_ringba}
+                                            onChange={(checked) => {
+                                                setNewUser({ 
+                                                    ...newUser, 
+                                                    can_approve_ringba: checked,
+                                                    can_request_ringba: checked ? false : newUser.can_request_ringba
+                                                });
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="space-y-3">
-                                <Label className="text-sm font-semibold">Ringba Permissions</Label>
-                                <div className="flex flex-col gap-1">
-                                    <Switch
-                                        id="new_can_request_ringba"
-                                        label="Can Request"
-                                        checked={newUser.can_request_ringba}
-                                        onChange={(checked) => {
-                                            setNewUser({ 
-                                                ...newUser, 
-                                                can_request_ringba: checked,
-                                                can_approve_ringba: checked ? false : newUser.can_approve_ringba
-                                            });
-                                        }}
-                                    />
-                                    <Switch
-                                        id="new_can_approve_ringba"
-                                        label="Can Approve"
-                                        checked={newUser.can_approve_ringba}
-                                        onChange={(checked) => {
-                                            setNewUser({ 
-                                                ...newUser, 
-                                                can_approve_ringba: checked,
-                                                can_request_ringba: checked ? false : newUser.can_request_ringba
-                                            });
-                                        }}
-                                    />
+                                 <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
+                                    <Label className="text-sm font-semibold">Additional Access</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Switch
+                                            id="new_can_report"
+                                            label="Reports Access"
+                                            checked={newUser.can_view_reports}
+                                            onChange={(checked) => setNewUser({ ...newUser, can_view_reports: checked })}
+                                        />
+                                        <Switch
+                                            id="new_can_manage_advertisers"
+                                            label="Advertiser Access"
+                                            checked={newUser.can_manage_advertisers}
+                                            onChange={(checked) => setNewUser({ ...newUser, can_manage_advertisers: checked })}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
-                                <Label className="text-sm font-semibold">Additional Access</Label>
-                                <Switch
-                                    id="new_can_report"
-                                    label="Reports Access"
-                                    checked={newUser.can_view_reports}
-                                    onChange={(checked) => setNewUser({ ...newUser, can_view_reports: checked })}
-                                />
                             </div>
                         </div>
-                        <div className="pt-4 flex justify-end">
+                        <div className="p-6 pt-4 border-t flex justify-end shrink-0 bg-gray-50/50">
                                 <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Create User
@@ -598,11 +610,6 @@ export default function UsersPage() {
                                                                     </div>
                                                                 </SelectValue>
                                                             </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="USER">User</SelectItem>
-                                                                <SelectItem value="ANALYTIC">Analytic</SelectItem>
-                                                                <SelectItem value="ADMIN">Admin</SelectItem>
-                                                            </SelectContent>
                                                         </Select>
                                                     ) : (
                                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${['ADMIN', 'SUPER_ADMIN'].includes(user.role) ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'
@@ -651,147 +658,157 @@ export default function UsersPage() {
 
             {/* Edit User Dialog */}
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                <DialogContent>
-                    <DialogHeader>
+                <DialogContent className="max-h-[90vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-6 pb-4 border-b shrink-0">
                         <DialogTitle>Edit User: {editingUser?.username}</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleSaveEdit} className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Full Name</Label>
-                            <Input
-                                value={editForm.full_name}
-                                onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
-                                placeholder="John Doe"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Email</Label>
-                            <Input
-                                type="email"
-                                value={editForm.email}
-                                onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                                placeholder="john@example.com"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Application Permission</Label>
-                            <Select value={editForm.application_permission} onValueChange={v => setEditForm({ ...editForm, application_permission: v })}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {/* Super admin and Both permission admin can assign any permission */}
-                                    {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
-                                        <>
-                                            <SelectItem value="Web Traffic">Web Traffic</SelectItem>
-                                            <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                            <SelectItem value="Both">Both</SelectItem>
-                                        </>
-                                    )}
-                                    {/* Web admin can only assign Web Traffic */}
-                                    {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
-                                        <SelectItem value="Web Traffic">Web Traffic</SelectItem>
-                                    )}
-                                    {/* Call admin can only assign Call Traffic */}
-                                    {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
-                                        <SelectItem value="Call Traffic">Call Traffic</SelectItem>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Cake Account Manager ID</Label>
-                            <Input value={editForm.cake_account_manager_id} onChange={e => setEditForm({ ...editForm, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 border p-3 rounded-md">
-                            <div className="space-y-3">
-                                <Label className="text-sm font-semibold">Cake Permissions</Label>
-                                <div className="flex flex-col gap-2">
-                                <Switch
-                                    id="edit_can_request_cake"
-                                    label="Can Request"
-                                    checked={editForm.can_request_cake}
-                                    onChange={(checked) => {
-                                        setEditForm({ 
-                                            ...editForm, 
-                                            can_request_cake: checked,
-                                            can_approve_cake: checked ? false : editForm.can_approve_cake
-                                        });
-                                    }}
-                                />
-                                <Switch
-                                    id="edit_can_approve_cake"
-                                    label="Can Approve"
-                                    checked={editForm.can_approve_cake}
-                                    onChange={(checked) => {
-                                        setEditForm({ 
-                                            ...editForm, 
-                                            can_approve_cake: checked,
-                                            can_request_cake: checked ? false : editForm.can_request_cake
-                                        });
-                                    }}
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                            <Label className="text-sm font-semibold">Ringba Permissions</Label>
-                            <div className="flex flex-col gap-1">
-                                <Switch
-                                    id="edit_can_request_ringba"
-                                    label="Can Request"
-                                    checked={editForm.can_request_ringba}
-                                    onChange={(checked) => {
-                                        setEditForm({ 
-                                            ...editForm, 
-                                            can_request_ringba: checked,
-                                            can_approve_ringba: checked ? false : editForm.can_approve_ringba
-                                        });
-                                    }}
-                                />
-                                <Switch
-                                    id="edit_can_approve_ringba"
-                                    label="Can Approve"
-                                    checked={editForm.can_approve_ringba}
-                                    onChange={(checked) => {
-                                        setEditForm({ 
-                                            ...editForm, 
-                                            can_approve_ringba: checked,
-                                            can_request_ringba: checked ? false : editForm.can_request_ringba
-                                        });
-                                    }}
-                                />
-                            </div>
-                        </div>
-                        <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
-                            <Label className="text-sm font-semibold">Additional Access</Label>
-                            <Switch
-                                id="edit_can_report"
-                                label="Reports Access"
-                                checked={editForm.can_view_reports}
-                                onChange={(checked) => setEditForm({ ...editForm, can_view_reports: checked })}
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                            <Label>New Password (leave empty to keep current)</Label>
-                            <div className="relative">
+                    <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 overflow-hidden">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
+                            <div className="space-y-2">
+                                <Label>Full Name</Label>
                                 <Input
-                                    type={showEditPassword ? "text" : "password"}
-                                    value={editForm.password}
-                                    onChange={e => setEditForm({ ...editForm, password: e.target.value })}
-                                    className="pr-10"
-                                    placeholder="••••••••"
+                                    value={editForm.full_name}
+                                    onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
+                                    placeholder="John Doe"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowEditPassword(!showEditPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                                >
-                                    {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Email</Label>
+                                <Input
+                                    type="email"
+                                    value={editForm.email}
+                                    onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                    placeholder="john@example.com"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Application Permission</Label>
+                                <Select value={editForm.application_permission} onValueChange={v => setEditForm({ ...editForm, application_permission: v })}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {/* Super admin and Both permission admin can assign any permission */}
+                                        {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.application_permission === 'Both') && (
+                                            <>
+                                                <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                                <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                                <SelectItem value="Both">Both</SelectItem>
+                                            </>
+                                        )}
+                                        {/* Web admin can only edit / see Web permission */}
+                                        {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Web Traffic' && (
+                                            <SelectItem value="Web Traffic">Web Traffic</SelectItem>
+                                        )}
+                                        {/* Call admin can only edit / see Call permission */}
+                                        {session?.user?.role === 'ADMIN' && session?.user?.application_permission === 'Call Traffic' && (
+                                            <SelectItem value="Call Traffic">Call Traffic</SelectItem>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Cake Account Manager ID</Label>
+                                <Input value={editForm.cake_account_manager_id} onChange={e => setEditForm({ ...editForm, cake_account_manager_id: e.target.value })} placeholder="e.g. 123" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 border p-3 rounded-md">
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-semibold">Cake Permissions</Label>
+                                    <div className="flex flex-col gap-2">
+                                    <Switch
+                                        id="edit_can_request_cake"
+                                        label="Can Request"
+                                        checked={editForm.can_request_cake}
+                                        onChange={(checked) => {
+                                            setEditForm({ 
+                                                ...editForm, 
+                                                can_request_cake: checked,
+                                                can_approve_cake: checked ? false : editForm.can_approve_cake
+                                            });
+                                        }}
+                                    />
+                                    <Switch
+                                        id="edit_can_approve_cake"
+                                        label="Can Approve"
+                                        checked={editForm.can_approve_cake}
+                                        onChange={(checked) => {
+                                            setEditForm({ 
+                                                ...editForm, 
+                                                can_approve_cake: checked,
+                                                can_request_cake: checked ? false : editForm.can_request_cake
+                                            });
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold">Ringba Permissions</Label>
+                                <div className="flex flex-col gap-1">
+                                    <Switch
+                                        id="edit_can_request_ringba"
+                                        label="Can Request"
+                                        checked={editForm.can_request_ringba}
+                                        onChange={(checked) => {
+                                            setEditForm({ 
+                                                ...editForm, 
+                                                can_request_ringba: checked,
+                                                can_approve_ringba: checked ? false : editForm.can_approve_ringba
+                                            });
+                                        }}
+                                    />
+                                    <Switch
+                                        id="edit_can_approve_ringba"
+                                        label="Can Approve"
+                                        checked={editForm.can_approve_ringba}
+                                        onChange={(checked) => {
+                                            setEditForm({ 
+                                                ...editForm, 
+                                                can_approve_ringba: checked,
+                                                can_request_ringba: checked ? false : editForm.can_request_ringba
+                                            });
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                             <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
+                                <Label className="text-sm font-semibold">Additional Access</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Switch
+                                        id="edit_can_report"
+                                        label="Reports Access"
+                                        checked={editForm.can_view_reports}
+                                        onChange={(checked) => setEditForm({ ...editForm, can_view_reports: checked })}
+                                    />
+                                    <Switch
+                                        id="edit_can_manage_advertisers"
+                                        label="Advertiser Access"
+                                        checked={editForm.can_manage_advertisers}
+                                        onChange={(checked) => setEditForm({ ...editForm, can_manage_advertisers: checked })}
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div className="pt-4 flex justify-end gap-2">
+                        <div className="space-y-2">
+                                <Label>New Password (leave empty to keep current)</Label>
+                                <div className="relative">
+                                    <Input
+                                        type={showEditPassword ? "text" : "password"}
+                                        value={editForm.password}
+                                        onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                                        className="pr-10"
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEditPassword(!showEditPassword)}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-6 pt-4 border-t flex justify-end gap-2 shrink-0 bg-gray-50/50">
                             <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
                             <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white" disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

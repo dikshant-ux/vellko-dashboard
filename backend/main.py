@@ -69,7 +69,60 @@ app.include_router(qa_forms.router)
 from routers import reports as reports_router
 app.include_router(reports_router.router)
 
+from routers import advertisers
+app.include_router(advertisers.router)
+
+
 @app.get("/")
 async def root():
     return {"message": "Vellko Affiliate API is running (UPDATED)"}
+
+
+import asyncio
+from datetime import datetime, timezone
+from database import db
+from routers.advertisers import run_sync_in_background
+
+async def auto_sync_scheduler():
+    """Loop running in the background to automatically synchronize advertisers."""
+    logger.info("Auto-sync scheduler background task started")
+    while True:
+        try:
+            # Fetch all advertisers that have response mapping set up
+            cursor = db.advertisers.find({"response_mapping": {"$ne": None}})
+            advertisers = await cursor.to_list(length=100)
+            
+            for adv in advertisers:
+                hours = adv.get("auto_sync_hours", 3)
+                # Safeguard: if hours is 0 or negative, skip auto sync
+                if hours <= 0:
+                    continue
+                    
+                last_synced = adv.get("last_synced_at")
+                sync_needed = False
+                
+                if not last_synced:
+                    sync_needed = True
+                else:
+                    # Ensure timezone-aware datetime comparison
+                    if last_synced.tzinfo is None:
+                        last_synced = last_synced.replace(tzinfo=timezone.utc)
+                    now = datetime.now(timezone.utc)
+                    elapsed = (now - last_synced).total_seconds()
+                    if elapsed >= (hours * 3600):
+                        sync_needed = True
+                        
+                if sync_needed and adv.get("sync_status") != "SYNCING":
+                    logger.info(f"Auto-sync triggered for advertiser: {adv.get('name')} (every {hours} hours)")
+                    asyncio.create_task(run_sync_in_background(str(adv["_id"])))
+        except Exception as e:
+            logger.error(f"Error in auto_sync_scheduler loop: {str(e)}")
+            
+        # Sleep for 10 minutes before checking again
+        await asyncio.sleep(600)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(auto_sync_scheduler())
+
 

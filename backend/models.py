@@ -173,6 +173,7 @@ class User(BaseModel):
     can_request_cake: bool = True
     can_request_ringba: bool = True
     can_view_reports: Optional[bool] = True
+    can_manage_advertisers: bool = True
     cake_account_manager_id: Optional[str] = None
     
 
@@ -191,6 +192,7 @@ class UserUpdate(BaseModel):
     can_request_cake: Optional[bool] = None
     can_request_ringba: Optional[bool] = None
     can_view_reports: Optional[bool] = None
+    can_manage_advertisers: Optional[bool] = None
     cake_account_manager_id: Optional[str] = None
 
 class UserRoleUpdate(BaseModel):
@@ -449,3 +451,63 @@ class CallOfferUpdate(BaseModel):
     coverage: Optional[str] = None
     details: Optional[str] = None
     status: Optional[CallOfferStatus] = None
+
+
+# Advertiser Offer Integration Models
+class HeaderItem(BaseModel):
+    key: str
+    value: str
+
+class CustomMappingItem(BaseModel):
+    key: str
+    path: str
+
+class ResponseMapping(BaseModel):
+    offers_path: str
+    offer_id: str
+    offer_name: str
+    payout: str
+    vertical: Optional[str] = ""
+    status: Optional[str] = ""
+    preview_link: Optional[str] = ""
+    custom_mappings: List[CustomMappingItem] = Field(default_factory=list)
+
+class Advertiser(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    advertiser_id: str = ""
+    name: str
+    api_url: str
+    method: str = "GET"
+    headers: List[HeaderItem] = Field(default_factory=list)
+    request_payload: Optional[str] = None
+    response_mapping: Optional[ResponseMapping] = None
+    auto_sync_hours: int = 3
+    sync_status: Optional[str] = "IDLE"
+    last_sync_error: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+class AdvertiserOffer(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    advertiser_id: str
+    advertiser_name: str
+    advertiser_custom_id: Optional[str] = ""
+    offer_id: str
+    name: str
+    payout: Optional[str] = ""
+    vertical: Optional[str] = ""
+    status: Optional[str] = ""
+    preview_link: Optional[str] = ""
+    custom_fields: Dict[str, str] = Field(default_factory=dict)
+    raw_data: Dict[str, Any] = Field(default_factory=dict)
+    synced_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+

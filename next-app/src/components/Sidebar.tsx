@@ -17,7 +17,8 @@ import {
     BarChart2,
     ClipboardCheck,
     History,
-    Tag
+    Tag,
+    Globe
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ export default function Sidebar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isOffersOpen, setIsOffersOpen] = useState(false);
     const [isQAOpen, setIsQAOpen] = useState(false);
+    const [isAdvertisersOpen, setIsAdvertisersOpen] = useState(false);
     const pathname = usePathname();
     const { data: session } = useSession();
 
@@ -40,6 +42,9 @@ export default function Sidebar() {
         }
         if (pathname.startsWith('/dashboard/qa-forms')) {
             setIsQAOpen(true);
+        }
+        if (pathname.startsWith('/dashboard/advertiser')) {
+            setIsAdvertisersOpen(true);
         }
     }, [pathname]);
 
@@ -56,6 +61,9 @@ export default function Sidebar() {
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
             { name: 'Approved Summary', href: '/dashboard/approved-summary', icon: ClipboardCheck },
+            ...(session?.user?.role === 'SUPER_ADMIN' || (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '') && session?.user?.can_manage_advertisers) ? [
+                { name: 'Advertisers', href: '/dashboard/advertiser', icon: Globe },
+            ] : []),
         ] : []),
         ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
@@ -259,6 +267,80 @@ export default function Sidebar() {
                                                     <span>Call Forms</span>
                                                 </Link>
                                             )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+
+                        const isAdvertisers = item.name === 'Advertisers';
+                        if (isAdvertisers) {
+                            return (
+                                <div key={item.name} className="space-y-1">
+                                    <div
+                                        className={cn(
+                                            "group flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 outline-none ring-0 cursor-pointer",
+                                            isActive
+                                                ? "bg-red-50 text-red-700"
+                                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80",
+                                            isCollapsed && "justify-center px-2"
+                                        )}
+                                        onClick={() => setIsAdvertisersOpen(!isAdvertisersOpen)}
+                                        title={isCollapsed ? item.name : undefined}
+                                    >
+                                        <div className={cn("flex items-center flex-1", isCollapsed ? "justify-center" : "gap-3")}>
+                                            <Icon className={cn(
+                                                "h-[1.15rem] w-[1.15rem] transition-colors",
+                                                isActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
+                                            )} />
+                                            {!isCollapsed && <span>Advertiser Offer</span>}
+                                        </div>
+
+                                        {!isCollapsed && (
+                                            <ChevronRight
+                                                className={cn(
+                                                    "h-4 w-4 transition-transform text-gray-400",
+                                                    isAdvertisersOpen && "rotate-90"
+                                                )}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {!isCollapsed && isAdvertisersOpen && (
+                                        <div className="space-y-1 ml-4 pl-2 border-l border-gray-100">
+                                            <Link
+                                                href="/dashboard/advertiser/configure"
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                    pathname === '/dashboard/advertiser/configure'
+                                                        ? "text-red-700 bg-red-50/50"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                            >
+                                                <span>Configure Advertiser</span>
+                                            </Link>
+                                            <Link
+                                                href="/dashboard/advertiser/list"
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                    pathname === '/dashboard/advertiser/list'
+                                                        ? "text-red-700 bg-red-50/50"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                            >
+                                                <span>Advertiser List</span>
+                                            </Link>
+                                            <Link
+                                                href="/dashboard/advertiser/offers"
+                                                className={cn(
+                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                    pathname === '/dashboard/advertiser/offers'
+                                                        ? "text-red-700 bg-red-50/50"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                )}
+                                            >
+                                                <span>Advertiser Offer List</span>
+                                            </Link>
                                         </div>
                                     )}
                                 </div>

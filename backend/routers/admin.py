@@ -1746,6 +1746,8 @@ async def create_user(user_in: UserCreate, request: Request, user: User = Depend
         user_in.can_request_cake = True
     if user_in.can_request_ringba is None:
         user_in.can_request_ringba = True
+    if user_in.can_manage_advertisers is None:
+        user_in.can_manage_advertisers = True
         
     existing_user = await db.users.find_one({"username": user_in.username})
     if existing_user:
@@ -1922,6 +1924,8 @@ async def update_user(username: str, user_update: UserUpdate, request: Request, 
         update_data["can_request_ringba"] = user_update.can_request_ringba
     if user_update.can_view_reports is not None:
         update_data["can_view_reports"] = user_update.can_view_reports
+    if user_update.can_manage_advertisers is not None:
+        update_data["can_manage_advertisers"] = user_update.can_manage_advertisers
     if user_update.password is not None:
         update_data["hashed_password"] = get_password_hash(user_update.password)
     if user_update.cake_account_manager_id is not None:

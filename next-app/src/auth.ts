@@ -74,6 +74,7 @@ export const {
                                     can_request_cake: me.role === 'SUPER_ADMIN' ? (me.can_request_cake ?? true) : (me.can_request_cake ?? me.can_approve_signups),
                                     can_request_ringba: me.role === 'SUPER_ADMIN' ? (me.can_request_ringba ?? true) : (me.can_request_ringba ?? me.can_approve_signups),
                                     can_view_reports: me.can_view_reports,
+                                    can_manage_advertisers: me.can_manage_advertisers ?? true,
                                     accessToken: user.access_token,
                                 } as any;
                             }
@@ -122,6 +123,7 @@ export const {
                 token.can_request_cake = user.can_request_cake;
                 token.can_request_ringba = user.can_request_ringba;
                 token.can_view_reports = user.can_view_reports;
+                token.can_manage_advertisers = user.can_manage_advertisers;
             }
             // When update() is called client-side, merge the updated fields into the token
             if (trigger === 'update' && session) {
@@ -139,6 +141,7 @@ export const {
             session.user.can_request_cake = token.can_request_cake;
             session.user.can_request_ringba = token.can_request_ringba;
             session.user.can_view_reports = token.can_view_reports;
+            session.user.can_manage_advertisers = token.can_manage_advertisers;
             return session;
         }
     }

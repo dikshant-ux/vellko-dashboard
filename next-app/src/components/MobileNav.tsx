@@ -18,7 +18,8 @@ import {
     BarChart2,
     ClipboardCheck,
     History,
-    Tag
+    Tag,
+    Globe
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ export default function MobileNav() {
     const pathname = usePathname();
     const [isOffersOpen, setIsOffersOpen] = useState(pathname.includes('/dashboard/offers'));
     const [isQAOpen, setIsQAOpen] = useState(pathname.includes('/dashboard/qa-forms'));
+    const [isAdvertisersOpen, setIsAdvertisersOpen] = useState(pathname.includes('/dashboard/advertiser'));
     const { data: session } = useSession();
 
     const navigation = [
@@ -54,6 +56,9 @@ export default function MobileNav() {
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
             { name: 'Approved Summary', href: '/dashboard/approved-summary', icon: ClipboardCheck },
+            ...(session?.user?.role === 'SUPER_ADMIN' || (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '') && session?.user?.can_manage_advertisers) ? [
+                { name: 'Advertisers', href: '/dashboard/advertiser', icon: Globe },
+            ] : []),
         ] : []),
         ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
@@ -229,6 +234,81 @@ export default function MobileNav() {
                                                         <span>Call Forms</span>
                                                     </Link>
                                                 )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            const isAdvertisers = item.name === 'Advertisers';
+                            if (isAdvertisers) {
+                                const isAdvertisersActive = pathname.startsWith('/dashboard/advertiser');
+
+                                return (
+                                    <div key={item.name} className="space-y-1">
+                                        <div
+                                            className={cn(
+                                                "group flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 outline-none ring-0 cursor-pointer",
+                                                isAdvertisersActive
+                                                    ? "bg-red-50 text-red-700"
+                                                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                            )}
+                                            onClick={() => setIsAdvertisersOpen(!isAdvertisersOpen)}
+                                        >
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <Icon className={cn(
+                                                    "h-5 w-5 transition-colors",
+                                                    isAdvertisersActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
+                                                )} />
+                                                <span>Advertiser Offer</span>
+                                            </div>
+
+                                            <ChevronRight
+                                                className={cn(
+                                                    "h-4 w-4 transition-transform text-gray-400",
+                                                    isAdvertisersOpen && "rotate-90"
+                                                )}
+                                            />
+                                        </div>
+
+                                        {isAdvertisersOpen && (
+                                            <div className="space-y-1 ml-4 pl-4 border-l border-gray-100">
+                                                <Link
+                                                    href="/dashboard/advertiser/configure"
+                                                    onClick={() => setOpen(false)}
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/advertiser/configure'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Configure Advertiser</span>
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/advertiser/list"
+                                                    onClick={() => setOpen(false)}
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/advertiser/list'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Advertiser List</span>
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/advertiser/offers"
+                                                    onClick={() => setOpen(false)}
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/advertiser/offers'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Advertiser Offer List</span>
+                                                </Link>
                                             </div>
                                         )}
                                     </div>
