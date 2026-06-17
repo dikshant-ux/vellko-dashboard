@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Play, CheckCircle2, ChevronRight, AlertCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { ManageCustomFieldsModal } from '@/components/ManageCustomFieldsModal';
 
 interface HeaderItem {
     key: string;
@@ -131,8 +132,29 @@ function ConfigureAdvertiserContent() {
     // Save states
     const [saveLoading, setSaveLoading] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const [allCustomFields, setAllCustomFields] = useState<string[]>([]);
+    const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
     const loadedRef = useRef(false);
+
+    // Fetch global custom columns suggestions
+    const fetchCustomFields = async () => {
+        if (session) {
+            try {
+                const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/advertisers/meta/custom-columns`);
+                if (res && res.ok) {
+                    const data = await res.json();
+                    setAllCustomFields(data.custom_columns || []);
+                }
+            } catch (e) {
+                console.error('Failed to load global custom columns list', e);
+            }
+        }
+    };
+
+    useEffect(() => {
+        fetchCustomFields();
+    }, [session, authFetch]);
 
     // Load existing advertiser if editing
     useEffect(() => {
@@ -679,15 +701,26 @@ function ConfigureAdvertiserContent() {
                                                 <Label className="text-sm font-bold text-gray-800">Custom Fields Mapping</Label>
                                                 <p className="text-xs text-gray-500">Map custom advertiser-specific columns (e.g. Geos, Capping, Traffic Type) to display in the Consolidated Offers list.</p>
                                             </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={addCustomMappingField}
-                                                className="h-8 text-xs border-dashed border-red-200 hover:border-red-600 hover:text-red-600 gap-1 rounded-md"
-                                            >
-                                                <Plus className="h-3.5 w-3.5" /> Add Custom Field
-                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setIsManageModalOpen(true)}
+                                                    className="h-8 text-xs border border-gray-200 hover:border-gray-600 hover:text-gray-900 gap-1 rounded-md"
+                                                >
+                                                    Manage Custom Fields
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={addCustomMappingField}
+                                                    className="h-8 text-xs border-dashed border-red-200 hover:border-red-600 hover:text-red-600 gap-1 rounded-md"
+                                                >
+                                                    <Plus className="h-3.5 w-3.5" /> Add Custom Field
+                                                </Button>
+                                            </div>
                                         </div>
 
                                         <div className="space-y-3">
@@ -700,6 +733,7 @@ function ConfigureAdvertiserContent() {
                                                             value={item.key}
                                                             onChange={(e) => updateCustomMappingField(index, 'key', e.target.value)}
                                                             className="h-9 focus-visible:ring-red-500"
+                                                            list="custom-fields-suggestions"
                                                         />
                                                     </div>
                                                     <div className="flex-1 space-y-1">
@@ -900,6 +934,18 @@ function ConfigureAdvertiserContent() {
                     </datalist>
                 </>
             )}
+
+            <datalist id="custom-fields-suggestions">
+                {allCustomFields.map((field) => (
+                    <option key={field} value={field} />
+                ))}
+            </datalist>
+
+            <ManageCustomFieldsModal
+                open={isManageModalOpen}
+                setOpen={setIsManageModalOpen}
+                onChanged={fetchCustomFields}
+            />
         </div>
     );
 }

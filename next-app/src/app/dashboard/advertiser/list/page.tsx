@@ -26,8 +26,11 @@ import {
     CheckCircle2,
     Settings,
     FileCode,
-    ExternalLink
+    ExternalLink,
+    Upload
 } from 'lucide-react';
+import { AdvertiserOfferUploadModal } from '@/components/AdvertiserOfferUploadModal';
+import { ManageCustomFieldsModal } from '@/components/ManageCustomFieldsModal';
 
 interface Advertiser {
     _id: string;
@@ -60,6 +63,14 @@ export default function AdvertiserList() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteName, setDeleteName] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // Upload CSV states
+    const [uploadModalOpen, setUploadModalOpen] = useState(false);
+    const [uploadAdvId, setUploadAdvId] = useState<string | null>(null);
+    const [uploadAdvName, setUploadAdvName] = useState('');
+
+    // Manage custom fields states
+    const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
     const loadAdvertisers = async () => {
         setLoading(true);
@@ -139,6 +150,13 @@ export default function AdvertiserList() {
         }
     }, [advertisers, authFetch]);
 
+    // Upload CSV handler
+    const handleOpenUploadModal = (id: string, name: string) => {
+        setUploadAdvId(id);
+        setUploadAdvName(name);
+        setUploadModalOpen(true);
+    };
+
     // Delete confirmation handler
     const confirmDelete = (id: string, name: string) => {
         setDeleteId(id);
@@ -190,11 +208,20 @@ export default function AdvertiserList() {
                         Manage advertiser API feeds, response schema mappings, and run offers synchronization.
                     </p>
                 </div>
-                <Button asChild className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/25 rounded-lg font-bold gap-2">
-                    <Link href="/dashboard/advertiser/configure">
-                        <Plus className="h-4 w-4" /> Add Advertiser API
-                    </Link>
-                </Button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <Button 
+                        variant="outline" 
+                        onClick={() => setIsManageModalOpen(true)}
+                        className="border-gray-200 hover:border-gray-400 text-gray-700 bg-white shadow-sm hover:text-gray-900 rounded-lg font-semibold h-10 px-4"
+                    >
+                        Manage Custom Fields
+                    </Button>
+                    <Button asChild className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/25 rounded-lg font-bold gap-2 h-10 px-4">
+                        <Link href="/dashboard/advertiser/configure">
+                            <Plus className="h-4 w-4" /> Add Advertiser API
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             {/* Notification Messages */}
@@ -369,6 +396,16 @@ export default function AdvertiserList() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    onClick={() => handleOpenUploadModal(adv._id, adv.name)}
+                                                    className="h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 gap-1 rounded-md"
+                                                    title="Upload offers via CSV"
+                                                >
+                                                    <Upload className="h-3.5 w-3.5" /> Upload CSV
+                                                </Button>
+
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     asChild
                                                     className="h-8 text-gray-600 hover:text-red-600 hover:bg-gray-50 rounded-md"
                                                 >
@@ -420,6 +457,21 @@ export default function AdvertiserList() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Upload CSV Modal */}
+            <AdvertiserOfferUploadModal
+                open={uploadModalOpen}
+                setOpen={setUploadModalOpen}
+                advertiserId={uploadAdvId}
+                advertiserName={uploadAdvName}
+                onSuccess={loadAdvertisers}
+            />
+
+            {/* Manage Custom Fields Modal */}
+            <ManageCustomFieldsModal
+                open={isManageModalOpen}
+                setOpen={setIsManageModalOpen}
+            />
         </div>
     );
 }

@@ -25,6 +25,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { ManageCustomFieldsModal } from '@/components/ManageCustomFieldsModal';
 
 interface Offer {
     _id: string;
@@ -51,6 +52,7 @@ export default function AdvertiserOfferList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [viewValue, setViewValue] = useState<{ title: string; content: string } | null>(null);
+    const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
     // Pagination & Search & Sort states
     const [search, setSearch] = useState('');
@@ -140,13 +142,22 @@ export default function AdvertiserOfferList() {
                         Consolidated dashboard displaying offers synced across all external advertiser integrations.
                     </p>
                 </div>
-                <Button
-                    onClick={() => loadOffers()}
-                    variant="outline"
-                    className="border-gray-200 hover:border-red-600 hover:text-red-600 rounded-lg gap-2 h-9 bg-white shadow-sm shrink-0"
-                >
-                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh Offers
-                </Button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <Button 
+                        variant="outline" 
+                        onClick={() => setIsManageModalOpen(true)}
+                        className="border-gray-200 hover:border-gray-400 text-gray-700 bg-white shadow-sm hover:text-gray-900 rounded-lg font-semibold h-9 px-4 shrink-0 animate-in fade-in"
+                    >
+                        Manage Custom Fields
+                    </Button>
+                    <Button
+                        onClick={() => loadOffers()}
+                        variant="outline"
+                        className="border-gray-200 hover:border-red-600 hover:text-red-600 rounded-lg gap-2 h-9 bg-white shadow-sm shrink-0 font-semibold"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh Offers
+                    </Button>
+                </div>
             </div>
 
             {/* Search and Filters card */}
@@ -447,6 +458,13 @@ export default function AdvertiserOfferList() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Manage Custom Fields Modal */}
+            <ManageCustomFieldsModal
+                open={isManageModalOpen}
+                setOpen={setIsManageModalOpen}
+                onChanged={loadOffers}
+            />
         </div>
     );
 }

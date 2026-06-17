@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request, BackgroundTasks, UploadFile, File, Form
 from typing import List, Optional, Dict, Any
 import httpx
 import xmltodict
 import math
+import csv
+import io
 from datetime import datetime, timezone
 from bson import ObjectId
+from pymongo import UpdateOne
 from database import db
 from models import Advertiser, AdvertiserOffer, ResponseMapping, HeaderItem, User, UserRole
 from auth import get_current_user
@@ -196,12 +199,17 @@ async def sync_advertiser_offers_db(advertiser: Dict[str, Any]) -> int:
         }
         synced_offers.append(offer_doc)
 
-    # If we parsed offers, update DB
-    # Clear existing offers for this advertiser
-    await db.advertiser_offers.delete_many({"advertiser_id": adv_id})
-    
+    # If we parsed offers, update DB using bulk_write (upsert based on advertiser_id + offer_id)
     if synced_offers:
-        await db.advertiser_offers.insert_many(synced_offers)
+        operations = [
+            UpdateOne(
+                {"advertiser_id": adv_id, "offer_id": offer_doc["offer_id"]},
+                {"$set": offer_doc},
+                upsert=True
+            )
+            for offer_doc in synced_offers
+        ]
+        await db.advertiser_offers.bulk_write(operations)
         
     return len(synced_offers)
 
@@ -239,9 +247,10 @@ async def get_consolidated_offers(
 ):
     query = {}
     
-    # Fetch unique custom columns defined across all advertisers
+    # Fetch unique custom columns defined across all advertisers (from API response mapping AND CSV custom headers)
     custom_columns_raw = await db.advertisers.distinct("response_mapping.custom_mappings.key")
-    custom_columns = [col for col in custom_columns_raw if col]
+    csv_columns_raw = await db.advertisers.distinct("custom_columns")
+    custom_columns = list(set([col for col in custom_columns_raw if col] + [col for col in csv_columns_raw if col]))
 
     if search:
         search_regex = {"$regex": search, "$options": "i"}
@@ -329,6 +338,113 @@ async def list_advertisers(user: User = Depends(get_current_admin)):
         item["offers_count"] = offers_count
         serialized.append(item)
     return serialized
+
+class CustomColumnRequest(BaseModel):
+    name: str
+
+class CustomColumnUpdateRequest(BaseModel):
+    old_name: str
+    new_name: str
+
+# API Endpoint: Get Consolidated Custom Columns
+@router.get("/meta/custom-columns")
+async def get_all_custom_columns(user: User = Depends(get_current_admin)):
+    # 1. Fetch from system_custom_columns collection
+    system_cols = await db.system_custom_columns.find().to_list(length=1000)
+    system_col_names = [col["name"] for col in system_cols]
+    
+    # 2. Fetch unique custom columns defined across all advertisers response mappings
+    custom_columns_raw = await db.advertisers.distinct("response_mapping.custom_mappings.key")
+    # Fetch unique custom columns defined across all advertisers custom_columns field
+    csv_columns_raw = await db.advertisers.distinct("custom_columns")
+    
+    custom_columns = list(set(
+        system_col_names + 
+        [col for col in custom_columns_raw if col] + 
+        [col for col in csv_columns_raw if col]
+    ))
+    return {"custom_columns": sorted(custom_columns)}
+
+# API Endpoint: Add a new custom column
+@router.post("/meta/custom-columns")
+async def add_custom_column(payload: CustomColumnRequest, user: User = Depends(get_current_admin)):
+    name_clean = payload.name.strip()
+    if not name_clean:
+        raise HTTPException(status_code=400, detail="Column name cannot be empty")
+        
+    # Check if already exists in system list
+    exists = await db.system_custom_columns.find_one({"name": name_clean})
+    if exists:
+        raise HTTPException(status_code=400, detail="Custom column already exists")
+        
+    await db.system_custom_columns.insert_one({
+        "name": name_clean,
+        "created_at": datetime.now(timezone.utc)
+    })
+    return {"success": True, "message": f"Custom column '{name_clean}' added successfully"}
+
+# API Endpoint: Rename an existing custom column
+@router.put("/meta/custom-columns")
+async def update_custom_column(payload: CustomColumnUpdateRequest, user: User = Depends(get_current_admin)):
+    old_clean = payload.old_name.strip()
+    new_clean = payload.new_name.strip()
+    
+    if not old_clean or not new_clean:
+        raise HTTPException(status_code=400, detail="Old and new names cannot be empty")
+        
+    if old_clean == new_clean:
+        return {"success": True, "message": "No changes needed"}
+        
+    # Update system_custom_columns collection
+    await db.system_custom_columns.update_many(
+        {"name": old_clean},
+        {"$set": {"name": new_clean}}
+    )
+    
+    # Update advertisers custom_columns lists
+    await db.advertisers.update_many(
+        {"custom_columns": old_clean},
+        {"$set": {"custom_columns.$": new_clean}}
+    )
+    
+    # Update advertisers response mappings keys
+    await db.advertisers.update_many(
+        {"response_mapping.custom_mappings.key": old_clean},
+        {"$set": {"response_mapping.custom_mappings.$[elem].key": new_clean}},
+        array_filters=[{"elem.key": old_clean}]
+    )
+    
+    # Update advertiser_offers keys inside custom_fields
+    await db.advertiser_offers.update_many(
+        {f"custom_fields.{old_clean}": {"$exists": True}},
+        {"$rename": {f"custom_fields.{old_clean}": f"custom_fields.{new_clean}"}}
+    )
+    
+    return {"success": True, "message": f"Successfully renamed '{old_clean}' to '{new_clean}' system-wide."}
+
+# API Endpoint: Delete a custom column
+@router.delete("/meta/custom-columns")
+async def delete_custom_column(name: str = Query(...), user: User = Depends(get_current_admin)):
+    name_clean = name.strip()
+    if not name_clean:
+        raise HTTPException(status_code=400, detail="Column name cannot be empty")
+        
+    # Delete from system list
+    await db.system_custom_columns.delete_many({"name": name_clean})
+    
+    # Pull from advertisers' custom_columns list
+    await db.advertisers.update_many(
+        {"custom_columns": name_clean},
+        {"$pull": {"custom_columns": name_clean}}
+    )
+    
+    # Pull from response_mappings
+    await db.advertisers.update_many(
+        {"response_mapping.custom_mappings.key": name_clean},
+        {"$pull": {"response_mapping.custom_mappings": {"key": name_clean}}}
+    )
+    
+    return {"success": True, "message": f"Custom column '{name_clean}' deleted successfully"}
 
 # CRUD Endpoint: Get Single Advertiser
 @router.get("/{id}", response_model=Advertiser)
@@ -501,3 +617,258 @@ async def sync_advertiser_offers(id: str, request: Request, background_tasks: Ba
     )
     
     return {"message": "Offers synchronization started in the background successfully"}
+
+
+def normalize_header(h: str) -> str:
+    # Remove non-alphanumeric chars, convert to lowercase
+    h_clean = "".join(c for c in h if c.isalnum()).lower()
+    if h_clean in ["offerid", "id", "siteofferid", "offernumber"]:
+        return "offer_id"
+    if h_clean in ["name", "offername", "title", "siteoffername"]:
+        return "name"
+    if h_clean in ["payout", "amount", "price", "rate"]:
+        return "payout"
+    if h_clean in ["vertical", "category", "verticalname", "niche"]:
+        return "vertical"
+    if h_clean in ["status", "state", "siteofferstatus", "statusname"]:
+        return "status"
+    if h_clean in ["previewlink", "link", "url", "previewurl", "offerlink"]:
+        return "preview_link"
+    return h.strip()
+
+
+# API Endpoint: Analyze CSV file for columns mapping
+@router.post("/{id}/analyze-csv")
+async def analyze_advertiser_offers_csv(
+    id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_admin)
+):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
+        
+    advertiser = await db.advertisers.find_one({"_id": ObjectId(id)})
+    if not advertiser:
+        raise HTTPException(status_code=404, detail="Advertiser not found")
+        
+    if not file.filename.lower().endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported")
+        
+    try:
+        content = await file.read()
+        try:
+            decoded = content.decode('utf-8-sig') # Handle potential BOM
+        except UnicodeDecodeError:
+            decoded = content.decode('latin1') # Fallback
+            
+        # Detect delimiter more robustly
+        sample = decoded[:1024]
+        delimiters = [',', ';', '\t', '|']
+        dialect = 'excel' # Default
+        
+        try:
+            sniffer = csv.Sniffer()
+            if any(d in sample for d in delimiters):
+                dialect = sniffer.sniff(sample, delimiters=delimiters)
+        except csv.Error:
+            pass
+            
+        reader = csv.reader(io.StringIO(decoded), dialect=dialect)
+        rows = list(reader)
+        if not rows:
+            raise HTTPException(status_code=400, detail="Empty CSV file")
+            
+        # Clean headers
+        headers = [h.strip().strip('"').strip("'") for h in rows[0]]
+        preview = []
+        for row in rows[1:4]: # Get first 3 rows as preview
+            preview.append([str(cell).strip() for cell in row])
+            
+        return {
+            "headers": headers,
+            "preview": preview,
+            "filename": file.filename
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process CSV file for analysis: {str(e)}")
+
+
+# API Endpoint: Upload Offers via CSV with Optional mapping_json
+@router.post("/{id}/upload-csv")
+async def upload_advertiser_offers_csv(
+    id: str,
+    file: UploadFile = File(...),
+    mapping_json: Optional[str] = Form(None),
+    request: Request = None,
+    user: User = Depends(get_current_admin)
+):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
+        
+    advertiser = await db.advertisers.find_one({"_id": ObjectId(id)})
+    if not advertiser:
+        raise HTTPException(status_code=404, detail="Advertiser not found")
+        
+    adv_id = str(advertiser["_id"])
+    adv_name = advertiser["name"]
+    adv_custom_id = advertiser.get("advertiser_id", "")
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a CSV file")
+        
+    try:
+        contents = await file.read()
+        try:
+            decoded = contents.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            decoded = contents.decode("latin1")
+            
+        # Detect delimiter more robustly
+        sample = decoded[:1024]
+        delimiters = [',', ';', '\t', '|']
+        dialect = 'excel'
+        try:
+            sniffer = csv.Sniffer()
+            if any(d in sample for d in delimiters):
+                dialect = sniffer.sniff(sample, delimiters=delimiters)
+        except csv.Error:
+            pass
+            
+        reader_raw = csv.reader(io.StringIO(decoded), dialect=dialect)
+        rows = list(reader_raw)
+        if not rows:
+            raise HTTPException(status_code=400, detail="Empty CSV file")
+            
+        raw_headers = [h.strip().strip('"').strip("'") for h in rows[0]]
+        data_rows = rows[1:]
+        
+        # Check mapping
+        field_to_idx = {}
+        custom_field_mappings = {}
+        explicit_mapping = None
+        if mapping_json:
+            import json
+            try:
+                explicit_mapping = json.loads(mapping_json)
+                for field, idx in explicit_mapping.items():
+                    if idx is not None and idx != "none":
+                        try:
+                            idx_int = int(idx)
+                            if field in ["offer_id", "name", "payout", "vertical", "status", "preview_link"]:
+                                field_to_idx[field] = idx_int
+                            else:
+                                custom_field_mappings[field] = idx_int
+                        except ValueError:
+                            pass
+            except Exception as e:
+                print(f"Error parsing mapping_json: {e}")
+                
+        # If mapping is not provided, do fallback intelligent mapping using normalize_header
+        if not explicit_mapping:
+            for idx, h in enumerate(raw_headers):
+                norm_key = normalize_header(h)
+                if norm_key in ["offer_id", "name", "payout", "vertical", "status", "preview_link"]:
+                    if norm_key not in field_to_idx:
+                        field_to_idx[norm_key] = idx
+                        
+        # Required validation
+        if "offer_id" not in field_to_idx or "name" not in field_to_idx:
+            raise HTTPException(
+                status_code=400, 
+                detail="CSV mapping must align at least 'Offer ID' and 'Offer Name' columns."
+            )
+            
+        # Determine which columns are standard mapped columns
+        mapped_indices = set(field_to_idx.values()).union(set(custom_field_mappings.values()))
+        
+        uploaded_offers = []
+        all_custom_keys = set()
+        
+        for row in data_rows:
+            if not any(row):
+                continue
+                
+            def get_cell_val(field: str, default: str = "") -> str:
+                idx = field_to_idx.get(field)
+                if idx is not None and 0 <= idx < len(row):
+                    return str(row[idx]).strip()
+                return default
+                
+            offer_id = get_cell_val("offer_id")
+            name = get_cell_val("name")
+            payout = get_cell_val("payout")
+            vertical = get_cell_val("vertical")
+            status = get_cell_val("status", "Active")
+            preview_link = get_cell_val("preview_link")
+            
+            if not offer_id or not name:
+                continue
+                
+            # Collect custom fields (explicitly mapped custom fields first)
+            custom_fields = {}
+            for field_key, idx in custom_field_mappings.items():
+                if 0 <= idx < len(row):
+                    custom_fields[field_key] = str(row[idx]).strip()
+                    
+            # Raw data is the original row represented as a dictionary
+            raw_data = {}
+            for idx, cell_val in enumerate(row):
+                if idx < len(raw_headers):
+                    raw_data[raw_headers[idx]] = str(cell_val).strip()
+                    
+            offer_doc = {
+                "advertiser_id": adv_id,
+                "advertiser_name": adv_name,
+                "advertiser_custom_id": adv_custom_id,
+                "offer_id": offer_id,
+                "name": name,
+                "payout": payout,
+                "vertical": vertical,
+                "status": status,
+                "preview_link": preview_link,
+                "custom_fields": custom_fields,
+                "raw_data": raw_data,
+                "synced_at": datetime.now(timezone.utc)
+            }
+            uploaded_offers.append(offer_doc)
+            all_custom_keys.update(custom_fields.keys())
+            
+        if not uploaded_offers:
+            raise HTTPException(status_code=400, detail="No valid offers found in the CSV file")
+            
+        # Perform bulk upsert
+        operations = [
+            UpdateOne(
+                {"advertiser_id": adv_id, "offer_id": offer_doc["offer_id"]},
+                {"$set": offer_doc},
+                upsert=True
+            )
+            for offer_doc in uploaded_offers
+        ]
+        
+        await db.advertiser_offers.bulk_write(operations)
+        
+        # Save custom columns on the Advertiser document for quick frontend rendering
+        if all_custom_keys:
+            await db.advertisers.update_one(
+                {"_id": ObjectId(adv_id)},
+                {"$addToSet": {"custom_columns": {"$each": list(all_custom_keys)}}}
+            )
+            
+        await log_activity(
+            username=user.username,
+            action="Uploaded Advertiser Offers CSV",
+            details=f"Uploaded {len(uploaded_offers)} offers from CSV for advertiser {adv_name}",
+            request=request
+        )
+        
+        return {
+            "success": True,
+            "message": f"Successfully imported/updated {len(uploaded_offers)} offers from CSV.",
+            "offers_count": len(uploaded_offers)
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process CSV file: {str(e)}")
