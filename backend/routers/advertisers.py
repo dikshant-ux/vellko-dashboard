@@ -22,6 +22,8 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not authorized")
     return current_user
 
+
+
 # Helper to retrieve nested values in JSON payloads using dot notation and indexers
 def get_nested_value(data: Any, path: str) -> Any:
     if not path or path.strip() in [".", "$", ""]:
@@ -46,12 +48,20 @@ def get_nested_value(data: Any, path: str) -> Any:
                     current = current[idx]
                 else:
                     return None
+        # Smart fallback for dot-separated list indices (e.g., "entries.0.payout_amount")
+        elif isinstance(current, list) and part.isdigit():
+            idx = int(part)
+            if 0 <= idx < len(current):
+                current = current[idx]
+            else:
+                return None
         else:
             if isinstance(current, dict) and part in current:
                 current = current[part]
             else:
                 return None
     return current
+
 
 # API Fetch helper
 async def fetch_external_offers_api(api_url: str, method: str, headers_list: List[HeaderItem], request_payload: Optional[str]) -> Any:
