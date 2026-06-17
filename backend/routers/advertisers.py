@@ -144,7 +144,6 @@ async def sync_advertiser_offers_db(advertiser: Dict[str, Any]) -> int:
     
     # Extract offers list
     offers_raw = get_nested_value(response_data, mapping_obj.offers_path)
-    
     if offers_raw is None:
         raise HTTPException(status_code=400, detail=f"Offers list path '{mapping_obj.offers_path}' resolved to null.")
         
@@ -154,6 +153,9 @@ async def sync_advertiser_offers_db(advertiser: Dict[str, Any]) -> int:
             offers_raw = [offers_raw]
         else:
             raise HTTPException(status_code=400, detail=f"Offers path '{mapping_obj.offers_path}' did not resolve to a list or dict object.")
+
+    # Wipe existing offers for this advertiser to ensure database consistency with current API state
+    await db.advertiser_offers.delete_many({"advertiser_id": adv_id})
 
     synced_offers = []
     for raw_offer in offers_raw:
