@@ -18,9 +18,12 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/admin/advertisers", tags=["Advertisers"])
 
 async def get_current_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    return current_user
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return current_user
+    if current_user.role in [UserRole.ADMIN, UserRole.ANALYTIC]:
+        if current_user.can_manage_advertisers:
+            return current_user
+    raise HTTPException(status_code=403, detail="Not authorized")
 
 
 
@@ -523,6 +526,49 @@ async def update_advertiser(id: str, adv_in: AdvertiserUpdate, request: Request,
     )
     
     return Advertiser(**updated)
+
+# CRUD Endpoint: Clone Advertiser
+@router.post("/{id}/clone")
+async def clone_advertiser(id: str, request: Request, user: User = Depends(get_current_admin)):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
+        
+    existing = await db.advertisers.find_one({"_id": ObjectId(id)})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Advertiser not found")
+        
+    # Create clone document
+    clone_doc = {
+        "name": f"{existing['name']} (Copy)",
+        "advertiser_id": f"{existing.get('advertiser_id', '')} - Copy" if existing.get('advertiser_id') else "",
+        "api_url": existing.get("api_url", ""),
+        "method": existing.get("method", "GET"),
+        "headers": existing.get("headers", []),
+        "request_payload": existing.get("request_payload"),
+        "response_mapping": existing.get("response_mapping"),
+        "auto_sync_hours": existing.get("auto_sync_hours", 3),
+        "sync_status": "IDLE",
+        "last_sync_error": None,
+        "last_synced_at": None,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    result = await db.advertisers.insert_one(clone_doc)
+    new_id = str(result.inserted_id)
+    
+    await log_activity(
+        username=user.username,
+        action="Cloned Advertiser API config",
+        details=f"Cloned advertiser {existing['name']} to {clone_doc['name']}",
+        request=request
+    )
+    
+    return {
+        "success": True,
+        "message": f"Successfully cloned advertiser '{existing['name']}'.",
+        "id": new_id
+    }
 
 # CRUD Endpoint: Delete Advertiser
 @router.delete("/{id}")

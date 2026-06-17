@@ -263,7 +263,6 @@ export default function CampaignReportPage() {
     useEffect(() => {
         if (status === 'authenticated' &&
             session?.user?.role !== 'SUPER_ADMIN' &&
-            session?.user?.role !== 'ANALYTIC' &&
             session?.user?.can_view_reports === false) {
             router.replace('/dashboard/overview');
         }

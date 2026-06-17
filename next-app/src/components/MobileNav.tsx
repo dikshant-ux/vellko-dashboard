@@ -56,11 +56,14 @@ export default function MobileNav() {
             { name: 'Users', href: '/dashboard/users', icon: Users },
             { name: 'Q/A Forms', href: '/dashboard/qa-forms', icon: HelpCircle },
             { name: 'Approved Summary', href: '/dashboard/approved-summary', icon: ClipboardCheck },
-            ...(session?.user?.role === 'SUPER_ADMIN' || (['Web Traffic', 'Both'].includes(session?.user?.application_permission || '') && session?.user?.can_manage_advertisers) ? [
-                { name: 'Advertisers', href: '/dashboard/advertiser', icon: Globe },
-            ] : []),
         ] : []),
-        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ANALYTIC' || session?.user?.can_view_reports ? [
+        ...(session?.user?.role === 'SUPER_ADMIN' || 
+          (['ADMIN', 'ANALYTIC'].includes(session?.user?.role || '') && 
+           ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '') && 
+           session?.user?.can_manage_advertisers) ? [
+            { name: 'Advertisers', href: '/dashboard/advertiser', icon: Globe },
+        ] : []),
+        ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_reports ? [
             { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
         ] : []),
         ...(session?.user?.role === 'SUPER_ADMIN' ? [

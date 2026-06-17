@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,8 @@ import {
     Settings,
     FileCode,
     ExternalLink,
-    Upload
+    Upload,
+    Copy
 } from 'lucide-react';
 import { AdvertiserOfferUploadModal } from '@/components/AdvertiserOfferUploadModal';
 import { ManageCustomFieldsModal } from '@/components/ManageCustomFieldsModal';
@@ -48,6 +50,7 @@ interface Advertiser {
 }
 
 export default function AdvertiserList() {
+    const router = useRouter();
     const authFetch = useAuthFetch();
     const { data: session } = useSession();
 
@@ -71,6 +74,9 @@ export default function AdvertiserList() {
 
     // Manage custom fields states
     const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+
+    // Cloning state
+    const [isCloningId, setIsCloningId] = useState<string | null>(null);
 
     const loadAdvertisers = async () => {
         setLoading(true);
@@ -193,6 +199,33 @@ export default function AdvertiserList() {
             setDeleteLoading(false);
             setDeleteId(null);
             setDeleteName('');
+        }
+    };
+
+    const handleClone = async (id: string, name: string) => {
+        setIsCloningId(id);
+        setOperationMessage(null);
+        try {
+            const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/advertisers/${id}/clone`, {
+                method: 'POST',
+            });
+            if (res && res.ok) {
+                const data = await res.json();
+                router.push(`/dashboard/advertiser/configure?id=${data.id}`);
+            } else {
+                const data = await res?.json();
+                setOperationMessage({
+                    type: 'error',
+                    text: data?.detail || 'Failed to clone advertiser.',
+                });
+            }
+        } catch (err: any) {
+            setOperationMessage({
+                type: 'error',
+                text: err.message || 'Connection error during cloning.',
+            });
+        } finally {
+            setIsCloningId(null);
         }
     };
 
@@ -401,6 +434,17 @@ export default function AdvertiserList() {
                                                     title="Upload offers via CSV"
                                                 >
                                                     <Upload className="h-3.5 w-3.5" /> Upload CSV
+                                                </Button>
+
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleClone(adv._id, adv.name)}
+                                                    disabled={isCloningId !== null}
+                                                    className="h-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50 gap-1 rounded-md"
+                                                    title="Clone Advertiser API configuration"
+                                                >
+                                                    <Copy className="h-3.5 w-3.5" /> Clone
                                                 </Button>
 
                                                 <Button
