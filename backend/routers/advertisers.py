@@ -176,6 +176,11 @@ async def sync_advertiser_offers_db(advertiser: Dict[str, Any]) -> int:
             raw_prev = get_nested_value(raw_offer, mapping_obj.preview_link)
             preview_link = str(raw_prev) if raw_prev is not None else ""
             
+        tracking_link = ""
+        if mapping_obj.tracking_link:
+            raw_track = get_nested_value(raw_offer, mapping_obj.tracking_link)
+            tracking_link = str(raw_track) if raw_track is not None else ""
+            
         # Dynamic custom fields extraction
         custom_fields = {}
         if mapping_obj.custom_mappings:
@@ -193,6 +198,7 @@ async def sync_advertiser_offers_db(advertiser: Dict[str, Any]) -> int:
             "vertical": vertical,
             "status": status,
             "preview_link": preview_link,
+            "tracking_link": tracking_link,
             "custom_fields": custom_fields,
             "raw_data": raw_offer,
             "synced_at": datetime.now(timezone.utc)
@@ -634,6 +640,8 @@ def normalize_header(h: str) -> str:
         return "status"
     if h_clean in ["previewlink", "link", "url", "previewurl", "offerlink"]:
         return "preview_link"
+    if h_clean in ["trackinglink", "trackingurl", "tracklink", "trackurl"]:
+        return "tracking_link"
     return h.strip()
 
 
@@ -754,7 +762,7 @@ async def upload_advertiser_offers_csv(
                     if idx is not None and idx != "none":
                         try:
                             idx_int = int(idx)
-                            if field in ["offer_id", "name", "payout", "vertical", "status", "preview_link"]:
+                            if field in ["offer_id", "name", "payout", "vertical", "status", "preview_link", "tracking_link"]:
                                 field_to_idx[field] = idx_int
                             else:
                                 custom_field_mappings[field] = idx_int
@@ -767,7 +775,7 @@ async def upload_advertiser_offers_csv(
         if not explicit_mapping:
             for idx, h in enumerate(raw_headers):
                 norm_key = normalize_header(h)
-                if norm_key in ["offer_id", "name", "payout", "vertical", "status", "preview_link"]:
+                if norm_key in ["offer_id", "name", "payout", "vertical", "status", "preview_link", "tracking_link"]:
                     if norm_key not in field_to_idx:
                         field_to_idx[norm_key] = idx
                         
@@ -800,6 +808,7 @@ async def upload_advertiser_offers_csv(
             vertical = get_cell_val("vertical")
             status = get_cell_val("status", "Active")
             preview_link = get_cell_val("preview_link")
+            tracking_link = get_cell_val("tracking_link")
             
             if not offer_id or not name:
                 continue
@@ -826,6 +835,7 @@ async def upload_advertiser_offers_csv(
                 "vertical": vertical,
                 "status": status,
                 "preview_link": preview_link,
+                "tracking_link": tracking_link,
                 "custom_fields": custom_fields,
                 "raw_data": raw_data,
                 "synced_at": datetime.now(timezone.utc)

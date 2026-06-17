@@ -41,6 +41,7 @@ const REQUIRED_FIELDS = [
     { id: "vertical", label: "Vertical" },
     { id: "status", label: "Status" },
     { id: "preview_link", label: "Preview Link" },
+    { id: "tracking_link", label: "Tracking URL" },
 ];
 
 export function AdvertiserCSVMappingModal({ 
@@ -79,7 +80,8 @@ export function AdvertiserCSVMappingModal({
                 payout: ["payout", "amount", "price", "rate"],
                 vertical: ["vertical", "category", "vertical name", "niche"],
                 status: ["status", "state"],
-                preview_link: ["preview link", "link", "url", "preview url", "offer link"]
+                preview_link: ["preview link", "link", "url", "preview url", "offer link"],
+                tracking_link: ["tracking link", "tracking url", "track url", "track link", "trackinglink", "trackingurl", "redirect link", "redirect url"]
             };
 
             // 1. Auto-map standard fields

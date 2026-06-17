@@ -17,7 +17,8 @@ import {
     ChevronRight,
     ArrowUpDown,
     ExternalLink,
-    Clock
+    Clock,
+    Link2
 } from 'lucide-react';
 import {
     Dialog,
@@ -38,6 +39,7 @@ interface Offer {
     vertical: string;
     status: string;
     preview_link: string;
+    tracking_link?: string;
     synced_at: string;
     custom_fields?: Record<string, string>;
 }
@@ -301,6 +303,7 @@ export default function AdvertiserOfferList() {
                                             ))}
                                             <TableHead className="text-xs font-bold text-gray-700 text-center uppercase tracking-wider">Status</TableHead>
                                             <TableHead className="text-xs font-bold text-gray-700 text-center uppercase tracking-wider">Preview</TableHead>
+                                            <TableHead className="text-xs font-bold text-gray-700 text-center uppercase tracking-wider">Tracking Link</TableHead>
                                             <TableHead className="text-xs font-bold text-gray-700 text-right pr-6 uppercase tracking-wider">Synced At</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -375,6 +378,21 @@ export default function AdvertiserOfferList() {
                                                             title={offer.preview_link}
                                                         >
                                                             <ExternalLink className="h-4 w-4" />
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-300">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {offer.tracking_link ? (
+                                                        <a
+                                                            href={offer.tracking_link}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-red-500 hover:text-red-700 inline-block p-1 hover:bg-red-50 rounded transition-colors"
+                                                            title={offer.tracking_link}
+                                                        >
+                                                            <Link2 className="h-4 w-4" />
                                                         </a>
                                                     ) : (
                                                         <span className="text-gray-300">-</span>

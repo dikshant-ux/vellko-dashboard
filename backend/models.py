@@ -470,6 +470,7 @@ class ResponseMapping(BaseModel):
     vertical: Optional[str] = ""
     status: Optional[str] = ""
     preview_link: Optional[str] = ""
+    tracking_link: Optional[str] = ""
     custom_mappings: List[CustomMappingItem] = Field(default_factory=list)
 
 class Advertiser(BaseModel):
@@ -503,6 +504,7 @@ class AdvertiserOffer(BaseModel):
     vertical: Optional[str] = ""
     status: Optional[str] = ""
     preview_link: Optional[str] = ""
+    tracking_link: Optional[str] = ""
     custom_fields: Dict[str, str] = Field(default_factory=dict)
     raw_data: Dict[str, Any] = Field(default_factory=dict)
     synced_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

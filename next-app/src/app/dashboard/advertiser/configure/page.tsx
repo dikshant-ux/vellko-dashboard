@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Play, CheckCircle2, ChevronRight, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Play, CheckCircle2, ChevronRight, AlertCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { ManageCustomFieldsModal } from '@/components/ManageCustomFieldsModal';
 
@@ -34,6 +34,7 @@ interface ResponseMapping {
     vertical: string;
     status: string;
     preview_link: string;
+    tracking_link: string;
     custom_mappings: CustomMappingItem[];
 }
 
@@ -120,6 +121,7 @@ function ConfigureAdvertiserContent() {
         vertical: '',
         status: '',
         preview_link: '',
+        tracking_link: '',
         custom_mappings: [],
     });
 
@@ -180,6 +182,7 @@ function ConfigureAdvertiserContent() {
                                 vertical: data.response_mapping.vertical || '',
                                 status: data.response_mapping.status || '',
                                 preview_link: data.response_mapping.preview_link || '',
+                                tracking_link: data.response_mapping.tracking_link || '',
                                 custom_mappings: data.response_mapping.custom_mappings || [],
                             });
                         }
@@ -301,6 +304,7 @@ function ConfigureAdvertiserContent() {
                     vertical: mapping.vertical ? safeString(resolvePath(item, mapping.vertical)) : '',
                     status: mapping.status ? (safeString(resolvePath(item, mapping.status)) || 'Active') : 'Active',
                     preview_link: mapping.preview_link ? safeString(resolvePath(item, mapping.preview_link)) : '',
+                    tracking_link: mapping.tracking_link ? safeString(resolvePath(item, mapping.tracking_link)) : '',
                     custom_fields: customFields,
                 };
             }).slice(0, 5); // Limit live preview to 5 items for clean layout
@@ -695,6 +699,18 @@ function ConfigureAdvertiserContent() {
                                         />
                                     </div>
 
+                                    <div className="space-y-2">
+                                        <Label htmlFor="trackingPath" className="text-sm font-semibold text-gray-700">Tracking URL Path <span className="text-gray-400 text-xs">(Optional)</span></Label>
+                                        <Input
+                                            id="trackingPath"
+                                            placeholder="e.g. tracking_link, tracking_url, redirect_url"
+                                            value={mapping.tracking_link}
+                                            onChange={(e) => setMapping({ ...mapping, tracking_link: e.target.value })}
+                                            className="focus-visible:ring-red-500"
+                                            list="offer-paths"
+                                        />
+                                    </div>
+
                                     <div className="col-span-2 border-t border-gray-100 pt-4 mt-2 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div>
@@ -874,6 +890,7 @@ function ConfigureAdvertiserContent() {
                                                         cMap.key && <TableHead key={cIdx} className="text-xs font-bold text-gray-700">{cMap.key}</TableHead>
                                                     ))}
                                                     {mapping.status && <TableHead className="text-xs font-bold text-gray-700">Status</TableHead>}
+                                                    {mapping.tracking_link && <TableHead className="text-xs font-bold text-gray-700">Tracking URL</TableHead>}
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -895,6 +912,11 @@ function ConfigureAdvertiserContent() {
                                                                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 font-medium">
                                                                     {offer.status}
                                                                 </Badge>
+                                                            </TableCell>
+                                                        )}
+                                                        {mapping.tracking_link && (
+                                                            <TableCell className="text-xs font-mono max-w-[150px] truncate text-gray-500" title={offer.tracking_link}>
+                                                                {offer.tracking_link || '-'}
                                                             </TableCell>
                                                         )}
                                                     </TableRow>
