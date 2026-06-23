@@ -17,11 +17,35 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin/advertisers", tags=["Advertisers"])
 
-async def get_current_admin(current_user: User = Depends(get_current_user)):
+async def get_current_admin_configure(current_user: User = Depends(get_current_user)):
     if current_user.role == UserRole.SUPER_ADMIN:
         return current_user
     if current_user.role in [UserRole.ADMIN, UserRole.ANALYTIC]:
-        if current_user.can_manage_advertisers:
+        if current_user.can_configure_advertiser:
+            return current_user
+    raise HTTPException(status_code=403, detail="Not authorized")
+
+async def get_current_admin_list(current_user: User = Depends(get_current_user)):
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return current_user
+    if current_user.role in [UserRole.ADMIN, UserRole.ANALYTIC]:
+        if current_user.can_view_advertiser_list:
+            return current_user
+    raise HTTPException(status_code=403, detail="Not authorized")
+
+async def get_current_admin_offers(current_user: User = Depends(get_current_user)):
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return current_user
+    if current_user.role in [UserRole.ADMIN, UserRole.ANALYTIC]:
+        if current_user.can_view_advertiser_offer_list:
+            return current_user
+    raise HTTPException(status_code=403, detail="Not authorized")
+
+async def get_current_admin_any_advertiser(current_user: User = Depends(get_current_user)):
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return current_user
+    if current_user.role in [UserRole.ADMIN, UserRole.ANALYTIC]:
+        if current_user.can_configure_advertiser or current_user.can_view_advertiser_list or current_user.can_view_advertiser_offer_list:
             return current_user
     raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -242,7 +266,7 @@ class TestAPIRequest(BaseModel):
     request_payload: Optional[str] = None
 
 @router.post("/test-api")
-async def test_advertiser_api(req: TestAPIRequest, user: User = Depends(get_current_admin)):
+async def test_advertiser_api(req: TestAPIRequest, user: User = Depends(get_current_admin_configure)):
     try:
         response_json = await fetch_external_offers_api(
             api_url=req.api_url,
@@ -256,6 +280,24 @@ async def test_advertiser_api(req: TestAPIRequest, user: User = Depends(get_curr
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"API Connection Request Failed: {str(e)}")
 
+def mask_value(val: Any, keywords: List[str]) -> Any:
+    if not val or not keywords:
+        return val
+    if isinstance(val, str):
+        masked_val = val
+        import re
+        for keyword in keywords:
+            if not keyword.strip():
+                continue
+            escaped_keyword = re.escape(keyword)
+            masked_val = re.sub(escaped_keyword, "***", masked_val, flags=re.IGNORECASE)
+        return masked_val
+    elif isinstance(val, dict):
+        return {k: mask_value(v, keywords) for k, v in val.items()}
+    elif isinstance(val, list):
+        return [mask_value(v, keywords) for v in val]
+    return val
+
 # API Endpoint: Get Consolidated Offers
 @router.get("/offers")
 async def get_consolidated_offers(
@@ -264,7 +306,7 @@ async def get_consolidated_offers(
     search: Optional[str] = Query(None),
     sort_field: str = Query("name"),
     sort_descending: bool = Query(False),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_admin_offers)
 ):
     query = {}
     
@@ -296,11 +338,44 @@ async def get_consolidated_offers(
     cursor = db.advertiser_offers.find(query).sort(sort_field, sort_dir).skip(skip).limit(limit)
     items = await cursor.to_list(length=limit)
     
+    # Fetch unique advertiser IDs to lookup keywords
+    adv_ids = list(set(item.get("advertiser_id") for item in items if item.get("advertiser_id")))
+    adv_keywords = {}
+    if adv_ids:
+        from bson import ObjectId
+        valid_object_ids = []
+        for aid in adv_ids:
+            if ObjectId.is_valid(aid):
+                valid_object_ids.append(ObjectId(aid))
+        
+        if valid_object_ids:
+            cursor_adv = db.advertisers.find({"_id": {"$in": valid_object_ids}}, {"masking_keywords": 1})
+            async for adv in cursor_adv:
+                adv_keywords[str(adv["_id"])] = adv.get("masking_keywords") or []
+
+    # Check if user has can_view_masked set to True. If True, apply masking.
+    should_mask = getattr(user, "can_view_masked", True)
+
     # Serialize items
     serialized = []
     for item in items:
         item["_id"] = str(item["_id"])
-        serialized.append(item)
+        if should_mask:
+            adv_id = item.get("advertiser_id")
+            keywords = adv_keywords.get(adv_id, [])
+            if keywords:
+                # Mask all keys except '_id', 'advertiser_id', and 'synced_at'
+                masked_item = {}
+                for key, val in item.items():
+                    if key not in ['_id', 'advertiser_id', 'synced_at']:
+                        masked_item[key] = mask_value(val, keywords)
+                    else:
+                        masked_item[key] = val
+                serialized.append(masked_item)
+            else:
+                serialized.append(item)
+        else:
+            serialized.append(item)
         
     total_pages = math.ceil(total_count / limit) if limit > 0 else 0
     return {
@@ -322,9 +397,10 @@ class AdvertiserCreate(BaseModel):
     headers: List[HeaderItem] = []
     request_payload: Optional[str] = None
     auto_sync_hours: int = 3
+    masking_keywords: List[str] = []
 
 @router.post("", response_model=Advertiser)
-async def create_advertiser(adv_in: AdvertiserCreate, request: Request, user: User = Depends(get_current_admin)):
+async def create_advertiser(adv_in: AdvertiserCreate, request: Request, user: User = Depends(get_current_admin_configure)):
     existing = await db.advertisers.find_one({"name": adv_in.name})
     if existing:
         raise HTTPException(status_code=400, detail="Advertiser with this name already exists")
@@ -348,7 +424,7 @@ async def create_advertiser(adv_in: AdvertiserCreate, request: Request, user: Us
 
 # CRUD Endpoint: List Advertisers
 @router.get("")
-async def list_advertisers(user: User = Depends(get_current_admin)):
+async def list_advertisers(user: User = Depends(get_current_admin_list)):
     cursor = db.advertisers.find()
     items = await cursor.to_list(length=100)
     serialized = []
@@ -369,7 +445,7 @@ class CustomColumnUpdateRequest(BaseModel):
 
 # API Endpoint: Get Consolidated Custom Columns
 @router.get("/meta/custom-columns")
-async def get_all_custom_columns(user: User = Depends(get_current_admin)):
+async def get_all_custom_columns(user: User = Depends(get_current_admin_any_advertiser)):
     # 1. Fetch from system_custom_columns collection
     system_cols = await db.system_custom_columns.find().to_list(length=1000)
     system_col_names = [col["name"] for col in system_cols]
@@ -388,7 +464,7 @@ async def get_all_custom_columns(user: User = Depends(get_current_admin)):
 
 # API Endpoint: Add a new custom column
 @router.post("/meta/custom-columns")
-async def add_custom_column(payload: CustomColumnRequest, user: User = Depends(get_current_admin)):
+async def add_custom_column(payload: CustomColumnRequest, user: User = Depends(get_current_admin_list)):
     name_clean = payload.name.strip()
     if not name_clean:
         raise HTTPException(status_code=400, detail="Column name cannot be empty")
@@ -406,7 +482,7 @@ async def add_custom_column(payload: CustomColumnRequest, user: User = Depends(g
 
 # API Endpoint: Rename an existing custom column
 @router.put("/meta/custom-columns")
-async def update_custom_column(payload: CustomColumnUpdateRequest, user: User = Depends(get_current_admin)):
+async def update_custom_column(payload: CustomColumnUpdateRequest, user: User = Depends(get_current_admin_list)):
     old_clean = payload.old_name.strip()
     new_clean = payload.new_name.strip()
     
@@ -445,7 +521,7 @@ async def update_custom_column(payload: CustomColumnUpdateRequest, user: User = 
 
 # API Endpoint: Delete a custom column
 @router.delete("/meta/custom-columns")
-async def delete_custom_column(name: str = Query(...), user: User = Depends(get_current_admin)):
+async def delete_custom_column(name: str = Query(...), user: User = Depends(get_current_admin_list)):
     name_clean = name.strip()
     if not name_clean:
         raise HTTPException(status_code=400, detail="Column name cannot be empty")
@@ -469,7 +545,7 @@ async def delete_custom_column(name: str = Query(...), user: User = Depends(get_
 
 # CRUD Endpoint: Get Single Advertiser
 @router.get("/{id}", response_model=Advertiser)
-async def get_advertiser(id: str, user: User = Depends(get_current_admin)):
+async def get_advertiser(id: str, user: User = Depends(get_current_admin_configure)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
     item = await db.advertisers.find_one({"_id": ObjectId(id)})
@@ -486,9 +562,10 @@ class AdvertiserUpdate(BaseModel):
     headers: Optional[List[HeaderItem]] = None
     request_payload: Optional[str] = None
     auto_sync_hours: Optional[int] = None
+    masking_keywords: Optional[List[str]] = None
 
 @router.put("/{id}", response_model=Advertiser)
-async def update_advertiser(id: str, adv_in: AdvertiserUpdate, request: Request, user: User = Depends(get_current_admin)):
+async def update_advertiser(id: str, adv_in: AdvertiserUpdate, request: Request, user: User = Depends(get_current_admin_configure)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
     
@@ -529,7 +606,7 @@ async def update_advertiser(id: str, adv_in: AdvertiserUpdate, request: Request,
 
 # CRUD Endpoint: Clone Advertiser
 @router.post("/{id}/clone")
-async def clone_advertiser(id: str, request: Request, user: User = Depends(get_current_admin)):
+async def clone_advertiser(id: str, request: Request, user: User = Depends(get_current_admin_list)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
         
@@ -572,7 +649,7 @@ async def clone_advertiser(id: str, request: Request, user: User = Depends(get_c
 
 # CRUD Endpoint: Delete Advertiser
 @router.delete("/{id}")
-async def delete_advertiser(id: str, request: Request, user: User = Depends(get_current_admin)):
+async def delete_advertiser(id: str, request: Request, user: User = Depends(get_current_admin_list)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
         
@@ -628,7 +705,7 @@ async def run_sync_in_background(adv_id: str):
 
 # API Endpoint: Save Mapping and trigger Sync
 @router.post("/{id}/save-mapping")
-async def save_response_mapping(id: str, mapping: ResponseMapping, request: Request, background_tasks: BackgroundTasks, user: User = Depends(get_current_admin)):
+async def save_response_mapping(id: str, mapping: ResponseMapping, request: Request, background_tasks: BackgroundTasks, user: User = Depends(get_current_admin_configure)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
         
@@ -659,7 +736,7 @@ async def save_response_mapping(id: str, mapping: ResponseMapping, request: Requ
 
 # API Endpoint: Manual Sync
 @router.post("/{id}/sync")
-async def sync_advertiser_offers(id: str, request: Request, background_tasks: BackgroundTasks, user: User = Depends(get_current_admin)):
+async def sync_advertiser_offers(id: str, request: Request, background_tasks: BackgroundTasks, user: User = Depends(get_current_admin_list)):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
         
@@ -708,7 +785,7 @@ def normalize_header(h: str) -> str:
 async def analyze_advertiser_offers_csv(
     id: str,
     file: UploadFile = File(...),
-    user: User = Depends(get_current_admin)
+    user: User = Depends(get_current_admin_list)
 ):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")
@@ -766,7 +843,7 @@ async def upload_advertiser_offers_csv(
     file: UploadFile = File(...),
     mapping_json: Optional[str] = Form(None),
     request: Request = None,
-    user: User = Depends(get_current_admin)
+    user: User = Depends(get_current_admin_list)
 ):
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="Invalid Advertiser ID format")

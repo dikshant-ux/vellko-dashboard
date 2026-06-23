@@ -52,7 +52,20 @@ interface Advertiser {
 export default function AdvertiserList() {
     const router = useRouter();
     const authFetch = useAuthFetch();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const canConfigure = session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_configure_advertiser;
+
+    useEffect(() => {
+        if (status === 'authenticated' && session?.user) {
+            const role = session.user.role;
+            const canViewList = session.user.can_view_advertiser_list;
+            if (role !== 'SUPER_ADMIN' && !canViewList) {
+                router.push('/dashboard/overview');
+            }
+        } else if (status === 'unauthenticated') {
+            router.push('/login');
+        }
+    }, [session, status, router]);
 
     const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -241,20 +254,22 @@ export default function AdvertiserList() {
                         Manage advertiser API feeds, response schema mappings, and run offers synchronization.
                     </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        onClick={() => setIsManageModalOpen(true)}
-                        className="border-gray-200 hover:border-gray-400 text-gray-700 bg-white shadow-sm hover:text-gray-900 rounded-lg font-semibold h-10 px-4"
-                    >
-                        Manage Custom Fields
-                    </Button>
-                    <Button asChild className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/25 rounded-lg font-bold gap-2 h-10 px-4">
-                        <Link href="/dashboard/advertiser/configure">
-                            <Plus className="h-4 w-4" /> Add Advertiser API
-                        </Link>
-                    </Button>
-                </div>
+                {canConfigure && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsManageModalOpen(true)}
+                            className="border-gray-200 hover:border-gray-400 text-gray-700 bg-white shadow-sm hover:text-gray-900 rounded-lg font-semibold h-10 px-4"
+                        >
+                            Manage Custom Fields
+                        </Button>
+                        <Button asChild className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/25 rounded-lg font-bold gap-2 h-10 px-4">
+                            <Link href="/dashboard/advertiser/configure">
+                                <Plus className="h-4 w-4" /> Add Advertiser API
+                            </Link>
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Notification Messages */}
@@ -401,17 +416,19 @@ export default function AdvertiserList() {
                                             <TableCell className="text-right pr-6 space-x-1 whitespace-nowrap">
                                                 {/* Mapping configuration shortcut */}
                                                 {!adv.response_mapping ? (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        asChild
-                                                        className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 gap-1 rounded-md"
-                                                        title="Configure Response Mapping Schema"
-                                                    >
-                                                        <Link href={`/dashboard/advertiser/configure?id=${adv._id}`}>
-                                                            <Settings className="h-3.5 w-3.5" /> Map
-                                                        </Link>
-                                                    </Button>
+                                                    canConfigure && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            asChild
+                                                            className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 gap-1 rounded-md"
+                                                            title="Configure Response Mapping Schema"
+                                                        >
+                                                            <Link href={`/dashboard/advertiser/configure?id=${adv._id}`}>
+                                                                <Settings className="h-3.5 w-3.5" /> Map
+                                                            </Link>
+                                                        </Button>
+                                                    )
                                                 ) : (
                                                     <Button
                                                         variant="ghost"
@@ -436,37 +453,43 @@ export default function AdvertiserList() {
                                                     <Upload className="h-3.5 w-3.5" /> Upload CSV
                                                 </Button>
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleClone(adv._id, adv.name)}
-                                                    disabled={isCloningId !== null}
-                                                    className="h-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50 gap-1 rounded-md"
-                                                    title="Clone Advertiser API configuration"
-                                                >
-                                                    <Copy className="h-3.5 w-3.5" /> Clone
-                                                </Button>
+                                                {canConfigure && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleClone(adv._id, adv.name)}
+                                                        disabled={isCloningId !== null}
+                                                        className="h-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50 gap-1 rounded-md"
+                                                        title="Clone Advertiser API configuration"
+                                                    >
+                                                        <Copy className="h-3.5 w-3.5" /> Clone
+                                                    </Button>
+                                                )}
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                    className="h-8 text-gray-600 hover:text-red-600 hover:bg-gray-50 rounded-md"
-                                                >
-                                                    <Link href={`/dashboard/advertiser/configure?id=${adv._id}`} title="Edit Connection API Settings">
-                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                    </Link>
-                                                </Button>
+                                                {canConfigure && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        asChild
+                                                        className="h-8 text-gray-600 hover:text-red-600 hover:bg-gray-50 rounded-md"
+                                                    >
+                                                        <Link href={`/dashboard/advertiser/configure?id=${adv._id}`} title="Edit Connection API Settings">
+                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                        </Link>
+                                                    </Button>
+                                                )}
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => confirmDelete(adv._id, adv.name)}
-                                                    className="h-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md"
-                                                    title="Delete Advertiser API and clear its offers"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
+                                                {canConfigure && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => confirmDelete(adv._id, adv.name)}
+                                                        className="h-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md"
+                                                        title="Delete Advertiser API and clear its offers"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))}

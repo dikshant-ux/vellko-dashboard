@@ -174,7 +174,11 @@ class User(BaseModel):
     can_request_ringba: bool = True
     can_view_reports: Optional[bool] = True
     can_manage_advertisers: bool = True
+    can_configure_advertiser: bool = True
+    can_view_advertiser_list: bool = True
+    can_view_advertiser_offer_list: bool = True
     cake_account_manager_id: Optional[str] = None
+    can_view_masked: bool = True
     
 
 class UserCreate(User):
@@ -193,7 +197,11 @@ class UserUpdate(BaseModel):
     can_request_ringba: Optional[bool] = None
     can_view_reports: Optional[bool] = None
     can_manage_advertisers: Optional[bool] = None
+    can_configure_advertiser: Optional[bool] = None
+    can_view_advertiser_list: Optional[bool] = None
+    can_view_advertiser_offer_list: Optional[bool] = None
     cake_account_manager_id: Optional[str] = None
+    can_view_masked: Optional[bool] = None
 
 class UserRoleUpdate(BaseModel):
     role: UserRole
@@ -483,6 +491,7 @@ class Advertiser(BaseModel):
     request_payload: Optional[str] = None
     response_mapping: Optional[ResponseMapping] = None
     auto_sync_hours: int = 3
+    masking_keywords: List[str] = Field(default_factory=list)
     sync_status: Optional[str] = "IDLE"
     last_sync_error: Optional[str] = None
     last_synced_at: Optional[datetime] = None

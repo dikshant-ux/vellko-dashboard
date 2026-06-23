@@ -101,7 +101,19 @@ function ConfigureAdvertiserContent() {
     const searchParams = useSearchParams();
     const advertiserId = searchParams.get('id');
     const authFetch = useAuthFetch();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        if (status === 'authenticated' && session?.user) {
+            const role = session.user.role;
+            const canConfigure = session.user.can_configure_advertiser;
+            if (role !== 'SUPER_ADMIN' && !canConfigure) {
+                router.push('/dashboard/overview');
+            }
+        } else if (status === 'unauthenticated') {
+            router.push('/login');
+        }
+    }, [session, status, router]);
 
     // Form fields
     const [name, setName] = useState('');
@@ -111,6 +123,7 @@ function ConfigureAdvertiserContent() {
     const [headers, setHeaders] = useState<HeaderItem[]>([{ key: '', value: '' }]);
     const [requestPayload, setRequestPayload] = useState('');
     const [autoSyncHours, setAutoSyncHours] = useState(3);
+    const [maskingKeywords, setMaskingKeywords] = useState('');
 
     // Mapping fields
     const [mapping, setMapping] = useState<ResponseMapping>({
@@ -173,6 +186,7 @@ function ConfigureAdvertiserContent() {
                         setHeaders(data.headers && data.headers.length > 0 ? data.headers : [{ key: '', value: '' }]);
                         setRequestPayload(data.request_payload || '');
                         setAutoSyncHours(data.auto_sync_hours !== undefined ? data.auto_sync_hours : 3);
+                        setMaskingKeywords(data.masking_keywords ? data.masking_keywords.join(', ') : '');
                         if (data.response_mapping) {
                             setMapping({
                                 offers_path: data.response_mapping.offers_path || '',
@@ -343,6 +357,7 @@ function ConfigureAdvertiserContent() {
         setSaveError('');
 
         const validHeaders = headers.filter(h => h.key.trim() && h.value.trim());
+        const keywords = maskingKeywords.split(',').map(k => k.trim()).filter(k => k !== '');
         const bodyData = {
             name,
             advertiser_id: advertiserCustomId,
@@ -351,6 +366,7 @@ function ConfigureAdvertiserContent() {
             headers: validHeaders,
             request_payload: requestPayload || null,
             auto_sync_hours: autoSyncHours,
+            masking_keywords: keywords
         };
 
         try {
@@ -485,6 +501,17 @@ function ConfigureAdvertiserContent() {
                                     placeholder="https://api.advertiser.com/v1/offers"
                                     value={apiUrl}
                                     onChange={(e) => setApiUrl(e.target.value)}
+                                    className="focus-visible:ring-red-500"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="maskingKeywords" className="text-sm font-semibold text-gray-700">Masking Keywords</Label>
+                                <Input
+                                    id="maskingKeywords"
+                                    placeholder="e.g. secret, private, test (comma-separated)"
+                                    value={maskingKeywords}
+                                    onChange={(e) => setMaskingKeywords(e.target.value)}
                                     className="focus-visible:ring-red-500"
                                 />
                             </div>

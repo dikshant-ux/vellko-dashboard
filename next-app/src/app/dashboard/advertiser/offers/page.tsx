@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -45,8 +46,21 @@ interface Offer {
 }
 
 export default function AdvertiserOfferList() {
+    const router = useRouter();
     const authFetch = useAuthFetch();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        if (status === 'authenticated' && session?.user) {
+            const role = session.user.role;
+            const canViewOffers = session.user.can_view_advertiser_offer_list;
+            if (role !== 'SUPER_ADMIN' && !canViewOffers) {
+                router.push('/dashboard/overview');
+            }
+        } else if (status === 'unauthenticated') {
+            router.push('/login');
+        }
+    }, [session, status, router]);
 
     // Data states
     const [offers, setOffers] = useState<Offer[]>([]);

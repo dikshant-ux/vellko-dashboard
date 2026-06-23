@@ -65,7 +65,7 @@ export default function Sidebar() {
         ...(session?.user?.role === 'SUPER_ADMIN' || 
           (['ADMIN', 'ANALYTIC'].includes(session?.user?.role || '') && 
            ['Web Traffic', 'Both'].includes(session?.user?.application_permission || '') && 
-           session?.user?.can_manage_advertisers) ? [
+           (session?.user?.can_configure_advertiser || session?.user?.can_view_advertiser_list || session?.user?.can_view_advertiser_offer_list)) ? [
             { name: 'Advertisers', href: '/dashboard/advertiser', icon: Globe },
         ] : []),
         ...(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_reports ? [
@@ -311,39 +311,45 @@ export default function Sidebar() {
 
                                     {!isCollapsed && isAdvertisersOpen && (
                                         <div className="space-y-1 ml-4 pl-2 border-l border-gray-100">
-                                            <Link
-                                                href="/dashboard/advertiser/configure"
-                                                className={cn(
-                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
-                                                    pathname === '/dashboard/advertiser/configure'
-                                                        ? "text-red-700 bg-red-50/50"
-                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
-                                                )}
-                                            >
-                                                <span>Configure Advertiser</span>
-                                            </Link>
-                                            <Link
-                                                href="/dashboard/advertiser/list"
-                                                className={cn(
-                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
-                                                    pathname === '/dashboard/advertiser/list'
-                                                        ? "text-red-700 bg-red-50/50"
-                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
-                                                )}
-                                            >
-                                                <span>Advertiser List</span>
-                                            </Link>
-                                            <Link
-                                                href="/dashboard/advertiser/offers"
-                                                className={cn(
-                                                    "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
-                                                    pathname === '/dashboard/advertiser/offers'
-                                                        ? "text-red-700 bg-red-50/50"
-                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
-                                                )}
-                                            >
-                                                <span>Advertiser Offer List</span>
-                                            </Link>
+                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_configure_advertiser) && (
+                                                <Link
+                                                    href="/dashboard/advertiser/configure"
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/advertiser/configure'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Configure Advertiser</span>
+                                                </Link>
+                                            )}
+                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_advertiser_list) && (
+                                                <Link
+                                                    href="/dashboard/advertiser/list"
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/advertiser/list'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Advertiser List</span>
+                                                </Link>
+                                            )}
+                                            {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.can_view_advertiser_offer_list) && (
+                                                <Link
+                                                    href="/dashboard/advertiser/offers"
+                                                    className={cn(
+                                                        "group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                                        pathname === '/dashboard/advertiser/offers'
+                                                            ? "text-red-700 bg-red-50/50"
+                                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80"
+                                                    )}
+                                                >
+                                                    <span>Advertiser Offer List</span>
+                                                </Link>
+                                            )}
                                         </div>
                                     )}
                                 </div>

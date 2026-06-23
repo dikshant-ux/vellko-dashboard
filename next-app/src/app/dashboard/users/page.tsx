@@ -39,12 +39,46 @@ export default function UsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, can_manage_advertisers: true, cake_account_manager_id: '' });
+    const [newUser, setNewUser] = useState({ 
+        username: '', 
+        password: '', 
+        full_name: '', 
+        email: '', 
+        role: 'USER', 
+        application_permission: 'Both', 
+        can_approve_cake: false, 
+        can_approve_ringba: false, 
+        can_request_cake: false, 
+        can_request_ringba: false, 
+        can_view_reports: true, 
+        can_manage_advertisers: true, 
+        can_configure_advertiser: true,
+        can_view_advertiser_list: true,
+        can_view_advertiser_offer_list: true,
+        cake_account_manager_id: '',
+        can_view_masked: true
+    });
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
-    const [editForm, setEditForm] = useState({ full_name: '', email: '', application_permission: '', password: '', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, can_manage_advertisers: true, cake_account_manager_id: '' });
+    const [editForm, setEditForm] = useState({ 
+        full_name: '', 
+        email: '', 
+        application_permission: '', 
+        password: '', 
+        can_approve_cake: false, 
+        can_approve_ringba: false, 
+        can_request_cake: false, 
+        can_request_ringba: false, 
+        can_view_reports: true, 
+        can_manage_advertisers: true, 
+        can_configure_advertiser: true,
+        can_view_advertiser_list: true,
+        can_view_advertiser_offer_list: true,
+        cake_account_manager_id: '',
+        can_view_masked: true
+    });
     const [showEditPassword, setShowEditPassword] = useState(false);
 
     const fetchUsers = () => {
@@ -88,12 +122,33 @@ export default function UsersPage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(newUser)
+            body: JSON.stringify({
+                ...newUser,
+                can_manage_advertisers: newUser.can_configure_advertiser || newUser.can_view_advertiser_list || newUser.can_view_advertiser_offer_list
+            })
         })
             .then(async res => {
                 if (res && res.ok) {
                     setOpen(false);
-                    setNewUser({ username: '', password: '', full_name: '', email: '', role: 'USER', application_permission: 'Both', can_approve_cake: false, can_approve_ringba: false, can_request_cake: false, can_request_ringba: false, can_view_reports: true, can_manage_advertisers: true, cake_account_manager_id: '' });
+                    setNewUser({ 
+                        username: '', 
+                        password: '', 
+                        full_name: '', 
+                        email: '', 
+                        role: 'USER', 
+                        application_permission: 'Both', 
+                        can_approve_cake: false, 
+                        can_approve_ringba: false, 
+                        can_request_cake: false, 
+                        can_request_ringba: false, 
+                        can_view_reports: true, 
+                        can_manage_advertisers: true, 
+                        can_configure_advertiser: true,
+                        can_view_advertiser_list: true,
+                        can_view_advertiser_offer_list: true,
+                        cake_account_manager_id: '',
+                        can_view_masked: true
+                    });
                     toast.success("User invited successfully!");
                     fetchUsers();
                 } else {
@@ -188,8 +243,12 @@ export default function UsersPage() {
             can_request_ringba: user.can_request_ringba ?? false,
             can_view_reports: user.can_view_reports ?? true,
             can_manage_advertisers: user.can_manage_advertisers ?? true,
+            can_configure_advertiser: user.can_configure_advertiser ?? true,
+            can_view_advertiser_list: user.can_view_advertiser_list ?? true,
+            can_view_advertiser_offer_list: user.can_view_advertiser_offer_list ?? true,
             password: '', // Leave empty
-            cake_account_manager_id: user.cake_account_manager_id || ''
+            cake_account_manager_id: user.cake_account_manager_id || '',
+            can_view_masked: user.can_view_masked ?? true
         });
         setEditOpen(true);
     };
@@ -208,7 +267,17 @@ export default function UsersPage() {
         if (editForm.can_request_cake !== editingUser.can_request_cake) updateData.can_request_cake = editForm.can_request_cake;
         if (editForm.can_request_ringba !== editingUser.can_request_ringba) updateData.can_request_ringba = editForm.can_request_ringba;
         if (editForm.can_view_reports !== editingUser.can_view_reports) updateData.can_view_reports = editForm.can_view_reports;
-        if (editForm.can_manage_advertisers !== editingUser.can_manage_advertisers) updateData.can_manage_advertisers = editForm.can_manage_advertisers;
+        if (editForm.can_configure_advertiser !== editingUser.can_configure_advertiser) updateData.can_configure_advertiser = editForm.can_configure_advertiser;
+        if (editForm.can_view_advertiser_list !== editingUser.can_view_advertiser_list) updateData.can_view_advertiser_list = editForm.can_view_advertiser_list;
+        if (editForm.can_view_advertiser_offer_list !== editingUser.can_view_advertiser_offer_list) updateData.can_view_advertiser_offer_list = editForm.can_view_advertiser_offer_list;
+        if (editForm.can_view_masked !== editingUser.can_view_masked) updateData.can_view_masked = editForm.can_view_masked;
+        
+        // Compute and sync can_manage_advertisers
+        const anyAdvertiserAccess = editForm.can_configure_advertiser || editForm.can_view_advertiser_list || editForm.can_view_advertiser_offer_list;
+        if (anyAdvertiserAccess !== editingUser.can_manage_advertisers) {
+            updateData.can_manage_advertisers = anyAdvertiserAccess;
+        }
+        
         if (editForm.cake_account_manager_id !== editingUser.cake_account_manager_id) updateData.cake_account_manager_id = editForm.cake_account_manager_id;
         if (editForm.password) updateData.password = editForm.password; // Only send if changed
 
@@ -398,10 +467,28 @@ export default function UsersPage() {
                                             onChange={(checked) => setNewUser({ ...newUser, can_view_reports: checked })}
                                         />
                                         <Switch
-                                            id="new_can_manage_advertisers"
-                                            label="Advertiser Access"
-                                            checked={newUser.can_manage_advertisers}
-                                            onChange={(checked) => setNewUser({ ...newUser, can_manage_advertisers: checked })}
+                                            id="new_can_configure_advertiser"
+                                            label="Configure Advertiser"
+                                            checked={newUser.can_configure_advertiser}
+                                            onChange={(checked) => setNewUser({ ...newUser, can_configure_advertiser: checked })}
+                                        />
+                                        <Switch
+                                            id="new_can_view_advertiser_list"
+                                            label="Advertiser List"
+                                            checked={newUser.can_view_advertiser_list}
+                                            onChange={(checked) => setNewUser({ ...newUser, can_view_advertiser_list: checked })}
+                                        />
+                                        <Switch
+                                            id="new_can_view_advertiser_offer_list"
+                                            label="Advertiser Offer List"
+                                            checked={newUser.can_view_advertiser_offer_list}
+                                            onChange={(checked) => setNewUser({ ...newUser, can_view_advertiser_offer_list: checked })}
+                                        />
+                                        <Switch
+                                            id="new_can_view_masked"
+                                            label="Masked"
+                                            checked={newUser.can_view_masked}
+                                            onChange={(checked) => setNewUser({ ...newUser, can_view_masked: checked })}
                                         />
                                     </div>
                                 </div>
@@ -770,7 +857,8 @@ export default function UsersPage() {
                                     />
                                 </div>
                             </div>
-                             <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
+                            </div>
+                            <div className="col-span-2 space-y-3 border-t pt-3 mt-1">
                                 <Label className="text-sm font-semibold">Additional Access</Label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <Switch
@@ -780,15 +868,32 @@ export default function UsersPage() {
                                         onChange={(checked) => setEditForm({ ...editForm, can_view_reports: checked })}
                                     />
                                     <Switch
-                                        id="edit_can_manage_advertisers"
-                                        label="Advertiser Access"
-                                        checked={editForm.can_manage_advertisers}
-                                        onChange={(checked) => setEditForm({ ...editForm, can_manage_advertisers: checked })}
+                                        id="edit_can_configure_advertiser"
+                                        label="Configure Advertiser"
+                                        checked={editForm.can_configure_advertiser}
+                                        onChange={(checked) => setEditForm({ ...editForm, can_configure_advertiser: checked })}
+                                    />
+                                    <Switch
+                                        id="edit_can_view_advertiser_list"
+                                        label="Advertiser List"
+                                        checked={editForm.can_view_advertiser_list}
+                                        onChange={(checked) => setEditForm({ ...editForm, can_view_advertiser_list: checked })}
+                                    />
+                                    <Switch
+                                        id="edit_can_view_advertiser_offer_list"
+                                        label="Advertiser Offer List"
+                                        checked={editForm.can_view_advertiser_offer_list}
+                                        onChange={(checked) => setEditForm({ ...editForm, can_view_advertiser_offer_list: checked })}
+                                    />
+                                    <Switch
+                                        id="edit_can_view_masked"
+                                        label="Masked"
+                                        checked={editForm.can_view_masked}
+                                        onChange={(checked) => setEditForm({ ...editForm, can_view_masked: checked })}
                                     />
                                 </div>
                             </div>
-                        </div>
-                        <div className="space-y-2">
+                            <div className="space-y-2">
                                 <Label>New Password (leave empty to keep current)</Label>
                                 <div className="relative">
                                     <Input
@@ -818,6 +923,7 @@ export default function UsersPage() {
                     </form>
                 </DialogContent>
             </Dialog>
+
         </div >
     );
 }

@@ -1748,6 +1748,14 @@ async def create_user(user_in: UserCreate, request: Request, user: User = Depend
         user_in.can_request_ringba = True
     if user_in.can_manage_advertisers is None:
         user_in.can_manage_advertisers = True
+    if user_in.can_configure_advertiser is None:
+        user_in.can_configure_advertiser = True
+    if user_in.can_view_advertiser_list is None:
+        user_in.can_view_advertiser_list = True
+    if user_in.can_view_advertiser_offer_list is None:
+        user_in.can_view_advertiser_offer_list = True
+    if user_in.can_view_masked is None:
+        user_in.can_view_masked = True
         
     existing_user = await db.users.find_one({"username": user_in.username})
     if existing_user:
@@ -1926,10 +1934,18 @@ async def update_user(username: str, user_update: UserUpdate, request: Request, 
         update_data["can_view_reports"] = user_update.can_view_reports
     if user_update.can_manage_advertisers is not None:
         update_data["can_manage_advertisers"] = user_update.can_manage_advertisers
+    if user_update.can_configure_advertiser is not None:
+        update_data["can_configure_advertiser"] = user_update.can_configure_advertiser
+    if user_update.can_view_advertiser_list is not None:
+        update_data["can_view_advertiser_list"] = user_update.can_view_advertiser_list
+    if user_update.can_view_advertiser_offer_list is not None:
+        update_data["can_view_advertiser_offer_list"] = user_update.can_view_advertiser_offer_list
     if user_update.password is not None:
         update_data["hashed_password"] = get_password_hash(user_update.password)
     if user_update.cake_account_manager_id is not None:
         update_data["cake_account_manager_id"] = user_update.cake_account_manager_id
+    if user_update.can_view_masked is not None:
+        update_data["can_view_masked"] = user_update.can_view_masked
     
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")

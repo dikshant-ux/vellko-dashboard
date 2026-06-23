@@ -16,6 +16,9 @@ declare module "next-auth" {
             can_request_ringba?: boolean
             can_view_reports?: boolean
             can_manage_advertisers?: boolean
+            can_configure_advertiser?: boolean
+            can_view_advertiser_list?: boolean
+            can_view_advertiser_offer_list?: boolean
         }
     }
 }
